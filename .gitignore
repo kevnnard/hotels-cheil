@@ -1,0 +1,20 @@
+# PI
+**/.atl/*
+**/.pi/*
+**/AGENTS.md
+**/.codegraph/*
+**/odd/*
+
+# .NET
+**/bin/
+**/obj/
+
+.env
+.env.*
+!.env.dev.example
+!.env.prod.example
+*.pem
+*.key
+*.pfx
+*.p12
+secrets/

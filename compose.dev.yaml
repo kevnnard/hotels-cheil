@@ -1,0 +1,22 @@
+name: hotels-dev
+
+services:
+  db:
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
+
+  api:
+    build:
+      target: dev
+    ports:
+      - "127.0.0.1:${API_HTTP_PORT:-5080}:8080"
+    volumes:
+      - ./apps/api/src:/src/src
+      - /src/src/HotelManagement.Domain/obj
+      - /src/src/HotelManagement.Domain/bin
+      - /src/src/HotelManagement.Application/obj
+      - /src/src/HotelManagement.Application/bin
+      - /src/src/HotelManagement.Infrastructure/obj
+      - /src/src/HotelManagement.Infrastructure/bin
+      - /src/src/HotelManagement.Api/obj
+      - /src/src/HotelManagement.Api/bin
