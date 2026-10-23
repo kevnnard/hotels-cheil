@@ -6,3 +6,7 @@ services:
       target: runtime
     ports:
       - "127.0.0.1:${API_HTTP_PORT:-8080}:8080"
+    environment:
+      Authentication__Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
+      Authentication__Administrator__Email: ${ADMINISTRATOR_EMAIL:?ADMINISTRATOR_EMAIL is required}
+      Authentication__Administrator__Password: ${ADMINISTRATOR_PASSWORD:?ADMINISTRATOR_PASSWORD is required}

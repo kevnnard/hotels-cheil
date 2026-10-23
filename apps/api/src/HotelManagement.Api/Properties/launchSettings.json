@@ -7,7 +7,9 @@
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5080",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Authentication__Jwt__Issuer": "hotels-api",
+        "Authentication__Jwt__Audience": "hotels-api-clients"
       }
     }
   }
