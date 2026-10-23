@@ -79,6 +79,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(HotelPermissions.Create, policy => policy.RequireRole(HotelRoles.Administrator));
     options.AddPolicy(HotelPermissions.Update, policy => policy.RequireRole(HotelRoles.Administrator));
     options.AddPolicy(HotelPermissions.Delete, policy => policy.RequireRole(HotelRoles.Administrator));
+    options.AddPolicy(HotelPermissions.Rate, policy => policy.RequireRole(HotelRoles.Administrator, HotelRoles.User));
 });
 
 
