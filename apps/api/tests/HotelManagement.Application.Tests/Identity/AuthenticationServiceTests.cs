@@ -135,10 +135,11 @@ public class AuthenticationServiceTests
     [Fact]
     public async Task IsSessionActive_ForAnExpiredSession_IsFalse()
     {
+        var ownerId = Guid.CreateVersion7();
         var sessionId = Guid.CreateVersion7();
-        sessions.AddSession(sessionId, Guid.CreateVersion7(), Now.AddMinutes(-1));
+        sessions.AddSession(sessionId, ownerId, Now.AddMinutes(-1));
 
-        Assert.False(await Service.IsSessionActiveAsync(sessionId, Guid.CreateVersion7(), CancellationToken.None));
+        Assert.False(await Service.IsSessionActiveAsync(sessionId, ownerId, CancellationToken.None));
     }
 
     [Fact]

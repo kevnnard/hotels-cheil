@@ -153,11 +153,11 @@ public class AuthenticationEndpointsTests(HotelApiFixture api)
         var session = await RegisterAndSignInAsync(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            TestTokens.Create(DateTime.UtcNow.AddMinutes(-1), sessionId: session.SessionId));
+            TestTokens.Create(DateTime.UtcNow.AddMinutes(-1), sessionId: session.SessionId, userId: session.UserId));
 
         var response = await client.GetAsync("/api/auth/me");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        AssertInvalidTokenChallenge(response);
     }
 
     [Fact]
@@ -167,11 +167,11 @@ public class AuthenticationEndpointsTests(HotelApiFixture api)
         var session = await RegisterAndSignInAsync(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), signingKey: "another-signing-key-0123456789abcdef", sessionId: session.SessionId));
+            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), signingKey: "another-signing-key-0123456789abcdef", sessionId: session.SessionId, userId: session.UserId));
 
         var response = await client.GetAsync("/api/auth/me");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        AssertInvalidTokenChallenge(response);
     }
 
     [Fact]
@@ -181,11 +181,11 @@ public class AuthenticationEndpointsTests(HotelApiFixture api)
         var session = await RegisterAndSignInAsync(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), audience: "another-audience", sessionId: session.SessionId));
+            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), audience: "another-audience", sessionId: session.SessionId, userId: session.UserId));
 
         var response = await client.GetAsync("/api/auth/me");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        AssertInvalidTokenChallenge(response);
     }
 
     [Fact]
@@ -199,33 +199,35 @@ public class AuthenticationEndpointsTests(HotelApiFixture api)
 
         var response = await client.GetAsync("/api/auth/me");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        AssertInvalidTokenChallenge(response);
     }
 
     [Fact]
     public async Task Me_WithATokenForAnotherIssuer_ReturnsUnauthorized()
     {
         using var client = api.CreateClient();
+        var session = await RegisterAndSignInAsync(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), issuer: "another-issuer"));
+            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), issuer: "another-issuer", sessionId: session.SessionId, userId: session.UserId));
 
         var response = await client.GetAsync("/api/auth/me");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        AssertInvalidTokenChallenge(response);
     }
 
     [Fact]
     public async Task Me_WithATokenForAnUnknownSession_ReturnsUnauthorized()
     {
         using var client = api.CreateClient();
+        var session = await RegisterAndSignInAsync(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
-            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), sessionId: Guid.CreateVersion7()));
+            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), sessionId: Guid.CreateVersion7(), userId: session.UserId));
 
         var response = await client.GetAsync("/api/auth/me");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        AssertInvalidTokenChallenge(response);
     }
 
     [Fact]
@@ -285,6 +287,12 @@ public class AuthenticationEndpointsTests(HotelApiFixture api)
         Assert.False((await authorization.AuthorizeAsync(user, null, HotelPermissions.Create)).Succeeded);
         Assert.False((await authorization.AuthorizeAsync(user, null, HotelPermissions.Update)).Succeeded);
         Assert.False((await authorization.AuthorizeAsync(user, null, HotelPermissions.Delete)).Succeeded);
+    }
+
+    private static void AssertInvalidTokenChallenge(HttpResponseMessage response)
+    {
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains("invalid_token", response.Headers.WwwAuthenticate.ToString());
     }
 
     private static ClaimsPrincipal Principal(string role) =>

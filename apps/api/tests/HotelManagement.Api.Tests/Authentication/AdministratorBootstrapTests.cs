@@ -66,7 +66,17 @@ public class AdministratorBootstrapTests(HotelApiFixture api)
     {
         var email = $"{Guid.CreateVersion7()}@example.com";
 
-        Assert.ThrowsAny<Exception>(() => new HotelApiFactory(api.ConnectionString, email).CreateClient());
+        var exception = Assert.ThrowsAny<Exception>(() => new HotelApiFactory(api.ConnectionString, email).CreateClient());
+
+        Assert.Contains("Authentication:Administrator", exception.ToString());
+    }
+
+    [Fact]
+    public void Bootstrap_WithOnlyThePasswordConfigured_RefusesToStart()
+    {
+        var exception = Assert.ThrowsAny<Exception>(() => new HotelApiFactory(api.ConnectionString, administratorPassword: Password).CreateClient());
+
+        Assert.Contains("Authentication:Administrator", exception.ToString());
     }
 
     [Fact]
