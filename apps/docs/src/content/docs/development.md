@@ -103,6 +103,7 @@ Source the environment and export `ConnectionStrings__Hotels` as shown above bef
 | Backend persistence | xUnit against a real PostgreSQL 17 database (rows, constraints, concurrent ratings) | Implemented |
 | Backend application services | xUnit unit tests over the authentication use cases with in-memory doubles | Implemented |
 | Backend HTTP and authorization | xUnit over the real server against a real PostgreSQL 17 database (endpoints, tokens, revocation, policies) | Implemented |
+| Backend end-to-end | xUnit over the API started as a separate process and reached over a real socket, against an isolated PostgreSQL 17 database (ADR-014) | Implemented |
 | Frontend | Component, form, service, interceptor, guard and filter tests, plus end-to-end tests for critical flows | Planned |
 | Instructions | `node .pi/scripts/verify-instructions.mjs` structural check | Implemented |
 
@@ -111,7 +112,10 @@ Persistence and HTTP tests need `HOTEL_TEST_CONNECTION` to point to a database n
 ```bash
 HOTEL_TEST_CONNECTION='<connection string with Database=hotels_test>' dotnet test apps/api/tests/HotelManagement.Infrastructure.Tests
 HOTEL_TEST_CONNECTION='<connection string with Database=hotels_test>' dotnet test apps/api/tests/HotelManagement.Api.Tests
+HOTEL_TEST_CONNECTION='<connection string with Database=hotels_test>' dotnet test apps/api/tests/HotelManagement.E2E.Tests
 ```
+
+The end-to-end suite starts the API as a separate process with `dotnet exec` over the built assembly, configured only through environment variables and with `ASPNETCORE_ENVIRONMENT=Production`. The server chooses its own loopback port and the suite reads the address it reports, so no port is reserved before the child binds it. The suite waits for `/health` before the first request, kills the process at the end and drops its database, and a startup that fails releases the process and the database before it reports the error. The secrets of the fixture reach the environment of the child process and are never printed, so the output of the process is redacted before it reaches a failure message. See [ADR-014](decisions/adr-014-end-to-end-tests-over-a-real-api-process.md).
 
 The instruction validator checks structure only: required files, frontmatter, sections, links, ADR sections, absence of machine paths, obvious secrets and comment syntax in the script. It cannot prove that an agent followed the rules.
 

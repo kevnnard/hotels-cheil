@@ -20,3 +20,4 @@ Each record states problem, alternatives, decision, justification, advantages, d
 | ADR-011 | PostgreSQL persistence for hotels and ratings | Implemented and tested |
 | ADR-012 | Identity, JWT and revocable sessions | Implemented and tested |
 | ADR-013 | Hotel HTTP contract for CRUD, filters, pagination and ratings | Implemented |
+| ADR-014 | End-to-end tests over a real API process | Implemented |

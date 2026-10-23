@@ -2,7 +2,7 @@
 
 Full-stack application to administer and browse hotels, built as an interview validation exercise. Delivery date: 2026-10-28.
 
-Current status: the agent instruction system, documentation skeleton, .NET 10 API skeleton, hotel/rating domain rules, PostgreSQL persistence layer, authentication and the hotel management endpoints exist. The API exposes `/health`, the authentication endpoints and the hotel CRUD, listing and rating endpoints; the frontend remains planned.
+Current status: the agent instruction system, documentation skeleton, .NET 10 API skeleton, hotel/rating domain rules, PostgreSQL persistence layer, authentication, the hotel management endpoints and an end-to-end suite exist. The API exposes `/health`, the authentication endpoints and the hotel CRUD, listing and rating endpoints; the frontend remains planned.
 
 ## Quick path
 
@@ -44,6 +44,7 @@ Open <http://localhost:5080/health>. Expected response: status `200`, body `Heal
 | `apps/api` hotel domain rules and PostgreSQL persistence | Implemented |
 | `apps/api` authentication, sessions and authorization policies | Implemented |
 | `apps/api` hotel HTTP features | Implemented |
+| `apps/api` end-to-end suite over a real API process | Implemented |
 | `apps/web` Angular application | Planned |
 | `apps/docs` Astro Starlight project | Planned |
 | `compose.yaml`, development/production variants, API Dockerfile and environment samples | Implemented |
@@ -85,6 +86,8 @@ Architecture decision records:
 - [ADR-010 User scores and one replaceable rating per user](apps/docs/src/content/docs/decisions/adr-010-hotel-scores.md)
 - [ADR-011 PostgreSQL persistence for hotels and ratings](apps/docs/src/content/docs/decisions/adr-011-postgresql-persistence.md)
 - [ADR-012 Identity, JWT and revocable sessions](apps/docs/src/content/docs/decisions/adr-012-identity-jwt-and-revocable-sessions.md)
+- [ADR-013 Hotel HTTP contract](apps/docs/src/content/docs/decisions/adr-013-hotel-http-contract.md)
+- [ADR-014 End-to-end tests over a real API process](apps/docs/src/content/docs/decisions/adr-014-end-to-end-tests-over-a-real-api-process.md)
 
 ## Pending decisions
 
