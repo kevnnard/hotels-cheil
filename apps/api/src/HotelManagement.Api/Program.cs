@@ -55,14 +55,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             {
                 var session = context.Principal?.FindFirst("sid")?.Value;
                 var subject = context.Principal?.FindFirst("sub")?.Value;
-                if (!Guid.TryParse(session, out var sessionId) || !Guid.TryParse(subject, out _))
+                if (!Guid.TryParse(session, out var sessionId) || !Guid.TryParse(subject, out var userId))
                 {
                     context.Fail("The access token does not identify an open session.");
                     return;
                 }
 
                 var authentication = context.HttpContext.RequestServices.GetRequiredService<IAuthenticationService>();
-                if (!await authentication.IsSessionActiveAsync(sessionId, context.HttpContext.RequestAborted))
+                if (!await authentication.IsSessionActiveAsync(sessionId, userId, context.HttpContext.RequestAborted))
                 {
                     context.Fail("The session is no longer active.");
                 }

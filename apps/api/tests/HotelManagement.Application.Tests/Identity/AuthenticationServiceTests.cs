@@ -118,8 +118,8 @@ public class AuthenticationServiceTests
         var second = await Service.SignInAsync(new SignIn("user@example.com", "abcd1234"), CancellationToken.None);
 
         Assert.True(await Service.EndSessionAsync(first.Token!.SessionId, CancellationToken.None));
-        Assert.False(await Service.IsSessionActiveAsync(first.Token.SessionId, CancellationToken.None));
-        Assert.True(await Service.IsSessionActiveAsync(second.Token!.SessionId, CancellationToken.None));
+        Assert.False(await Service.IsSessionActiveAsync(first.Token.SessionId, userId, CancellationToken.None));
+        Assert.True(await Service.IsSessionActiveAsync(second.Token!.SessionId, userId, CancellationToken.None));
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public class AuthenticationServiceTests
         accounts.Add("user@example.com", userId, "abcd1234", HotelRoles.User);
         var outcome = await Service.SignInAsync(new SignIn("user@example.com", "abcd1234"), CancellationToken.None);
 
-        Assert.True(await Service.IsSessionActiveAsync(outcome.Token!.SessionId, CancellationToken.None));
+        Assert.True(await Service.IsSessionActiveAsync(outcome.Token!.SessionId, userId, CancellationToken.None));
     }
 
     [Fact]
@@ -138,13 +138,23 @@ public class AuthenticationServiceTests
         var sessionId = Guid.CreateVersion7();
         sessions.AddSession(sessionId, Guid.CreateVersion7(), Now.AddMinutes(-1));
 
-        Assert.False(await Service.IsSessionActiveAsync(sessionId, CancellationToken.None));
+        Assert.False(await Service.IsSessionActiveAsync(sessionId, Guid.CreateVersion7(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task IsSessionActive_ForASessionOfAnotherAccount_IsFalse()
+    {
+        var ownerId = Guid.CreateVersion7();
+        var sessionId = Guid.CreateVersion7();
+        sessions.AddSession(sessionId, ownerId, Now.AddMinutes(15));
+
+        Assert.False(await Service.IsSessionActiveAsync(sessionId, Guid.CreateVersion7(), CancellationToken.None));
     }
 
     [Fact]
     public async Task IsSessionActive_ForAnUnknownSession_IsFalse()
     {
-        Assert.False(await Service.IsSessionActiveAsync(Guid.CreateVersion7(), CancellationToken.None));
+        Assert.False(await Service.IsSessionActiveAsync(Guid.CreateVersion7(), Guid.CreateVersion7(), CancellationToken.None));
         Assert.Null(await Service.GetSessionAsync(Guid.CreateVersion7(), CancellationToken.None));
     }
 }

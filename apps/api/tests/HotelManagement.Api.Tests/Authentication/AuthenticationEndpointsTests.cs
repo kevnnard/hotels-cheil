@@ -203,6 +203,59 @@ public class AuthenticationEndpointsTests(HotelApiFixture api)
     }
 
     [Fact]
+    public async Task Me_WithATokenForAnotherIssuer_ReturnsUnauthorized()
+    {
+        using var client = api.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), issuer: "another-issuer"));
+
+        var response = await client.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Me_WithATokenForAnUnknownSession_ReturnsUnauthorized()
+    {
+        using var client = api.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), sessionId: Guid.CreateVersion7()));
+
+        var response = await client.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Me_WithATokenOfAnotherAccountForAnOpenSession_ReturnsUnauthorized()
+    {
+        using var client = api.CreateClient();
+        var session = await RegisterAndSignInAsync(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            TestTokens.Create(DateTime.UtcNow.AddMinutes(15), sessionId: session.SessionId, userId: Guid.CreateVersion7()));
+
+        var response = await client.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Me_WithAnExpiredSession_ReturnsUnauthorized()
+    {
+        using var client = api.CreateClient();
+        var session = await RegisterAndSignInAsync(client);
+        await DatabaseQueries.ExpireSessionAsync(api.ConnectionString, session.SessionId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+
+        var response = await client.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Logout_RevokesTheSessionAndTheTokenStopsWorking()
     {
         using var client = api.CreateClient();

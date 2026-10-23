@@ -65,10 +65,13 @@ public sealed class AuthenticationService(
     public async Task<bool> EndSessionAsync(Guid sessionId, CancellationToken cancellationToken) =>
         await sessions.RevokeAsync(sessionId, cancellationToken);
 
-    public async Task<bool> IsSessionActiveAsync(Guid sessionId, CancellationToken cancellationToken)
+    public async Task<bool> IsSessionActiveAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
         var state = await sessions.FindAsync(sessionId, cancellationToken);
-        return state is not null && !state.Revoked && state.ExpiresAtUtc > clock.GetUtcNow().UtcDateTime;
+        return state is not null
+            && state.UserId == userId
+            && !state.Revoked
+            && state.ExpiresAtUtc > clock.GetUtcNow().UtcDateTime;
     }
 
     public async Task<SessionState?> GetSessionAsync(Guid sessionId, CancellationToken cancellationToken) =>

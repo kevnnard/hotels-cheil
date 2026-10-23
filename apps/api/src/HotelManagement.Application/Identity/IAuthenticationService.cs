@@ -8,7 +8,7 @@ public interface IAuthenticationService
 
     Task<bool> EndSessionAsync(Guid sessionId, CancellationToken cancellationToken);
 
-    Task<bool> IsSessionActiveAsync(Guid sessionId, CancellationToken cancellationToken);
+    Task<bool> IsSessionActiveAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken);
 
     Task<SessionState?> GetSessionAsync(Guid sessionId, CancellationToken cancellationToken);
 }
