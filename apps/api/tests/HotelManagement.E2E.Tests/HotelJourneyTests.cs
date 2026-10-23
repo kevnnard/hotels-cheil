@@ -49,10 +49,14 @@ public sealed class HotelJourneyTests(HotelApiServerFixture server)
         Assert.Contains("Administrator", administrator.Roles);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", administrator.AccessToken);
 
-        var name = UniqueName("Harbor");
+        var group = UniqueName("Harbor");
+        var harborName = $"{group} Quay";
+        var marinaName = $"{group} Marina";
+        var unrelatedName = UniqueName("Other");
+
         using var create = await client.PostAsJsonAsync("/api/hotels", new
         {
-            name,
+            name = harborName,
             description = "A quiet hotel near the harbor",
             street = "1 Dock Road",
             city = "Rotterdam",
@@ -66,37 +70,50 @@ public sealed class HotelJourneyTests(HotelApiServerFixture server)
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         Assert.NotNull(create.Headers.Location);
 
-        var hotel = await create.Content.ReadFromJsonAsync<HotelResponse>();
-        Assert.NotNull(hotel);
-        Assert.Equal(name, hotel!.Name);
-        Assert.Equal("Rotterdam", hotel.Address.City);
-        Assert.Equal("contact@harbor.test", hotel.Contact.Email);
-        Assert.True(hotel.IsActive);
-        Assert.Equal(0, hotel.Rating.Count);
-        Assert.Null(hotel.Rating.Average);
-        Assert.Contains(hotel.Id.ToString(), create.Headers.Location!.ToString());
+        var harbor = await create.Content.ReadFromJsonAsync<HotelResponse>();
+        Assert.NotNull(harbor);
+        Assert.Equal(harborName, harbor!.Name);
+        Assert.Equal("Rotterdam", harbor.Address.City);
+        Assert.Equal("contact@harbor.test", harbor.Contact.Email);
+        Assert.True(harbor.IsActive);
+        Assert.Equal(0, harbor.Rating.Count);
+        Assert.Null(harbor.Rating.Average);
+        Assert.Equal($"/api/hotels/{harbor.Id}", create.Headers.Location!.AbsolutePath);
 
-        using var read = await client.GetAsync($"/api/hotels/{hotel.Id}");
+        using var read = await client.GetAsync($"/api/hotels/{harbor.Id}");
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
         var fetched = await read.Content.ReadFromJsonAsync<HotelResponse>();
-        Assert.Equal(hotel.Id, fetched!.Id);
-        Assert.Equal(hotel.Name, fetched.Name);
+        Assert.Equal(harbor.Id, fetched!.Id);
+        Assert.Equal(harbor.Name, fetched.Name);
 
-        using var update = await client.PutAsJsonAsync($"/api/hotels/{hotel.Id}", new
+        var updatedDescription = "A quiet hotel near the harbor and the station";
+        using var update = await client.PutAsJsonAsync($"/api/hotels/{harbor.Id}", new
         {
-            name,
-            description = "A quiet hotel near the harbor and the station",
+            name = harborName,
+            description = updatedDescription,
             city = "Rotterdam"
         });
         Assert.Equal(HttpStatusCode.OK, update.StatusCode);
         var updated = await update.Content.ReadFromJsonAsync<HotelResponse>();
-        Assert.Equal("A quiet hotel near the harbor and the station", updated!.Description);
-        Assert.Equal(name, await server.ReadHotelNameAsync(hotel.Id));
+        Assert.Equal(updatedDescription, updated!.Description);
+        Assert.Equal(updatedDescription, await server.ReadHotelDescriptionAsync(harbor.Id));
+        Assert.Equal(harborName, await server.ReadHotelNameAsync(harbor.Id));
 
-        using var filtered = await client.GetAsync($"/api/hotels?name={Uri.EscapeDataString(name)}");
+        using var marinaCreate = await client.PostAsJsonAsync("/api/hotels", new { name = marinaName });
+        Assert.Equal(HttpStatusCode.Created, marinaCreate.StatusCode);
+        var marina = await marinaCreate.Content.ReadFromJsonAsync<HotelResponse>();
+
+        using var unrelatedCreate = await client.PostAsJsonAsync("/api/hotels", new { name = unrelatedName });
+        Assert.Equal(HttpStatusCode.Created, unrelatedCreate.StatusCode);
+        var unrelated = await unrelatedCreate.Content.ReadFromJsonAsync<HotelResponse>();
+
+        using var filtered = await client.GetAsync($"/api/hotels?name={Uri.EscapeDataString(group)}");
         Assert.Equal(HttpStatusCode.OK, filtered.StatusCode);
         var page = await filtered.Content.ReadFromJsonAsync<HotelPageResponse>();
-        Assert.Contains(page!.Items, item => item.Id == hotel.Id);
+        Assert.Equal(2, page!.TotalItems);
+        Assert.Contains(page.Items, item => item.Id == harbor.Id);
+        Assert.Contains(page.Items, item => item.Id == marina!.Id);
+        Assert.DoesNotContain(page.Items, item => item.Id == unrelated!.Id);
 
         var guestEmail = UniqueEmail("rater");
         using var guestClient = server.CreateClient();
@@ -105,34 +122,56 @@ public sealed class HotelJourneyTests(HotelApiServerFixture server)
         var guest = await SignInAsync(guestClient, guestEmail, GuestPassword);
         guestClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", guest.AccessToken);
 
-        using var rating = await guestClient.PostAsJsonAsync($"/api/hotels/{hotel.Id}/ratings", new { score = 4m });
+        using var rating = await guestClient.PostAsJsonAsync($"/api/hotels/{harbor.Id}/ratings", new { score = 4m });
         Assert.Equal(HttpStatusCode.OK, rating.StatusCode);
         var summary = await rating.Content.ReadFromJsonAsync<RatingSummaryResponse>();
         Assert.Equal(4m, summary!.Sum);
         Assert.Equal(1, summary.Count);
         Assert.Equal(4m, summary.Average);
 
-        using var secondRating = await guestClient.PostAsJsonAsync($"/api/hotels/{hotel.Id}/ratings", new { score = 2m });
+        using var secondRating = await guestClient.PostAsJsonAsync($"/api/hotels/{harbor.Id}/ratings", new { score = 2m });
         Assert.Equal(HttpStatusCode.OK, secondRating.StatusCode);
         var replaced = await secondRating.Content.ReadFromJsonAsync<RatingSummaryResponse>();
         Assert.Equal(2m, replaced!.Sum);
         Assert.Equal(1, replaced.Count);
         Assert.Equal(2m, replaced.Average);
 
-        var stored = await server.ReadRatingsAsync(hotel.Id);
+        using var marinaRating = await guestClient.PostAsJsonAsync($"/api/hotels/{marina!.Id}/ratings", new { score = 4m });
+        Assert.Equal(HttpStatusCode.OK, marinaRating.StatusCode);
+        var marinaSummary = await marinaRating.Content.ReadFromJsonAsync<RatingSummaryResponse>();
+        Assert.Equal(4m, marinaSummary!.Sum);
+        Assert.Equal(1, marinaSummary.Count);
+
+        var stored = await server.ReadRatingsAsync(harbor.Id);
         var vote = Assert.Single(stored);
         Assert.Equal(guest.UserId, vote.UserId);
         Assert.Equal(2m, vote.Score);
 
-        using var above = await client.GetAsync($"/api/hotels?name={Uri.EscapeDataString(name)}&minRating=3");
+        using var above = await client.GetAsync($"/api/hotels?name={Uri.EscapeDataString(group)}&minRating=3");
         Assert.Equal(HttpStatusCode.OK, above.StatusCode);
         var abovePage = await above.Content.ReadFromJsonAsync<HotelPageResponse>();
-        Assert.DoesNotContain(abovePage!.Items, item => item.Id == hotel.Id);
+        Assert.Equal(1, abovePage!.TotalItems);
+        Assert.Contains(abovePage.Items, item => item.Id == marina!.Id);
+        Assert.DoesNotContain(abovePage.Items, item => item.Id == harbor.Id);
 
-        using var below = await client.GetAsync($"/api/hotels?name={Uri.EscapeDataString(name)}&minRating=2");
+        using var exact = await client.GetAsync($"/api/hotels?name={Uri.EscapeDataString(group)}&minRating=4");
+        Assert.Equal(HttpStatusCode.OK, exact.StatusCode);
+        var exactPage = await exact.Content.ReadFromJsonAsync<HotelPageResponse>();
+        Assert.Equal(1, exactPage!.TotalItems);
+        Assert.Contains(exactPage.Items, item => item.Id == marina!.Id);
+
+        using var below = await client.GetAsync($"/api/hotels?name={Uri.EscapeDataString(group)}&minRating=2");
         Assert.Equal(HttpStatusCode.OK, below.StatusCode);
         var belowPage = await below.Content.ReadFromJsonAsync<HotelPageResponse>();
-        Assert.Contains(belowPage!.Items, item => item.Id == hotel.Id);
+        Assert.Equal(2, belowPage!.TotalItems);
+        Assert.Contains(belowPage.Items, item => item.Id == harbor.Id);
+
+        using var delete = await client.DeleteAsync($"/api/hotels/{marina!.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+        Assert.Equal(0, await server.CountHotelsAsync(marinaName));
+
+        using var deletedRead = await client.GetAsync($"/api/hotels/{marina!.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, deletedRead.StatusCode);
     }
 
     [Fact]
@@ -190,7 +229,8 @@ public sealed class HotelJourneyTests(HotelApiServerFixture server)
         using var afterLogout = await client.GetAsync("/api/auth/me");
         Assert.Equal(HttpStatusCode.Unauthorized, afterLogout.StatusCode);
 
-        using var anonymous = await server.CreateClient().GetAsync("/api/hotels");
+        using var anonymousClient = server.CreateClient();
+        using var anonymous = await anonymousClient.GetAsync("/api/hotels");
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
     }
 

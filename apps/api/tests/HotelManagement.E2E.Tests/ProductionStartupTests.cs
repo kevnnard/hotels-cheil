@@ -9,7 +9,10 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
         var settings = server.StartupSettings();
         settings.Remove("Authentication__Jwt__SigningKey");
 
-        await using var process = await ApiServerProcess.StartAsync("Production", settings);
+        await using var process = await ApiServerProcess.StartAsync(
+            "Production",
+            settings,
+            removeFromEnvironment: ["Authentication__Jwt__SigningKey"]);
         await process.WaitForExitAsync(TimeSpan.FromSeconds(30));
 
         Assert.NotEqual(0, process.ExitCode);
@@ -22,7 +25,10 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
         var settings = server.StartupSettings();
         settings.Remove("Authentication__Administrator__Password");
 
-        await using var process = await ApiServerProcess.StartAsync("Production", settings);
+        await using var process = await ApiServerProcess.StartAsync(
+            "Production",
+            settings,
+            removeFromEnvironment: ["Authentication__Administrator__Email", "Authentication__Administrator__Password"]);
         await process.WaitForExitAsync(TimeSpan.FromSeconds(30));
 
         Assert.NotEqual(0, process.ExitCode);
