@@ -3,7 +3,7 @@ title: Development
 description: Requirements, setup, configuration, testing, build and deployment, with the status of each item.
 ---
 
-The API skeleton, its PostgreSQL persistence layer and the authentication endpoints exist. The API uses the database and requires the connection string to start. Hotel CRUD over HTTP remains Planned. Status per item is given below; anything not marked Implemented is Planned.
+The API skeleton, its PostgreSQL persistence layer, the authentication endpoints and the hotel management endpoints exist. The API uses the database and requires the connection string to start. Status per item is given below; anything not marked Implemented is Planned.
 
 ## Requirements
 

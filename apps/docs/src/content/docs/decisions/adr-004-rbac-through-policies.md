@@ -5,7 +5,7 @@ description: Decision to authorize through ASP.NET Core policies with fixed init
 
 ## Status
 
-Implemented: the four policies are registered in the API composition root, the roles are created at startup and the authorization rules are covered by tests. The authentication transport is decided in ADR-012.
+Implemented: the policies are registered in the API composition root, the roles are created at startup and the authorization rules are covered by tests. The authentication transport is decided in ADR-012.
 
 ## Problem
 
@@ -19,7 +19,7 @@ The public catalog must be open while administrative operations are protected, w
 
 ## Decision
 
-Use policies for the permissions hotels.read, hotels.create, hotels.update and hotels.delete, and the roles Administrator and User. Administrator manages hotels; User has read access. Public visitors need no account.
+Use policies for the permissions hotels.read, hotels.create, hotels.update, hotels.delete and hotels.rate, and the roles Administrator and User. Administrator manages hotels; User has read access and can rate a hotel. Public visitors need no account.
 
 ## Justification
 

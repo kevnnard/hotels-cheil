@@ -3,13 +3,13 @@ title: Architecture
 description: Layers, security model, image handling and implementation status.
 ---
 
-The backend domain rules, PostgreSQL persistence layer and authentication are implemented; the hotel HTTP features and the frontend remain planned. The status column states what is Implemented, Planned, Considered or Discarded.
+The backend domain rules, PostgreSQL persistence layer, authentication and the hotel management endpoints are implemented; the frontend remains planned. The status column states what is Implemented, Planned, Considered or Discarded.
 
 ## Monorepo
 
 | Path | Purpose | Status |
 |---|---|---|
-| `apps/api` | ASP.NET Core modular monolith | Domain, persistence and authentication Implemented; hotel HTTP Planned |
+| `apps/api` | ASP.NET Core modular monolith | Domain, persistence, authentication and hotel endpoints Implemented |
 | `apps/web` | Angular application | Planned |
 | `apps/docs` | Astro Starlight documentation | Planned |
 | `compose.yaml` | Container orchestration | API/PostgreSQL Implemented; web/docs Planned |
@@ -38,11 +38,12 @@ Backend style: modular monolith, application services instead of CQRS (ADR-003),
 | Item | Status |
 |---|---|
 | Public catalog readable without authentication | Planned |
-| Policies `hotels.read`, `hotels.create`, `hotels.update`, `hotels.delete` | Implemented |
-| Roles `Administrator` (manage hotels) and `User` (read) | Implemented |
+| Policies `hotels.read`, `hotels.create`, `hotels.update`, `hotels.delete`, `hotels.rate` | Implemented |
+| Roles `Administrator` (manage hotels) and `User` (read and rate) | Implemented |
 | Authentication transport | Identity with signed access tokens and revocable sessions (ADR-012) |
 | Registration, sign in, signed-in account and logout endpoints | Implemented |
 | First administrator provisioned from the environment | Implemented |
+| Hotel CRUD, listing with filters and pagination, and rating endpoint | Implemented (ADR-013) |
 
 The API is the only caller of the hotel endpoints, so no public catalog is exposed yet.
 

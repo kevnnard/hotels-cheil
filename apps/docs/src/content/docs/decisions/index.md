@@ -16,6 +16,7 @@ Each record states problem, alternatives, decision, justification, advantages, d
 | ADR-007 | Native Angular over TanStack Query | Planned |
 | ADR-008 | Monorepo with independent applications | Planned |
 | ADR-009 | .NET 10 SDK | Implemented for the API skeleton |
-| ADR-010 | User scores and one replaceable rating per user | Domain and persistence implemented; HTTP planned |
-| ADR-011 | PostgreSQL persistence for hotels and ratings | Persistence implemented and tested; API wiring Planned |
+| ADR-010 | User scores and one replaceable rating per user | Implemented |
+| ADR-011 | PostgreSQL persistence for hotels and ratings | Implemented and tested |
 | ADR-012 | Identity, JWT and revocable sessions | Implemented and tested |
+| ADR-013 | Hotel HTTP contract for CRUD, filters, pagination and ratings | Implemented |

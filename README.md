@@ -2,7 +2,7 @@
 
 Full-stack application to administer and browse hotels, built as an interview validation exercise. Delivery date: 2026-10-28.
 
-Current status: the agent instruction system, documentation skeleton, .NET 10 API skeleton, hotel/rating domain rules, PostgreSQL persistence layer and authentication exist. The API exposes `/health` and the authentication endpoints; hotel CRUD over HTTP and the frontend remain planned.
+Current status: the agent instruction system, documentation skeleton, .NET 10 API skeleton, hotel/rating domain rules, PostgreSQL persistence layer, authentication and the hotel management endpoints exist. The API exposes `/health`, the authentication endpoints and the hotel CRUD, listing and rating endpoints; the frontend remains planned.
 
 ## Quick path
 
@@ -43,7 +43,7 @@ Open <http://localhost:5080/health>. Expected response: status `200`, body `Heal
 | `apps/api` four-project skeleton with `/health` and pinned .NET 10 SDK | Implemented |
 | `apps/api` hotel domain rules and PostgreSQL persistence | Implemented |
 | `apps/api` authentication, sessions and authorization policies | Implemented |
-| `apps/api` hotel HTTP features | Planned |
+| `apps/api` hotel HTTP features | Implemented |
 | `apps/web` Angular application | Planned |
 | `apps/docs` Astro Starlight project | Planned |
 | `compose.yaml`, development/production variants, API Dockerfile and environment samples | Implemented |
