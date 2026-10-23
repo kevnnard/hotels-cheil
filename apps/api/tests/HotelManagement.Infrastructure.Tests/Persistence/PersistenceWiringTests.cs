@@ -2,6 +2,7 @@ using HotelManagement.Application.Persistence;
 using HotelManagement.Domain.Hotels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using HotelManagement.TestSupport.Persistence;
 
 namespace HotelManagement.Infrastructure.Tests.Persistence;
 

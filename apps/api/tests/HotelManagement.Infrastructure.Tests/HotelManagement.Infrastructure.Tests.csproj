@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\src\HotelManagement.Application\HotelManagement.Application.csproj" />
     <ProjectReference Include="..\..\src\HotelManagement.Domain\HotelManagement.Domain.csproj" />
     <ProjectReference Include="..\..\src\HotelManagement.Infrastructure\HotelManagement.Infrastructure.csproj" />
+    <ProjectReference Include="..\HotelManagement.TestSupport\HotelManagement.TestSupport.csproj" />
   </ItemGroup>
 
   <ItemGroup>

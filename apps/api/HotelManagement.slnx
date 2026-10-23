@@ -9,5 +9,6 @@
     <Project Path="tests/HotelManagement.Application.Tests/HotelManagement.Application.Tests.csproj" />
     <Project Path="tests/HotelManagement.Domain.Tests/HotelManagement.Domain.Tests.csproj" />
     <Project Path="tests/HotelManagement.Infrastructure.Tests/HotelManagement.Infrastructure.Tests.csproj" />
+    <Project Path="tests/HotelManagement.TestSupport/HotelManagement.TestSupport.csproj" />
   </Folder>
 </Solution>

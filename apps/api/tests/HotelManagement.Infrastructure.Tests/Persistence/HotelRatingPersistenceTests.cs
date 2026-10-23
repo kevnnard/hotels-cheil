@@ -1,6 +1,7 @@
 using HotelManagement.Domain;
 using HotelManagement.Domain.Hotels;
 using HotelManagement.Domain.Ratings;
+using HotelManagement.TestSupport.Persistence;
 
 namespace HotelManagement.Infrastructure.Tests.Persistence;
 

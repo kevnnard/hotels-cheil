@@ -1,8 +1,10 @@
+using HotelManagement.Infrastructure;
 using HotelManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
-namespace HotelManagement.Infrastructure.Tests.Persistence;
+namespace HotelManagement.TestSupport.Persistence;
 
 public sealed class PostgresDatabaseFixture : IAsyncLifetime
 {
@@ -11,8 +13,11 @@ public sealed class PostgresDatabaseFixture : IAsyncLifetime
 
     private string administrativeConnectionString = string.Empty;
     private string databaseName = string.Empty;
+    private ServiceProvider? services;
 
     public string ConnectionString { get; private set; } = string.Empty;
+
+    public IServiceProvider Services => services ?? throw new InvalidOperationException("The fixture is not initialized.");
 
     public async Task InitializeAsync()
     {
@@ -38,10 +43,23 @@ public sealed class PostgresDatabaseFixture : IAsyncLifetime
 
         await using var context = CreateContext();
         await context.Database.MigrateAsync();
+
+        var registrations = new ServiceCollection();
+        registrations.AddLogging();
+        registrations.AddHotelPersistence(ConnectionString);
+        registrations.AddHotelIdentity();
+        registrations.AddSingleton(TimeProvider.System);
+        services = registrations.BuildServiceProvider();
     }
 
     public async Task DisposeAsync()
     {
+        if (services is not null)
+        {
+            await services.DisposeAsync();
+            services = null;
+        }
+
         if (databaseName.Length == 0)
         {
             return;
@@ -81,10 +99,4 @@ public sealed class PostgresDatabaseFixture : IAsyncLifetime
         await using var command = new NpgsqlCommand(sql, connection);
         await command.ExecuteNonQueryAsync();
     }
-}
-
-[CollectionDefinition(Name)]
-public sealed class PostgresCollection : ICollectionFixture<PostgresDatabaseFixture>
-{
-    public const string Name = "PostgreSQL";
 }
