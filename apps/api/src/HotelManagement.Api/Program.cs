@@ -1,5 +1,6 @@
 using System.Text;
 using HotelManagement.Api.Authentication;
+using HotelManagement.Application.Hotels;
 using HotelManagement.Application.Identity;
 using HotelManagement.Domain.Identity;
 using HotelManagement.Infrastructure;
@@ -31,6 +32,7 @@ builder.Services.AddHotelIdentity(bootstrapOptions);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IHotelService, HotelService>();
 builder.Services.AddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

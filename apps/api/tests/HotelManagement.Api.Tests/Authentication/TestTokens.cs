@@ -17,13 +17,19 @@ internal static class TestTokens
         string issuer = Issuer,
         string audience = Audience,
         Guid? sessionId = null,
-        Guid? userId = null)
+        Guid? userId = null,
+        params string[] roles)
     {
         var claims = new List<Claim>
         {
             new("sub", (userId ?? Guid.CreateVersion7()).ToString()),
             new("email", "token@example.com")
         };
+
+        foreach (var role in roles)
+        {
+            claims.Add(new Claim("role", role));
+        }
 
         if (sessionId is not null)
         {
