@@ -1,3 +1,4 @@
+using HotelManagement.Application.Hotels;
 using HotelManagement.Application.Persistence;
 using HotelManagement.Domain.Hotels;
 
@@ -7,9 +8,13 @@ internal sealed class FakeHotelStore : IHotelStore
 {
     private readonly Dictionary<Guid, Hotel> hotels = [];
 
+    public HotelPage PageToReturn { get; set; } = new([], 1, HotelQuery.DefaultPageSize, 0);
+
     public List<Hotel> Added { get; } = [];
 
     public List<Hotel> Updated { get; } = [];
+
+    public List<HotelQuery> ListedQueries { get; } = [];
 
     public List<Guid> Deleted { get; } = [];
 
@@ -24,6 +29,11 @@ internal sealed class FakeHotelStore : IHotelStore
         return Task.CompletedTask;
     }
 
+    public Task<HotelPage> ListAsync(HotelQuery query, CancellationToken cancellationToken)
+    {
+        ListedQueries.Add(query);
+        return Task.FromResult(PageToReturn);
+    }
 
     public Task<Hotel?> FindAsync(Guid hotelId, CancellationToken cancellationToken) =>
         Task.FromResult(hotels.GetValueOrDefault(hotelId));

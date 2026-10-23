@@ -19,6 +19,16 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
         return CreateHotelOutcome.Created(hotel.Id);
     }
 
+    public async Task<ListHotelsOutcome> ListAsync(HotelQuery query, CancellationToken cancellationToken)
+    {
+        if (!query.IsValid)
+        {
+            return ListHotelsOutcome.InvalidQuery("The hotel query is not valid.");
+        }
+
+        var page = await hotels.ListAsync(query, cancellationToken);
+        return ListHotelsOutcome.Listed(page);
+    }
 
     public async Task<HotelSummary?> FindAsync(Guid hotelId, CancellationToken cancellationToken)
     {

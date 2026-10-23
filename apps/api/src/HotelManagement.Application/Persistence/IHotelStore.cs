@@ -1,3 +1,4 @@
+using HotelManagement.Application.Hotels;
 using HotelManagement.Domain.Hotels;
 
 namespace HotelManagement.Application.Persistence;
@@ -5,6 +6,8 @@ namespace HotelManagement.Application.Persistence;
 public interface IHotelStore
 {
     Task AddAsync(Hotel hotel, CancellationToken cancellationToken);
+
+    Task<HotelPage> ListAsync(HotelQuery query, CancellationToken cancellationToken);
 
     Task<Hotel?> FindAsync(Guid hotelId, CancellationToken cancellationToken);
 

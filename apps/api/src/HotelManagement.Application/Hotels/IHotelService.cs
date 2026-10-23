@@ -4,6 +4,8 @@ public interface IHotelService
 {
     Task<CreateHotelOutcome> CreateAsync(CreateHotel command, CancellationToken cancellationToken);
 
+    Task<ListHotelsOutcome> ListAsync(HotelQuery query, CancellationToken cancellationToken);
+
     Task<HotelSummary?> FindAsync(Guid hotelId, CancellationToken cancellationToken);
 
     Task<UpdateHotelOutcome> UpdateAsync(Guid hotelId, UpdateHotel command, CancellationToken cancellationToken);

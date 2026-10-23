@@ -89,8 +89,48 @@ public class HotelServiceTests
         Assert.Empty(hotels.Added);
     }
 
+    [Fact]
+    public async Task List_with_valid_query_reaches_store_with_same_query()
+    {
+        var query = new HotelQuery { Name = "plaza", MinimumRating = 3.5m, Page = 2, PageSize = 10 };
+        var page = new HotelPage([], 2, 10, 0);
+        hotels.PageToReturn = page;
 
+        var outcome = await Service.ListAsync(query, CancellationToken.None);
 
+        Assert.Equal(ListHotelsStatus.Listed, outcome.Status);
+        Assert.Same(page, outcome.Page);
+        Assert.Null(outcome.Message);
+        Assert.Same(query, Assert.Single(hotels.ListedQueries));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(HotelQuery.MaximumPageSize + 1)]
+    public async Task List_with_invalid_page_size_is_rejected_without_calling_store(int pageSize)
+    {
+        var outcome = await Service.ListAsync(new HotelQuery { PageSize = pageSize }, CancellationToken.None);
+
+        Assert.Equal(ListHotelsStatus.InvalidQuery, outcome.Status);
+        Assert.Null(outcome.Page);
+        Assert.False(string.IsNullOrWhiteSpace(outcome.Message));
+        Assert.Empty(hotels.ListedQueries);
+    }
+
+    [Theory]
+    [InlineData(0.5)]
+    [InlineData(5.1)]
+    public async Task List_with_invalid_minimum_rating_is_rejected_without_calling_store(double minimumRating)
+    {
+        var query = new HotelQuery { MinimumRating = (decimal)minimumRating };
+
+        var outcome = await Service.ListAsync(query, CancellationToken.None);
+
+        Assert.Equal(ListHotelsStatus.InvalidQuery, outcome.Status);
+        Assert.Null(outcome.Page);
+        Assert.False(string.IsNullOrWhiteSpace(outcome.Message));
+        Assert.Empty(hotels.ListedQueries);
+    }
 
     [Fact]
     public async Task Find_existing_hotel_with_ratings_returns_summary_with_average_and_count()
