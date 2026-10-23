@@ -1,9 +1,11 @@
 using HotelManagement.Domain.Identity;
-using HotelManagement.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace HotelManagement.Api.Authentication;
+namespace HotelManagement.Infrastructure.Identity;
 
 public sealed class IdentityBootstrapHostedService(
     IServiceScopeFactory scopeFactory,
@@ -60,7 +62,6 @@ public sealed class IdentityBootstrapHostedService(
 
         using var scope = scopeFactory.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-
         var administrator = await users.FindByEmailAsync(settings.Email);
 
         if (administrator is null)

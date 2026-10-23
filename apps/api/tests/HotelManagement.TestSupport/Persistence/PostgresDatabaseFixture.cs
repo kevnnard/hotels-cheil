@@ -1,4 +1,5 @@
 using HotelManagement.Infrastructure;
+using HotelManagement.Infrastructure.Identity;
 using HotelManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,7 +48,7 @@ public sealed class PostgresDatabaseFixture : IAsyncLifetime
         var registrations = new ServiceCollection();
         registrations.AddLogging();
         registrations.AddHotelPersistence(ConnectionString);
-        registrations.AddHotelIdentity();
+        registrations.AddHotelIdentity(new AdministratorBootstrapOptions());
         registrations.AddSingleton(TimeProvider.System);
         services = registrations.BuildServiceProvider();
     }

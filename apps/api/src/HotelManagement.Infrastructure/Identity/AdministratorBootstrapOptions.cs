@@ -1,4 +1,6 @@
-namespace HotelManagement.Api.Authentication;
+using Microsoft.Extensions.Configuration;
+
+namespace HotelManagement.Infrastructure.Identity;
 
 public sealed class AdministratorBootstrapOptions
 {
@@ -14,9 +16,12 @@ public sealed class AdministratorBootstrapOptions
 
     public static AdministratorBootstrapOptions Resolve(IConfiguration configuration)
     {
-        var options = new AdministratorBootstrapOptions();
-        configuration.GetSection(SectionName).Bind(options);
-        options.Email = options.Email.Trim();
+        var section = configuration.GetSection(SectionName);
+        var options = new AdministratorBootstrapOptions
+        {
+            Email = (section["Email"] ?? string.Empty).Trim(),
+            Password = section["Password"] ?? string.Empty
+        };
 
         if (options.IsPartiallyConfigured)
         {

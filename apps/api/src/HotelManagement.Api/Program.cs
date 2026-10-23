@@ -3,6 +3,7 @@ using HotelManagement.Api.Authentication;
 using HotelManagement.Application.Identity;
 using HotelManagement.Domain.Identity;
 using HotelManagement.Infrastructure;
+using HotelManagement.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -26,7 +27,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 
 builder.Services.AddHotelPersistence(connectionString);
-builder.Services.AddHotelIdentity();
+builder.Services.AddHotelIdentity(bootstrapOptions);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -78,7 +79,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(HotelPermissions.Delete, policy => policy.RequireRole(HotelRoles.Administrator));
 });
 
-builder.Services.AddHostedService<IdentityBootstrapHostedService>();
 
 var app = builder.Build();
 

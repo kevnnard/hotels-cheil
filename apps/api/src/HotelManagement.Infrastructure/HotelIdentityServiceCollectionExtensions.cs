@@ -10,7 +10,7 @@ namespace HotelManagement.Infrastructure;
 
 public static class HotelIdentityServiceCollectionExtensions
 {
-    public static IServiceCollection AddHotelIdentity(this IServiceCollection services)
+    public static IServiceCollection AddHotelIdentity(this IServiceCollection services, AdministratorBootstrapOptions bootstrapOptions)
     {
         services.AddIdentityCore<ApplicationUser>();
         services.AddScoped<IUserStore<ApplicationUser>, UserStore<ApplicationUser, IdentityRole<Guid>, HotelDbContext, Guid>>();
@@ -30,6 +30,9 @@ public static class HotelIdentityServiceCollectionExtensions
 
         services.AddScoped<IUserAccountStore, PostgresUserAccountStore>();
         services.AddScoped<ISessionStore, PostgresSessionStore>();
+
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(bootstrapOptions));
+        services.AddHostedService<IdentityBootstrapHostedService>();
         return services;
     }
 }
