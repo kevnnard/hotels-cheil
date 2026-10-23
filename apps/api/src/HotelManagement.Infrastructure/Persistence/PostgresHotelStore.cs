@@ -38,10 +38,12 @@ public sealed class PostgresHotelStore(HotelDbContext database) : IHotelStore
         }
 
         var totalItems = await aggregated.CountAsync(cancellationToken);
+        var requestedOffset = ((long)query.Page - 1) * query.PageSize;
+        var offset = (int)Math.Min(requestedOffset, int.MaxValue);
         var rows = await aggregated
             .OrderBy(row => row.Hotel.CreatedAtUtc)
             .ThenBy(row => row.Hotel.Id)
-            .Skip((query.Page - 1) * query.PageSize)
+            .Skip(offset)
             .Take(query.PageSize)
             .ToListAsync(cancellationToken);
 

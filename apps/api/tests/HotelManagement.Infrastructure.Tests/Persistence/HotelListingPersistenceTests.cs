@@ -79,6 +79,21 @@ public class HotelListingPersistenceTests(PostgresDatabaseFixture database)
     }
 
     [Fact]
+    public async Task PageBeyondTheIntegerOffset_ReturnsAnEmptyPageAndKeepsTheTotal()
+    {
+        var token = NewToken();
+        for (var index = 0; index < 5; index++)
+        {
+            await StoreHotelAsync($"{token} Hotel {index}");
+        }
+
+        var page = await ListAsync(token, page: 42949674, pageSize: 100);
+
+        Assert.Empty(page.Items);
+        Assert.Equal(5, page.TotalItems);
+    }
+
+    [Fact]
     public async Task MinimumRating_KeepsHotelsAtOrAboveTheValueAndExcludesLowerOnes()
     {
         var token = NewToken();
