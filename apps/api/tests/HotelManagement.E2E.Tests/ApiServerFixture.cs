@@ -51,10 +51,22 @@ public sealed class ApiServerFixture : IAsyncDisposable
             baseAddress = await server.WaitForAddressAsync(TimeSpan.FromSeconds(60));
             await WaitUntilHealthyAsync();
         }
-        catch
+        catch (Exception startupFailure)
         {
-            await DisposeAsync();
+            await ReleaseAfterFailedStartAsync(startupFailure, async () => await DisposeAsync());
             throw;
+        }
+    }
+
+    internal static async Task ReleaseAfterFailedStartAsync(Exception startupFailure, Func<Task> release)
+    {
+        try
+        {
+            await release();
+        }
+        catch (Exception releaseFailure)
+        {
+            throw new AggregateException(startupFailure, releaseFailure);
         }
     }
 
@@ -65,11 +77,11 @@ public sealed class ApiServerFixture : IAsyncDisposable
             if (server is not null)
             {
                 await server.DisposeAsync();
-                server = null;
             }
         }
         finally
         {
+            server = null;
             await database.DisposeAsync();
         }
     }

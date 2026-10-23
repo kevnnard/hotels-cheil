@@ -7,7 +7,7 @@ public sealed class StartupCleanupTests
     [Fact]
     public async Task A_start_that_fails_releases_the_database_and_the_process()
     {
-        var harness = new ApiServerFixture();
+        await using var harness = new ApiServerFixture();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => harness.StartAsync(settings =>
         {
@@ -25,7 +25,7 @@ public sealed class StartupCleanupTests
     [Fact]
     public async Task A_start_that_fails_while_the_database_is_created_releases_the_database()
     {
-        var harness = new ApiServerFixture();
+        await using var harness = new ApiServerFixture();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => harness.StartAsync(
             initializeDatabase: async database =>
@@ -35,6 +35,19 @@ public sealed class StartupCleanupTests
             }));
 
         Assert.Equal(0, await CountDatabasesAsync(harness.DatabaseName));
+    }
+
+    [Fact]
+    public async Task A_cleanup_failure_does_not_replace_the_startup_failure()
+    {
+        var startupFailure = new InvalidOperationException("the startup failed");
+        var cleanupFailure = new InvalidOperationException("the cleanup failed");
+
+        var thrown = await Assert.ThrowsAsync<AggregateException>(() =>
+            ApiServerFixture.ReleaseAfterFailedStartAsync(startupFailure, () => throw cleanupFailure));
+
+        Assert.Same(startupFailure, thrown.InnerExceptions[0]);
+        Assert.Same(cleanupFailure, thrown.InnerExceptions[1]);
     }
 
     private static async Task<int> CountDatabasesAsync(string name)

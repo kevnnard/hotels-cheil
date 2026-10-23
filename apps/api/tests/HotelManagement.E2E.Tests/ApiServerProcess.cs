@@ -39,6 +39,17 @@ public sealed class ApiServerProcess : IAsyncDisposable
         }
     }
 
+    public string RawCapturedOutput
+    {
+        get
+        {
+            lock (capturedLock)
+            {
+                return captured.ToString();
+            }
+        }
+    }
+
     public static Task<ApiServerProcess> StartAsync(
         string environment,
         IReadOnlyDictionary<string, string> settings,
@@ -62,21 +73,22 @@ public sealed class ApiServerProcess : IAsyncDisposable
         startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = environment;
         startInfo.Environment["DOTNET_ENVIRONMENT"] = environment;
 
-        foreach (var removed in removeFromEnvironment ?? Array.Empty<string>())
+        var controlled = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var key in (removeFromEnvironment ?? Array.Empty<string>()).Concat(settings.Keys))
         {
-            foreach (var alias in Aliases(removed))
+            controlled.Add(Normalize(key));
+        }
+
+        foreach (var inherited in startInfo.Environment.Keys.ToArray())
+        {
+            if (controlled.Contains(Normalize(inherited)))
             {
-                startInfo.Environment.Remove(alias);
+                startInfo.Environment.Remove(inherited);
             }
         }
 
         foreach (var setting in settings)
         {
-            foreach (var alias in Aliases(setting.Key))
-            {
-                startInfo.Environment.Remove(alias);
-            }
-
             startInfo.Environment[setting.Key] = setting.Value;
         }
 
@@ -131,30 +143,35 @@ public sealed class ApiServerProcess : IAsyncDisposable
     {
         try
         {
-            if (!process.HasExited)
+            try
             {
-                process.Kill(entireProcessTree: true);
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+            }
+
+            using var cancellation = new CancellationTokenSource(TerminationTimeout);
+            try
+            {
+                await process.WaitForExitAsync(cancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new InvalidOperationException(
+                    $"The API process {process.Id} did not terminate within {TerminationTimeout.TotalSeconds:0} seconds.");
             }
         }
-        catch (InvalidOperationException)
+        finally
         {
+            process.Dispose();
         }
-        catch (System.ComponentModel.Win32Exception)
-        {
-        }
-
-        using var cancellation = new CancellationTokenSource(TerminationTimeout);
-        try
-        {
-            await process.WaitForExitAsync(cancellation.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            throw new InvalidOperationException(
-                $"The API process {process.Id} did not terminate within {TerminationTimeout.TotalSeconds:0} seconds.");
-        }
-
-        process.Dispose();
     }
 
     private void Append(object sender, DataReceivedEventArgs arguments)
@@ -177,14 +194,7 @@ public sealed class ApiServerProcess : IAsyncDisposable
 
     private string Redact(string text) => SecretRedactor.Redact(text, secrets);
 
-    private static IEnumerable<string> Aliases(string key)
-    {
-        yield return key;
-        yield return key.Replace("__", ":");
-        yield return key.Replace(":", "__");
-        yield return key.ToUpperInvariant();
-        yield return key.Replace("__", ":").ToUpperInvariant();
-    }
+    private static string Normalize(string key) => key.Replace("__", ":").ToLowerInvariant();
 
     private static string ApiAssemblyPath()
     {

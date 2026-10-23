@@ -21,7 +21,7 @@ internal static class SecretRedactor
     public static string Redact(string text, IEnumerable<string> secrets)
     {
         var redacted = text;
-        foreach (var secret in secrets)
+        foreach (var secret in secrets.OrderByDescending(secret => secret.Length))
         {
             redacted = redacted.Replace(secret, "***", StringComparison.Ordinal);
         }

@@ -5,7 +5,7 @@ description: Decision on how the end-to-end suite starts the API, talks to it an
 
 ## Status
 
-Implemented and tested: the suite holds 7 tests that start the API as a separate process, walk the administrative journey over a real socket and read the persisted state from PostgreSQL. The domain, application, persistence and HTTP suites add 248 passing tests.
+Implemented and tested: the suite holds 12 tests that start the API as a separate process, walk the administrative journey over a real socket and read the persisted state from PostgreSQL. The domain, application, persistence and HTTP suites add 248 passing tests.
 
 ## Problem
 
@@ -26,12 +26,13 @@ The domain, application, persistence and HTTP suites cover the rules, the SQL an
 - The child process receives its whole configuration through environment variables, the same way a deployment does: the connection string, the issuer, the audience, the signing key, the token lifetime and the administrator pair. No secret travels as a command line argument, and none is written to a file.
 - The process runs with `ASPNETCORE_ENVIRONMENT=Production`, so the production configuration guards are exercised by the real process and not only by the test host.
 - The database is isolated: the shared PostgreSQL fixture creates a uniquely named database, applies the migrations the same way the `migrator` service does in the Compose stack, and drops the database when the suite ends.
-- A startup that fails releases what it took: the database creation, the migrations, the process and the health check all run inside the protection of the cleanup, so a failure in any of them drops the database and kills the process before the error propagates. The teardown disposes the process and the database independently, so a failure in one does not skip the other. Two tests prove it by counting the leftover databases after a failed start and after a failure while the database was being created.
-- The configuration of the child process does not depend on the machine that runs the suite: every variable the harness provides replaces its equivalent spellings in the inherited environment, so a value written as `Authentication:Jwt:SigningKey` cannot reach the API beside the one the harness sets.
+- A startup that fails releases what it took: the database creation, the migrations, the process and the health check all run inside the protection of the cleanup, so a failure in any of them drops the database and kills the process before the error propagates. The teardown disposes the process and the database independently, so a failure in one does not skip the other, and it always releases the handle of the process, even when the termination deadline expires. Three tests prove it: two count the leftover databases after a failed start and after a failure while the database was being created, and one proves that a failure of the cleanup does not replace the startup failure that explains the red run.
+- The configuration of the child process does not depend on the machine that runs the suite: every inherited variable whose name matches one of the variables the harness provides or removes is deleted before the child starts, comparing the names after normalizing the separator and the case, so a value written as `Authentication:Jwt:SigningKey`, as `authentication__jwt__signingkey` or in any other case cannot reach the API beside the one the harness sets.
 - Every wait is bounded: the address, the health check and the termination of the process have a deadline, and the health probe tolerates a cancelled request instead of treating it as a fatal error. A process that does not terminate inside its deadline is reported instead of being forgotten.
 - The project references the API project without taking a reference to its assembly, so the assertions read the payloads from the wire into local records and cannot drift into the server's own types.
 - The suite waits for `GET /health` to answer `200` before the first request, and it kills the process tree when the fixture is disposed.
-- The captured output of the process is redacted before it reaches a failure message. The redaction covers the values that the harness supplied, the settings whose name marks them as sensitive and the password inside a connection string, and it has its own test.
+- The captured output of the process is redacted before it reaches a failure message. The redaction covers the values that the harness supplied, the settings whose name marks them as sensitive and the password inside a connection string, it replaces the longest secret first so an overlapping secret cannot leave a fragment behind, and it has its own test.
+- The startup guards are asserted against the raw output of the process, not against the redacted one, so the assertion proves that the API keeps the secret out of its startup output instead of proving the redaction again.
 - The settings that a test wants to be absent are also removed from the inherited environment of the child, so the result does not depend on the environment of the machine that runs the suite.
 ## Justification
 

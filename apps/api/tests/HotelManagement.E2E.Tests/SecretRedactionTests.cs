@@ -25,6 +25,24 @@ public sealed class SecretRedactionTests
     }
 
     [Fact]
+    public void The_redaction_removes_the_longest_secret_before_the_one_it_contains()
+    {
+        var settings = new Dictionary<string, string>
+        {
+            ["Authentication__Jwt__SigningKey"] = "a-signing-key-value-0123456789",
+            ["Authentication__Jwt__Audience"] = "a-signing-key-value-0123456789-and-more"
+        };
+
+        var secrets = SecretRedactor.Secrets(settings);
+        var text = "the audience is a-signing-key-value-0123456789-and-more";
+
+        var redacted = SecretRedactor.Redact(text, secrets);
+
+        Assert.DoesNotContain("a-signing-key-value-0123456789-and-more", redacted);
+        Assert.DoesNotContain("and-more", redacted);
+    }
+
+    [Fact]
     public void The_redaction_keeps_the_values_that_are_not_secrets()
     {
         var settings = new Dictionary<string, string>
