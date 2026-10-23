@@ -17,6 +17,7 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
 
         Assert.NotEqual(0, process.ExitCode);
         Assert.Contains("Authentication:Jwt:SigningKey is required outside development", process.CapturedOutput);
+        Assert.DoesNotContain(server.AdministratorPassword, process.CapturedOutput);
     }
 
     [Fact]
@@ -33,5 +34,6 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
 
         Assert.NotEqual(0, process.ExitCode);
         Assert.Contains("Authentication:Administrator must define both Email and Password", process.CapturedOutput);
+        Assert.DoesNotContain(server.AdministratorPassword, process.CapturedOutput);
     }
 }

@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using Npgsql;
 
 namespace HotelManagement.E2E.Tests;
 
@@ -65,16 +64,24 @@ public sealed class ApiServerProcess : IAsyncDisposable
 
         foreach (var removed in removeFromEnvironment ?? Array.Empty<string>())
         {
-            startInfo.Environment.Remove(removed);
+            foreach (var alias in Aliases(removed))
+            {
+                startInfo.Environment.Remove(alias);
+            }
         }
 
         foreach (var setting in settings)
         {
+            foreach (var alias in Aliases(setting.Key))
+            {
+                startInfo.Environment.Remove(alias);
+            }
+
             startInfo.Environment[setting.Key] = setting.Value;
         }
 
         var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-        var server = new ApiServerProcess(process, Secrets(settings));
+        var server = new ApiServerProcess(process, SecretRedactor.Secrets(settings));
 
         try
         {
@@ -127,15 +134,24 @@ public sealed class ApiServerProcess : IAsyncDisposable
             if (!process.HasExited)
             {
                 process.Kill(entireProcessTree: true);
-                using var cancellation = new CancellationTokenSource(TerminationTimeout);
-                await process.WaitForExitAsync(cancellation.Token);
             }
         }
         catch (InvalidOperationException)
         {
         }
+        catch (System.ComponentModel.Win32Exception)
+        {
+        }
+
+        using var cancellation = new CancellationTokenSource(TerminationTimeout);
+        try
+        {
+            await process.WaitForExitAsync(cancellation.Token);
+        }
         catch (OperationCanceledException)
         {
+            throw new InvalidOperationException(
+                $"The API process {process.Id} did not terminate within {TerminationTimeout.TotalSeconds:0} seconds.");
         }
 
         process.Dispose();
@@ -159,45 +175,15 @@ public sealed class ApiServerProcess : IAsyncDisposable
         }
     }
 
-    private string Redact(string text)
+    private string Redact(string text) => SecretRedactor.Redact(text, secrets);
+
+    private static IEnumerable<string> Aliases(string key)
     {
-        var redacted = text;
-        foreach (var secret in secrets)
-        {
-            redacted = redacted.Replace(secret, "***", StringComparison.Ordinal);
-        }
-
-        return redacted;
-    }
-
-    private static string[] Secrets(IReadOnlyDictionary<string, string> settings) =>
-        settings.Select(setting => setting.Value)
-            .Where(value => value.Length >= 12)
-            .Concat(settings.Where(setting => IsSensitive(setting.Key)).Select(setting => setting.Value))
-            .Concat(settings.Where(setting => IsConnectionString(setting.Key)).Select(setting => PasswordOf(setting.Value)))
-            .Where(value => value.Length > 0)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-
-    private static bool IsSensitive(string key) =>
-        key.Contains("Password", StringComparison.OrdinalIgnoreCase)
-        || key.Contains("SigningKey", StringComparison.OrdinalIgnoreCase)
-        || key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
-        || key.Contains("Token", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsConnectionString(string key) =>
-        key.Contains("ConnectionStrings", StringComparison.OrdinalIgnoreCase);
-
-    private static string PasswordOf(string connectionString)
-    {
-        try
-        {
-            return new NpgsqlConnectionStringBuilder(connectionString).Password ?? string.Empty;
-        }
-        catch (ArgumentException)
-        {
-            return string.Empty;
-        }
+        yield return key;
+        yield return key.Replace("__", ":");
+        yield return key.Replace(":", "__");
+        yield return key.ToUpperInvariant();
+        yield return key.Replace("__", ":").ToUpperInvariant();
     }
 
     private static string ApiAssemblyPath()
