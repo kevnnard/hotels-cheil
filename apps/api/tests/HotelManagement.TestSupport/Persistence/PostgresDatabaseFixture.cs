@@ -18,6 +18,8 @@ public sealed class PostgresDatabaseFixture : IAsyncLifetime
 
     public string ConnectionString { get; private set; } = string.Empty;
 
+    public string DatabaseName => databaseName;
+
     public IServiceProvider Services => services ?? throw new InvalidOperationException("The fixture is not initialized.");
 
     public async Task InitializeAsync()

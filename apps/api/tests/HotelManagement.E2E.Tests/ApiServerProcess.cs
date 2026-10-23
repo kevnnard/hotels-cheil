@@ -1,28 +1,29 @@
 using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
+using Npgsql;
 
 namespace HotelManagement.E2E.Tests;
 
 public sealed class ApiServerProcess : IAsyncDisposable
 {
+    private static readonly TimeSpan TerminationTimeout = TimeSpan.FromSeconds(10);
+    private static readonly Regex ListeningAddress = new(@"Now listening on: (?<url>http://\S+)", RegexOptions.Compiled);
+
     private readonly Process process;
     private readonly StringBuilder captured = new();
     private readonly object capturedLock = new();
     private readonly string[] secrets;
+    private readonly TaskCompletionSource<string> listeningAddress = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private ApiServerProcess(Process process, Uri baseAddress, string[] secrets)
+    private ApiServerProcess(Process process, string[] secrets)
     {
         this.process = process;
         this.secrets = secrets;
-        BaseAddress = baseAddress;
-        this.process.OutputDataReceived += Append;
-        this.process.ErrorDataReceived += Append;
+        process.OutputDataReceived += Append;
+        process.ErrorDataReceived += Append;
     }
-
-    public Uri BaseAddress { get; }
 
     public bool HasExited => process.HasExited;
 
@@ -39,10 +40,11 @@ public sealed class ApiServerProcess : IAsyncDisposable
         }
     }
 
-    public static Task<ApiServerProcess> StartAsync(string environment, IReadOnlyDictionary<string, string> settings)
+    public static Task<ApiServerProcess> StartAsync(
+        string environment,
+        IReadOnlyDictionary<string, string> settings,
+        IReadOnlyCollection<string>? removeFromEnvironment = null)
     {
-        var port = FreePort();
-        var baseAddress = new Uri($"http://127.0.0.1:{port}");
         var assembly = ApiAssemblyPath();
 
         var startInfo = new ProcessStartInfo
@@ -57,9 +59,14 @@ public sealed class ApiServerProcess : IAsyncDisposable
         startInfo.ArgumentList.Add("exec");
         startInfo.ArgumentList.Add(assembly);
         startInfo.ArgumentList.Add("--urls");
-        startInfo.ArgumentList.Add(baseAddress.ToString());
+        startInfo.ArgumentList.Add("http://127.0.0.1:0");
         startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = environment;
         startInfo.Environment["DOTNET_ENVIRONMENT"] = environment;
+
+        foreach (var removed in removeFromEnvironment ?? Array.Empty<string>())
+        {
+            startInfo.Environment.Remove(removed);
+        }
 
         foreach (var setting in settings)
         {
@@ -67,10 +74,7 @@ public sealed class ApiServerProcess : IAsyncDisposable
         }
 
         var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-        var server = new ApiServerProcess(
-            process,
-            baseAddress,
-            settings.Values.Where(value => value.Length >= 12).ToArray());
+        var server = new ApiServerProcess(process, Secrets(settings));
 
         try
         {
@@ -87,6 +91,29 @@ public sealed class ApiServerProcess : IAsyncDisposable
         return Task.FromResult(server);
     }
 
+    public async Task<Uri> WaitForAddressAsync(TimeSpan timeout)
+    {
+        var deadline = DateTimeOffset.UtcNow.Add(timeout);
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (process.HasExited)
+            {
+                throw new InvalidOperationException(
+                    $"The API process exited with code {process.ExitCode} before it reported its address. Output: {CapturedOutput}");
+            }
+
+            if (listeningAddress.Task.IsCompleted)
+            {
+                return new Uri(await listeningAddress.Task);
+            }
+
+            await Task.Delay(100);
+        }
+
+        throw new TimeoutException($"The API process did not report its listening address. Output: {CapturedOutput}");
+    }
+
     public async Task WaitForExitAsync(TimeSpan timeout)
     {
         using var cancellation = new CancellationTokenSource(timeout);
@@ -100,10 +127,14 @@ public sealed class ApiServerProcess : IAsyncDisposable
             if (!process.HasExited)
             {
                 process.Kill(entireProcessTree: true);
-                await process.WaitForExitAsync();
+                using var cancellation = new CancellationTokenSource(TerminationTimeout);
+                await process.WaitForExitAsync(cancellation.Token);
             }
         }
         catch (InvalidOperationException)
+        {
+        }
+        catch (OperationCanceledException)
         {
         }
 
@@ -120,6 +151,11 @@ public sealed class ApiServerProcess : IAsyncDisposable
         lock (capturedLock)
         {
             captured.AppendLine(arguments.Data);
+            var match = ListeningAddress.Match(arguments.Data);
+            if (match.Success)
+            {
+                listeningAddress.TrySetResult(match.Groups["url"].Value);
+            }
         }
     }
 
@@ -132,6 +168,36 @@ public sealed class ApiServerProcess : IAsyncDisposable
         }
 
         return redacted;
+    }
+
+    private static string[] Secrets(IReadOnlyDictionary<string, string> settings) =>
+        settings.Select(setting => setting.Value)
+            .Where(value => value.Length >= 12)
+            .Concat(settings.Where(setting => IsSensitive(setting.Key)).Select(setting => setting.Value))
+            .Concat(settings.Where(setting => IsConnectionString(setting.Key)).Select(setting => PasswordOf(setting.Value)))
+            .Where(value => value.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+    private static bool IsSensitive(string key) =>
+        key.Contains("Password", StringComparison.OrdinalIgnoreCase)
+        || key.Contains("SigningKey", StringComparison.OrdinalIgnoreCase)
+        || key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
+        || key.Contains("Token", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsConnectionString(string key) =>
+        key.Contains("ConnectionStrings", StringComparison.OrdinalIgnoreCase);
+
+    private static string PasswordOf(string connectionString)
+    {
+        try
+        {
+            return new NpgsqlConnectionStringBuilder(connectionString).Password ?? string.Empty;
+        }
+        catch (ArgumentException)
+        {
+            return string.Empty;
+        }
     }
 
     private static string ApiAssemblyPath()
@@ -160,19 +226,5 @@ public sealed class ApiServerProcess : IAsyncDisposable
     {
         var host = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
         return !string.IsNullOrWhiteSpace(host) && File.Exists(host) ? host : "dotnet";
-    }
-
-    private static int FreePort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        try
-        {
-            return ((IPEndPoint)listener.LocalEndpoint).Port;
-        }
-        finally
-        {
-            listener.Stop();
-        }
     }
 }
