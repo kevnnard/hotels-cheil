@@ -93,13 +93,27 @@ public class HotelServiceTests
     public async Task List_with_valid_query_reaches_store_with_same_query()
     {
         var query = new HotelQuery { Name = "plaza", MinimumRating = 3.5m, Page = 2, PageSize = 10 };
-        var page = new HotelPage([], 2, 10, 0);
-        hotels.PageToReturn = page;
+        var item = new HotelSummary(
+            Guid.NewGuid(),
+            "Grand Plaza",
+            "Seafront hotel",
+            new HotelAddress("1 Main Street", "Lisbon", "Lisboa", "Portugal", "1000-001"),
+            new HotelContact("+351123456789", "info@grandplaza.test", "https://grandplaza.test"),
+            true,
+            Earlier,
+            Now,
+            RatingSummary.From(4m, 1));
+        hotels.PageToReturn = new HotelPage([item], 2, 10, 11);
 
         var outcome = await Service.ListAsync(query, CancellationToken.None);
 
         Assert.Equal(ListHotelsStatus.Listed, outcome.Status);
-        Assert.Equal(page, outcome.Page);
+        Assert.NotNull(outcome.Page);
+        Assert.Equal(2, outcome.Page.Page);
+        Assert.Equal(10, outcome.Page.PageSize);
+        Assert.Equal(11, outcome.Page.TotalItems);
+        Assert.Equal(2, outcome.Page.TotalPages);
+        Assert.Equal(item, Assert.Single(outcome.Page.Items));
         Assert.Null(outcome.Message);
         Assert.Equal(query, Assert.Single(hotels.ListedQueries));
     }
