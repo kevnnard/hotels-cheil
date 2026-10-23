@@ -5,7 +5,7 @@ description: Decision on the hotel routes, the query filters, the pagination sha
 
 ## Status
 
-Implemented and tested: the five routes, the filters, the pagination and the rating replacement. The HTTP suite holds 64 tests, 34 of them for the hotel endpoints, run against a real PostgreSQL 17 database through the in-process server. The application, persistence and domain suites add 173 passing tests. The contract is implemented by the hotel application service, the filtered PostgreSQL query and two thin controllers.
+Implemented and tested: the five routes, the filters, the pagination and the rating replacement. The HTTP suite holds 70 tests, 41 of them for the hotel endpoints, run against a real PostgreSQL 17 database through the in-process server. The application, persistence and domain suites add 178 passing tests. The contract is implemented by the hotel application service, the filtered PostgreSQL query and two thin controllers.
 
 ## Problem
 
