@@ -32,6 +32,8 @@ Used only by `HotelManagement.Infrastructure`. Metadata and licenses come from t
 | `Microsoft.EntityFrameworkCore.Relational` | 10.0.13 | MIT | Pinned directly so it matches EF Core 10.0.13 instead of resolving to the provider minimum 10.0.4. |
 | `Npgsql.EntityFrameworkCore.PostgreSQL` | 10.0.3 | PostgreSQL | EF Core provider; brings Npgsql 10.0.3. |
 | `Microsoft.EntityFrameworkCore.Design` | 10.0.13 | MIT | Design-time services for migrations. `PrivateAssets=all`, so it does not flow to the API. |
+| `Microsoft.Extensions.Configuration.Abstractions` | 10.0.13 | MIT | Reads the administrator settings and the role configuration bound by the identity registration. |
+| `Microsoft.Extensions.Hosting.Abstractions` | 10.0.13 | MIT | Hosts the administrator bootstrap as a background service inside the infrastructure layer. |
 | `dotnet-ef` (local tool) | 10.0.13 | MIT | Creates and applies migrations. Pinned in `.config/dotnet-tools.json`; restore with `dotnet tool restore`. |
 
 ## Decisions

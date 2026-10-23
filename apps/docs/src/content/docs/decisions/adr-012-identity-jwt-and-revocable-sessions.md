@@ -5,7 +5,7 @@ description: Decision to authenticate with ASP.NET Core Identity, short-lived si
 
 ## Status
 
-Implemented and tested: 19 HTTP tests run against a real PostgreSQL 17 database through the in-process server, covering registration, sign in, the signed-in account, logout revocation, expired tokens, foreign signatures, foreign audiences, tokens without a session, role assignment and the four hotel policies. Application, persistence and domain suites add 130 passing tests. The production configuration refuses to start without a signing key and the administrator credentials.
+Implemented and tested: 26 HTTP tests run against a real PostgreSQL 17 database through the in-process server, covering registration, sign in, the signed-in account, logout revocation, expired tokens, foreign signatures, foreign audiences, foreign issuers, unknown sessions, sessions owned by another account, concurrent registrations, role assignment, the administrator bootstrap and the four hotel policies. Application, persistence and domain suites add 132 passing tests. The production configuration refuses to start without a signing key and the administrator credentials.
 
 ## Problem
 
@@ -24,10 +24,12 @@ The administrative API must know who calls it, must be able to end a session imm
 
 - Accounts, password hashing and roles come from ASP.NET Core Identity over EF Core and PostgreSQL. Identity owns the password format; the API never issues or verifies a proprietary credential.
 - `IAccessTokenIssuer` lives in Application. The Api implements it with a signed token (HS256) that carries `sub`, `email`, `sid` and `role` claims, expires after 15 minutes by default and validates issuer, audience, signature and lifetime.
-- Every authenticated request looks the `sid` claim up in `auth_sessions`. A missing, revoked or expired session rejects the request, so logout takes effect at once and not only when the token expires.
+- Every authenticated request looks the `sid` claim up in `auth_sessions`. A missing, revoked or expired session rejects the request, so logout takes effect at once and not only when the token expires. The lookup also compares the session owner with the token subject, so a token cannot use the session of another account.
 - There are no refresh tokens. A caller that needs a new token signs in again and opens a new session.
 - Roles are `Administrator` and `User`. Policies are `hotels.read` for both and `hotels.create`, `hotels.update` and `hotels.delete` for administrators only.
-- Public registration always assigns the `User` role. The first administrator is provisioned from `Authentication:Administrator:Email` and `Authentication:Administrator:Password`, applied idempotently at startup, so the endpoint can never grant administrator rights.
+- Public registration always assigns the `User` role. The first administrator is provisioned from `Authentication:Administrator:Email` and `Authentication:Administrator:Password`, applied at startup, so the endpoint can never grant administrator rights. Both settings are read as a pair and a half-configured pair stops the API from starting. Every start repairs the role of an existing account, so an interrupted provisioning cannot leave the account without it.
+- The account store reports a lost registration race as a duplicate email instead of a database error, so two concurrent registrations answer `201` and `409`.
+- The administrator bootstrap lives in the infrastructure layer. The API project registers it and never writes accounts or roles itself.
 - The signing key comes from `Authentication:Jwt:SigningKey` and is mandatory outside development. In development an ephemeral key is generated at startup, which invalidates previous tokens on restart and avoids shipping a default secret.
 - Emails are normalized (trimmed and lowercased) and unique; Identity enforces uniqueness, the Domain rules enforce the format and the 254 character limit.
 

@@ -80,7 +80,7 @@ The connection string is used by the migration tool, by the API composition root
 
 Implemented: `appsettings.json`, `appsettings.Development.json`, the development launch profile, the environment samples `.env.dev.example` and `.env.prod.example` and the authentication settings described in [Authentication](authentication.md). The Options Pattern is used for the JWT and the administrator bootstrap. Environment variables override ASP.NET Core configuration, using `__` for nesting (`ConnectionStrings__Hotels`, `Authentication__Jwt__SigningKey`). Secrets never enter Git.
 
-The environment samples list the database credentials and the ports. The authentication variables are documented in [Authentication](authentication.md): the issuer, the audience, the token lifetime, the signing key and the first administrator. The signing key and the administrator password have no default and are empty in the samples.
+The environment samples list the database credentials and the ports. The authentication variables are documented in [Authentication](authentication.md): the issuer, the audience, the token lifetime, the signing key and the first administrator. The samples do not carry them, because a file with the shape of a secret is a file that gets copied and shipped. The signing key and the administrator password have no default anywhere in the repository.
 
 ## Migrations
 

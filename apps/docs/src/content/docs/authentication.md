@@ -16,7 +16,9 @@ The API authenticates with ASP.NET Core Identity and short-lived signed access t
 
 Registration always assigns the `User` role. The endpoint cannot grant `Administrator`.
 
-A token is rejected when it is expired, signed with another key, issued for another audience, missing the `sid` claim, or when its session was revoked or expired. The response body is empty and the status is `401`.
+A token is rejected when it is expired, signed with another key, issued for another audience or by another issuer, missing the `sid` claim, when its session was revoked or expired, or when the session belongs to another account. The response body is empty and the status is `401`.
+
+Two registrations that arrive at the same time with the same email produce one `201` and one `409`: the second insert loses the race and is reported as a conflict instead of a server error.
 
 ## Configuration
 
@@ -34,9 +36,13 @@ The signing key must have at least 32 characters. Generate one with `openssl ran
 
 The API refuses to start when the connection string, the issuer or the audience are missing, and when the signing key is missing outside development.
 
+The administrator settings are read as a pair: setting only the email or only the password stops the API from starting, because a half-configured administrator would leave the deployment without an administrator account.
+
 ## First administrator
 
-The roles `Administrator` and `User` are created at startup. When `Authentication:Administrator:Email` and `Authentication:Administrator:Password` are set, that account is created once with the `Administrator` role and its password is never printed. The operation is idempotent: an existing account is left untouched, so the same configuration can stay in the environment of every instance.
+The roles `Administrator` and `User` are created at startup. When `Authentication:Administrator:Email` and `Authentication:Administrator:Password` are set, that account is created with the `Administrator` role and its password is never printed. The operation runs on every start and is idempotent: an existing account keeps its password, and an account that lost the role in a previous start gets the role back. The same configuration can stay in the environment of every instance.
+
+The bootstrap belongs to the infrastructure layer, so the API project never writes accounts or roles.
 
 An account without the role can still sign in, but every write returns `403`.
 
