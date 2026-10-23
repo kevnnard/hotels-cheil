@@ -6,6 +6,7 @@
     <Project Path="src/HotelManagement.Infrastructure/HotelManagement.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/HotelManagement.Api.Tests/HotelManagement.Api.Tests.csproj" />
     <Project Path="tests/HotelManagement.Application.Tests/HotelManagement.Application.Tests.csproj" />
     <Project Path="tests/HotelManagement.Domain.Tests/HotelManagement.Domain.Tests.csproj" />
     <Project Path="tests/HotelManagement.Infrastructure.Tests/HotelManagement.Infrastructure.Tests.csproj" />

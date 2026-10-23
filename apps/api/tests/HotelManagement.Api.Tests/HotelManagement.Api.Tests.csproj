@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.13" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HotelManagement.Api\HotelManagement.Api.csproj" />
+    <ProjectReference Include="..\..\src\HotelManagement.Application\HotelManagement.Application.csproj" />
+    <ProjectReference Include="..\..\src\HotelManagement.Domain\HotelManagement.Domain.csproj" />
+    <ProjectReference Include="..\..\src\HotelManagement.Infrastructure\HotelManagement.Infrastructure.csproj" />
+    <ProjectReference Include="..\HotelManagement.TestSupport\HotelManagement.TestSupport.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

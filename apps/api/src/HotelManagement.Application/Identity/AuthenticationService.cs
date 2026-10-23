@@ -10,15 +10,20 @@ public sealed class AuthenticationService(
 {
     public async Task<RegistrationOutcome> RegisterAsync(RegisterAccount registration, CancellationToken cancellationToken)
     {
-        if (!AccountRules.IsValidEmail(registration.Email) || !AccountRules.IsValidPassword(registration.Password))
+        if (!AccountRules.IsValidEmail(registration.Email))
         {
-            return RegistrationOutcome.InvalidInput;
+            return RegistrationOutcome.InvalidInput("email");
+        }
+
+        if (!AccountRules.IsValidPassword(registration.Password))
+        {
+            return RegistrationOutcome.InvalidInput("password");
         }
 
         var email = AccountRules.NormalizeEmail(registration.Email);
         if (await accounts.ExistsAsync(email, cancellationToken))
         {
-            return RegistrationOutcome.EmailAlreadyRegistered;
+            return RegistrationOutcome.EmailAlreadyRegistered();
         }
 
         var userId = Guid.CreateVersion7();
@@ -28,16 +33,21 @@ public sealed class AuthenticationService(
 
     public async Task<SignInOutcome> SignInAsync(SignIn signIn, CancellationToken cancellationToken)
     {
-        if (!AccountRules.IsValidEmail(signIn.Email) || string.IsNullOrEmpty(signIn.Password))
+        if (!AccountRules.IsValidEmail(signIn.Email))
         {
-            return SignInOutcome.InvalidInput;
+            return SignInOutcome.InvalidInput("email");
+        }
+
+        if (string.IsNullOrEmpty(signIn.Password))
+        {
+            return SignInOutcome.InvalidInput("password");
         }
 
         var email = AccountRules.NormalizeEmail(signIn.Email);
         var account = await accounts.FindByEmailAsync(email, cancellationToken);
         if (account is null || !await accounts.VerifyPasswordAsync(account.Id, signIn.Password, cancellationToken))
         {
-            return SignInOutcome.InvalidCredentials;
+            return SignInOutcome.InvalidCredentials();
         }
 
         var roles = await accounts.GetRolesAsync(account.Id, cancellationToken);
