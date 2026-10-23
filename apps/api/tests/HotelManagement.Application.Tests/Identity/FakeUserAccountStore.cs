@@ -14,6 +14,10 @@ internal sealed class FakeUserAccountStore : IUserAccountStore
 
     public int CreateCount { get; private set; }
 
+    private bool creationRejectedAsAlreadyRegistered;
+
+    public void RejectCreationAsAlreadyRegistered() => creationRejectedAsAlreadyRegistered = true;
+
     public void Add(string email, Guid id, string password, string role)
     {
         accounts[email] = (id, password, role);
@@ -22,14 +26,19 @@ internal sealed class FakeUserAccountStore : IUserAccountStore
     public Task<bool> ExistsAsync(string email, CancellationToken cancellationToken) =>
         Task.FromResult(accounts.ContainsKey(email));
 
-    public Task CreateAsync(Guid userId, string email, string password, string role, CancellationToken cancellationToken)
+    public Task<AccountCreation> CreateAsync(Guid userId, string email, string password, string role, CancellationToken cancellationToken)
     {
+        if (creationRejectedAsAlreadyRegistered)
+        {
+            return Task.FromResult(AccountCreation.EmailAlreadyRegistered);
+        }
+
         accounts[email] = (userId, password, role);
         LastCreatedUserId = userId;
         LastCreatedEmail = email;
         LastCreatedRole = role;
         CreateCount++;
-        return Task.CompletedTask;
+        return Task.FromResult(AccountCreation.Created);
     }
 
     public Task<AccountIdentity?> FindByEmailAsync(string email, CancellationToken cancellationToken)

@@ -56,6 +56,21 @@ public class AuthenticationEndpointsTests(HotelApiFixture api)
     }
 
     [Fact]
+    public async Task Register_WithConcurrentRequestsForTheSameEmail_AnswersOneCreatedAndOneConflict()
+    {
+        using var client = api.CreateClient();
+        var payload = new { email = Email, password = Password };
+
+        var responses = await Task.WhenAll(
+            client.PostAsJsonAsync("/api/auth/register", payload),
+            client.PostAsJsonAsync("/api/auth/register", payload));
+
+        var statuses = responses.Select(response => response.StatusCode).Order().ToArray();
+        Assert.Equal(HttpStatusCode.Created, statuses[0]);
+        Assert.Equal(HttpStatusCode.Conflict, statuses[1]);
+    }
+
+    [Fact]
     public async Task Register_NeverGrantsTheAdministratorRole()
     {
         using var client = api.CreateClient();

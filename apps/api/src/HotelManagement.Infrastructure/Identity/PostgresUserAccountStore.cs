@@ -1,5 +1,7 @@
 using HotelManagement.Application.Identity;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace HotelManagement.Infrastructure.Identity;
 
@@ -11,7 +13,7 @@ public sealed class PostgresUserAccountStore(UserManager<ApplicationUser> users)
         return user is not null;
     }
 
-    public async Task CreateAsync(Guid userId, string email, string password, string role, CancellationToken cancellationToken)
+    public async Task<AccountCreation> CreateAsync(Guid userId, string email, string password, string role, CancellationToken cancellationToken)
     {
         var user = new ApplicationUser
         {
@@ -21,9 +23,23 @@ public sealed class PostgresUserAccountStore(UserManager<ApplicationUser> users)
             EmailConfirmed = true
         };
 
-        var created = await users.CreateAsync(user, password);
+        IdentityResult created;
+        try
+        {
+            created = await users.CreateAsync(user, password);
+        }
+        catch (DbUpdateException exception) when (IsUniqueViolation(exception))
+        {
+            return AccountCreation.EmailAlreadyRegistered;
+        }
+
         if (!created.Succeeded)
         {
+            if (created.Errors.Any(error => error.Code is "DuplicateUserName" or "DuplicateEmail"))
+            {
+                return AccountCreation.EmailAlreadyRegistered;
+            }
+
             throw new InvalidOperationException(FailureMessage(created));
         }
 
@@ -32,6 +48,8 @@ public sealed class PostgresUserAccountStore(UserManager<ApplicationUser> users)
         {
             throw new InvalidOperationException(FailureMessage(assigned));
         }
+
+        return AccountCreation.Created;
     }
 
     public async Task<AccountIdentity?> FindByEmailAsync(string email, CancellationToken cancellationToken)
@@ -57,6 +75,9 @@ public sealed class PostgresUserAccountStore(UserManager<ApplicationUser> users)
         var roles = await users.GetRolesAsync(user);
         return roles.ToArray();
     }
+
+    private static bool IsUniqueViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 
     private static string FailureMessage(IdentityResult result) =>
         string.Join(" ", result.Errors.Select(error => error.Description));

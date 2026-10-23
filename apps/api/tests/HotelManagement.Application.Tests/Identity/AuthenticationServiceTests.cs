@@ -50,6 +50,16 @@ public class AuthenticationServiceTests
         Assert.Equal(0, accounts.CreateCount);
     }
 
+    [Fact]
+    public async Task Register_WhenAnotherRequestTakesTheEmailFirst_AnswersAlreadyRegistered()
+    {
+        accounts.RejectCreationAsAlreadyRegistered();
+
+        var outcome = await Service.RegisterAsync(new RegisterAccount("user@example.com", "abcd1234"), CancellationToken.None);
+
+        Assert.Equal(RegistrationStatus.EmailAlreadyRegistered, outcome.Status);
+    }
+
     [Theory]
     [InlineData("not-an-email", "abcd1234")]
     [InlineData("user@example.com", "")]
@@ -115,7 +125,8 @@ public class AuthenticationServiceTests
     [Fact]
     public async Task IsSessionActive_ForALiveSession_IsTrue()
     {
-        accounts.Add("user@example.com", Guid.CreateVersion7(), "abcd1234", HotelRoles.User);
+        var userId = Guid.CreateVersion7();
+        accounts.Add("user@example.com", userId, "abcd1234", HotelRoles.User);
         var outcome = await Service.SignInAsync(new SignIn("user@example.com", "abcd1234"), CancellationToken.None);
 
         Assert.True(await Service.IsSessionActiveAsync(outcome.Token!.SessionId, CancellationToken.None));

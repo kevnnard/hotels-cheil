@@ -4,7 +4,7 @@ public interface IUserAccountStore
 {
     Task<bool> ExistsAsync(string email, CancellationToken cancellationToken);
 
-    Task CreateAsync(Guid userId, string email, string password, string role, CancellationToken cancellationToken);
+    Task<AccountCreation> CreateAsync(Guid userId, string email, string password, string role, CancellationToken cancellationToken);
 
     Task<AccountIdentity?> FindByEmailAsync(string email, CancellationToken cancellationToken);
 

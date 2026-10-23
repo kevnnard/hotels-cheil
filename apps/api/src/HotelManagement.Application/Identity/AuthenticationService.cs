@@ -27,7 +27,12 @@ public sealed class AuthenticationService(
         }
 
         var userId = Guid.CreateVersion7();
-        await accounts.CreateAsync(userId, email, registration.Password, HotelRoles.User, cancellationToken);
+        var creation = await accounts.CreateAsync(userId, email, registration.Password, HotelRoles.User, cancellationToken);
+        if (creation.Status == AccountCreationStatus.EmailAlreadyRegistered)
+        {
+            return RegistrationOutcome.EmailAlreadyRegistered();
+        }
+
         return RegistrationOutcome.Registered(userId, email);
     }
 
