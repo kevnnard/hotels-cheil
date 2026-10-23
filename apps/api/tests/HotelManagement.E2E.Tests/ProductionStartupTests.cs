@@ -26,7 +26,7 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
     public async Task The_api_refuses_to_start_with_half_an_administrator_pair()
     {
         var settings = server.StartupSettings();
-        settings.Remove("Authentication__Administrator__Password");
+        settings.Remove("Authentication__Administrator__Email");
 
         await using var process = await ApiServerProcess.StartAsync(
             "Production",
