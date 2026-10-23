@@ -23,6 +23,27 @@ public sealed class Hotel
         return new Hotel(Guid.CreateVersion7(), details, nowUtc);
     }
 
+    public static Hotel Restore(Guid id, HotelDetails details, bool isActive, DateTime createdAtUtc, DateTime updatedAtUtc)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new DomainValidationException("A stored hotel requires an identifier.");
+        }
+
+        RequireUtc(createdAtUtc);
+        RequireUtc(updatedAtUtc);
+        if (updatedAtUtc < createdAtUtc)
+        {
+            throw new DomainValidationException("A hotel cannot be updated before it was created.");
+        }
+
+        return new Hotel(id, details, createdAtUtc)
+        {
+            IsActive = isActive,
+            UpdatedAtUtc = updatedAtUtc
+        };
+    }
+
     public void Update(HotelDetails details, DateTime nowUtc)
     {
         RequireUtc(nowUtc);

@@ -165,4 +165,43 @@ public class HotelTests
         Assert.False(hotel.IsActive);
         Assert.Equal(LaterAt, hotel.UpdatedAtUtc);
     }
+
+    [Fact]
+    public void Restore_RebuildsStoredHotelWithoutChangingValues()
+    {
+        var id = Guid.NewGuid();
+
+        var hotel = Hotel.Restore(id, Details(), false, CreatedAt, LaterAt);
+
+        Assert.Equal(id, hotel.Id);
+        Assert.Equal("Gran Hotel", hotel.Details.Name);
+        Assert.False(hotel.IsActive);
+        Assert.Equal(CreatedAt, hotel.CreatedAtUtc);
+        Assert.Equal(LaterAt, hotel.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public void Restore_WithEmptyIdentifier_IsRejected()
+    {
+        Assert.Throws<DomainValidationException>(
+            () => Hotel.Restore(Guid.Empty, Details(), true, CreatedAt, CreatedAt));
+    }
+
+    [Fact]
+    public void Restore_WithNonUtcTimestamp_IsRejected()
+    {
+        var local = new DateTime(2026, 10, 23, 12, 0, 0, DateTimeKind.Local);
+
+        Assert.Throws<DomainValidationException>(
+            () => Hotel.Restore(Guid.NewGuid(), Details(), true, local, LaterAt));
+        Assert.Throws<DomainValidationException>(
+            () => Hotel.Restore(Guid.NewGuid(), Details(), true, CreatedAt, local));
+    }
+
+    [Fact]
+    public void Restore_WithUpdateBeforeCreation_IsRejected()
+    {
+        Assert.Throws<DomainValidationException>(
+            () => Hotel.Restore(Guid.NewGuid(), Details(), true, LaterAt, CreatedAt));
+    }
 }
