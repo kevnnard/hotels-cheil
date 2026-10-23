@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Npgsql;
 
 namespace HotelManagement.E2E.Tests;
@@ -18,8 +19,19 @@ public sealed class StartupCleanupTests
             return broken;
         }));
 
-        Assert.False(harness.IsProcessRunning);
+        AssertReleasedProcessIsGone(harness);
         Assert.Equal(0, await CountDatabasesAsync(harness.DatabaseName));
+    }
+
+    [Fact]
+    public async Task A_start_that_fails_after_the_process_is_up_leaves_no_running_process()
+    {
+        await using var harness = new ApiServerFixture();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.StartAsync(
+            failAfterStart: () => throw new InvalidOperationException("the harness failed after the server started")));
+
+        AssertReleasedProcessIsGone(harness);
     }
 
     [Fact]
@@ -48,6 +60,26 @@ public sealed class StartupCleanupTests
 
         Assert.Same(startupFailure, thrown.InnerExceptions[0]);
         Assert.Same(cleanupFailure, thrown.InnerExceptions[1]);
+    }
+
+    private static void AssertReleasedProcessIsGone(ApiServerFixture harness)
+    {
+        var released = harness.ReleasedProcessId;
+        Assert.NotNull(released);
+        Assert.False(IsRunning(released!.Value), "The released API process must not be running.");
+    }
+
+    private static bool IsRunning(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return !process.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     private static async Task<int> CountDatabasesAsync(string name)

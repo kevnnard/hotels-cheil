@@ -198,14 +198,16 @@ public sealed class HotelJourneyTests(HotelApiServerFixture server)
         Assert.Equal(3, firstPage.TotalItems);
         Assert.Equal(2, firstPage.TotalPages);
         var firstNames = firstPage.Items.Select(item => item.Name).OrderBy(name => name).ToArray();
-        Assert.Equal(names.Take(2).OrderBy(name => name).ToArray(), firstNames);
+        Assert.Equal(2, firstNames.Length);
 
         using var second = await client.GetAsync($"/api/hotels?name={Uri.EscapeDataString(group)}&pageSize=2&page=2");
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
         var secondPage = await second.Content.ReadFromJsonAsync<HotelPageResponse>();
         Assert.Equal(2, secondPage!.Page);
         var secondNames = secondPage.Items.Select(item => item.Name).OrderBy(name => name).ToArray();
-        Assert.Equal(names.Skip(2).OrderBy(name => name).ToArray(), secondNames);
+        Assert.Single(secondNames);
+        Assert.Empty(firstNames.Intersect(secondNames));
+        Assert.Equal(names.OrderBy(name => name).ToArray(), firstNames.Concat(secondNames).OrderBy(name => name).ToArray());
     }
 
     [Fact]

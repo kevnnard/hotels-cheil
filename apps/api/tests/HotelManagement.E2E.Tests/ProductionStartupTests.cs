@@ -40,4 +40,46 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
             process.RawCapturedOutput.Contains(server.AdministratorPassword, StringComparison.Ordinal),
             "The startup output must not contain the administrator password.");
     }
+
+    [Fact]
+    public async Task The_startup_failure_message_keeps_the_fatal_output_of_the_process()
+    {
+        var settings = server.StartupSettings();
+        settings.Remove("Authentication__Jwt__SigningKey");
+
+        await using var process = await ApiServerProcess.StartAsync(
+            "Production",
+            settings,
+            removeFromEnvironment: ["Authentication__Jwt__SigningKey"]);
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => process.WaitForAddressAsync(TimeSpan.FromSeconds(30)));
+
+        Assert.Contains("Authentication:Jwt:SigningKey is required outside development", failure.Message);
+    }
+
+    [Fact]
+    public async Task The_api_refuses_to_start_when_a_prefixed_inherited_signing_key_reaches_it()
+    {
+        var settings = server.StartupSettings();
+        settings.Remove("Authentication__Jwt__SigningKey");
+
+        Environment.SetEnvironmentVariable("DOTNET_Authentication__Jwt__SigningKey", "inherited-prefixed-signing-key-0123456789");
+
+        try
+        {
+            await using var process = await ApiServerProcess.StartAsync(
+                "Production",
+                settings,
+                removeFromEnvironment: ["Authentication__Jwt__SigningKey"]);
+            await process.WaitForExitAsync(TimeSpan.FromSeconds(20));
+
+            Assert.NotEqual(0, process.ExitCode);
+            Assert.Contains("Authentication:Jwt:SigningKey is required outside development", process.CapturedOutput);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DOTNET_Authentication__Jwt__SigningKey", null);
+        }
+    }
 }

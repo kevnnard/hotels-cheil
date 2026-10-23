@@ -26,9 +26,12 @@ public sealed class ApiServerFixture : IAsyncDisposable
 
     public bool IsProcessRunning => server is not null && !server.HasExited;
 
+    public int? ReleasedProcessId { get; private set; }
+
     public async Task StartAsync(
         Func<IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>>? configure = null,
-        Func<PostgresDatabaseFixture, Task>? initializeDatabase = null)
+        Func<PostgresDatabaseFixture, Task>? initializeDatabase = null,
+        Func<Task>? failAfterStart = null)
     {
         try
         {
@@ -50,6 +53,11 @@ public sealed class ApiServerFixture : IAsyncDisposable
             server = await ApiServerProcess.StartAsync("Production", settings);
             baseAddress = await server.WaitForAddressAsync(TimeSpan.FromSeconds(60));
             await WaitUntilHealthyAsync();
+
+            if (failAfterStart is not null)
+            {
+                await failAfterStart();
+            }
         }
         catch (Exception startupFailure)
         {
@@ -76,6 +84,7 @@ public sealed class ApiServerFixture : IAsyncDisposable
         {
             if (server is not null)
             {
+                ReleasedProcessId = server.ProcessId;
                 await server.DisposeAsync();
             }
         }
@@ -152,6 +161,7 @@ public sealed class ApiServerFixture : IAsyncDisposable
         {
             if (Server.HasExited)
             {
+                await Server.WaitForOutputAsync();
                 throw new InvalidOperationException(
                     $"The API process exited with code {Server.ExitCode}. Output: {Server.CapturedOutput}");
             }

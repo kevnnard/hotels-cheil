@@ -8,11 +8,12 @@ namespace HotelManagement.E2E.Tests;
 public sealed class ApiServerProcess : IAsyncDisposable
 {
     private static readonly TimeSpan TerminationTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan OutputDrainTimeout = TimeSpan.FromSeconds(5);
     private static readonly Regex ListeningAddress = new(@"Now listening on: (?<url>http://\S+)", RegexOptions.Compiled);
+    private static readonly string[] ConfigurationPrefixes = ["DOTNET_", "ASPNETCORE_"];
 
     private readonly Process process;
-    private readonly StringBuilder captured = new();
-    private readonly object capturedLock = new();
+    private readonly ProcessOutputCollector output = new(2);
     private readonly string[] secrets;
     private readonly TaskCompletionSource<string> listeningAddress = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -26,29 +27,13 @@ public sealed class ApiServerProcess : IAsyncDisposable
 
     public bool HasExited => process.HasExited;
 
+    public int ProcessId => process.Id;
+
     public int ExitCode => process.HasExited ? process.ExitCode : -1;
 
-    public string CapturedOutput
-    {
-        get
-        {
-            lock (capturedLock)
-            {
-                return Redact(captured.ToString());
-            }
-        }
-    }
+    public string CapturedOutput => Redact(output.Text);
 
-    public string RawCapturedOutput
-    {
-        get
-        {
-            lock (capturedLock)
-            {
-                return captured.ToString();
-            }
-        }
-    }
+    public string RawCapturedOutput => output.Text;
 
     public static Task<ApiServerProcess> StartAsync(
         string environment,
@@ -70,8 +55,6 @@ public sealed class ApiServerProcess : IAsyncDisposable
         startInfo.ArgumentList.Add(assembly);
         startInfo.ArgumentList.Add("--urls");
         startInfo.ArgumentList.Add("http://127.0.0.1:0");
-        startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = environment;
-        startInfo.Environment["DOTNET_ENVIRONMENT"] = environment;
 
         var controlled = new HashSet<string>(StringComparer.Ordinal);
         foreach (var key in (removeFromEnvironment ?? Array.Empty<string>()).Concat(settings.Keys))
@@ -79,13 +62,18 @@ public sealed class ApiServerProcess : IAsyncDisposable
             controlled.Add(Normalize(key));
         }
 
+        controlled.Add(Normalize("urls"));
+
         foreach (var inherited in startInfo.Environment.Keys.ToArray())
         {
-            if (controlled.Contains(Normalize(inherited)))
+            if (controlled.Contains(Normalize(StripConfigurationPrefix(inherited))))
             {
                 startInfo.Environment.Remove(inherited);
             }
         }
+
+        startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = environment;
+        startInfo.Environment["DOTNET_ENVIRONMENT"] = environment;
 
         foreach (var setting in settings)
         {
@@ -118,6 +106,7 @@ public sealed class ApiServerProcess : IAsyncDisposable
         {
             if (process.HasExited)
             {
+                await WaitForOutputAsync();
                 throw new InvalidOperationException(
                     $"The API process exited with code {process.ExitCode} before it reported its address. Output: {CapturedOutput}");
             }
@@ -131,6 +120,18 @@ public sealed class ApiServerProcess : IAsyncDisposable
         }
 
         throw new TimeoutException($"The API process did not report its listening address. Output: {CapturedOutput}");
+    }
+
+    public async Task WaitForOutputAsync()
+    {
+        using var cancellation = new CancellationTokenSource(OutputDrainTimeout);
+        try
+        {
+            await output.Completion.WaitAsync(cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     public async Task WaitForExitAsync(TimeSpan timeout)
@@ -178,23 +179,35 @@ public sealed class ApiServerProcess : IAsyncDisposable
     {
         if (arguments.Data is null)
         {
+            output.SignalEndOfStream();
             return;
         }
 
-        lock (capturedLock)
+        output.Append(arguments.Data);
+
+        var match = ListeningAddress.Match(arguments.Data);
+        if (match.Success)
         {
-            captured.AppendLine(arguments.Data);
-            var match = ListeningAddress.Match(arguments.Data);
-            if (match.Success)
-            {
-                listeningAddress.TrySetResult(match.Groups["url"].Value);
-            }
+            listeningAddress.TrySetResult(match.Groups["url"].Value);
         }
     }
 
     private string Redact(string text) => SecretRedactor.Redact(text, secrets);
 
     private static string Normalize(string key) => key.Replace("__", ":").ToLowerInvariant();
+
+    private static string StripConfigurationPrefix(string key)
+    {
+        foreach (var prefix in ConfigurationPrefixes)
+        {
+            if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return key[prefix.Length..];
+            }
+        }
+
+        return key;
+    }
 
     private static string ApiAssemblyPath()
     {
