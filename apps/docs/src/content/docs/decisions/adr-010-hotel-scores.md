@@ -45,6 +45,10 @@ Replacing the vote matches the answer given for the repeat-rating question and k
 
 The domain does not guarantee uniqueness or atomicity across requests. Those guarantees depend on a PostgreSQL unique constraint on the hotel and user pair and on atomic writes. Both are Planned for the persistence task and must not be described as enforced until they exist and are tested.
 
+## Related
+
+Hotel field limits and format rules are documented in [Hotel domain rules](/hotel-domain/).
+
 ## Future improvements
 
 - Enforce the unique constraint and an atomic upsert in persistence, with concurrency tests.
