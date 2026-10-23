@@ -61,24 +61,30 @@ public sealed class IdentityBootstrapHostedService(
         using var scope = scopeFactory.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-        if (await users.FindByEmailAsync(settings.Email) is not null)
+        var administrator = await users.FindByEmailAsync(settings.Email);
+
+        if (administrator is null)
         {
-            logger.LogInformation("The administrator account already exists.");
-            return;
+            administrator = new ApplicationUser
+            {
+                Id = Guid.CreateVersion7(),
+                UserName = settings.Email,
+                Email = settings.Email,
+                EmailConfirmed = true
+            };
+
+            var created = await users.CreateAsync(administrator, settings.Password);
+            if (!created.Succeeded)
+            {
+                throw new InvalidOperationException($"The administrator account could not be created: {Describe(created)}");
+            }
+
+            logger.LogInformation("The administrator account was created.");
         }
 
-        var administrator = new ApplicationUser
+        if (await users.IsInRoleAsync(administrator, HotelRoles.Administrator))
         {
-            Id = Guid.CreateVersion7(),
-            UserName = settings.Email,
-            Email = settings.Email,
-            EmailConfirmed = true
-        };
-
-        var created = await users.CreateAsync(administrator, settings.Password);
-        if (!created.Succeeded)
-        {
-            throw new InvalidOperationException($"The administrator account could not be created: {Describe(created)}");
+            return;
         }
 
         var assigned = await users.AddToRoleAsync(administrator, HotelRoles.Administrator);
@@ -87,7 +93,7 @@ public sealed class IdentityBootstrapHostedService(
             throw new InvalidOperationException($"The administrator role could not be assigned: {Describe(assigned)}");
         }
 
-        logger.LogInformation("The administrator account was created.");
+        logger.LogInformation("The administrator role was assigned to an existing account.");
     }
 
     private static string Describe(IdentityResult result) =>

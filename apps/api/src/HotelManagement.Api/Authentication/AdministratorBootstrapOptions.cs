@@ -10,11 +10,19 @@ public sealed class AdministratorBootstrapOptions
 
     public bool IsConfigured => Email.Length > 0 && Password.Length > 0;
 
+    public bool IsPartiallyConfigured => (Email.Length > 0) != (Password.Length > 0);
+
     public static AdministratorBootstrapOptions Resolve(IConfiguration configuration)
     {
         var options = new AdministratorBootstrapOptions();
         configuration.GetSection(SectionName).Bind(options);
         options.Email = options.Email.Trim();
+
+        if (options.IsPartiallyConfigured)
+        {
+            throw new InvalidOperationException($"{SectionName} must define both Email and Password.");
+        }
+
         return options;
     }
 }

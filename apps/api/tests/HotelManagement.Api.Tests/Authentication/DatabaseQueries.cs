@@ -15,4 +15,21 @@ internal static class DatabaseQueries
         await command.ExecuteNonQueryAsync();
     }
 
+    public static async Task<int> CountAdministratorsAsync(string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            "SELECT count(*) FROM \"AspNetUserRoles\" ur JOIN \"AspNetRoles\" r ON r.id = ur.role_id WHERE r.name = 'Administrator'",
+            connection);
+        return Convert.ToInt32(await command.ExecuteScalarAsync() ?? 0);
+    }
+
+    public static async Task<int> CountAccountsAsync(string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("SELECT count(*) FROM \"AspNetUsers\"", connection);
+        return Convert.ToInt32(await command.ExecuteScalarAsync() ?? 0);
+    }
 }
