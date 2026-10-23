@@ -5,7 +5,7 @@ description: Decision to authenticate with ASP.NET Core Identity, short-lived si
 
 ## Status
 
-Implemented and tested: 26 HTTP tests run against a real PostgreSQL 17 database through the in-process server, covering registration, sign in, the signed-in account, logout revocation, expired tokens, foreign signatures, foreign audiences, foreign issuers, unknown sessions, sessions owned by another account, concurrent registrations, role assignment, the administrator bootstrap and the four hotel policies. Application, persistence and domain suites add 132 passing tests. The production configuration refuses to start without a signing key and the administrator credentials.
+Implemented and tested: 30 HTTP tests run against a real PostgreSQL 17 database through the in-process server, covering registration, sign in, the signed-in account, logout revocation, expired tokens, foreign signatures, foreign audiences, foreign issuers, unknown sessions, sessions owned by another account, concurrent registrations, role assignment, the administrator bootstrap and the four hotel policies. Application, persistence and domain suites add 134 passing tests. The API refuses to start without the signing key outside development, and the production Compose overlay additionally requires the administrator credentials.
 
 ## Problem
 
@@ -28,8 +28,8 @@ The administrative API must know who calls it, must be able to end a session imm
 - There are no refresh tokens. A caller that needs a new token signs in again and opens a new session.
 - Roles are `Administrator` and `User`. Policies are `hotels.read` for both and `hotels.create`, `hotels.update` and `hotels.delete` for administrators only.
 - Public registration always assigns the `User` role. The first administrator is provisioned from `Authentication:Administrator:Email` and `Authentication:Administrator:Password`, applied at startup, so the endpoint can never grant administrator rights. Both settings are read as a pair and a half-configured pair stops the API from starting. Every start repairs the role of an existing account, so an interrupted provisioning cannot leave the account without it.
-- The account store reports a lost registration race as a duplicate email instead of a database error, so two concurrent registrations answer `201` and `409`.
-- The administrator bootstrap lives in the infrastructure layer. The API project registers it and never writes accounts or roles itself.
+- The account store reports a lost registration race as a duplicate email instead of a database error, so two concurrent registrations answer `201` and `409`. Only the unique indexes of the account table are read that way; any other constraint failure surfaces as an error.
+- The administrator bootstrap lives in the infrastructure layer. The API project registers it and never writes accounts or roles itself. A guard test keeps the API assembly free of the account persistence types.
 - The signing key comes from `Authentication:Jwt:SigningKey` and is mandatory outside development. In development an ephemeral key is generated at startup, which invalidates previous tokens on restart and avoids shipping a default secret.
 - Emails are normalized (trimmed and lowercased) and unique; Identity enforces uniqueness, the Domain rules enforce the format and the 254 character limit.
 
