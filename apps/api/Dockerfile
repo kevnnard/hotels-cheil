@@ -20,6 +20,12 @@ FROM restore AS publish
 COPY apps/api/src ./src
 RUN dotnet publish src/HotelManagement.Api/HotelManagement.Api.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
 
+FROM restore AS migrator
+COPY apps/api/.config ./.config
+COPY apps/api/src ./src
+RUN dotnet tool restore && dotnet build src/HotelManagement.Infrastructure/HotelManagement.Infrastructure.csproj
+ENTRYPOINT ["dotnet", "ef", "database", "update", "--project", "src/HotelManagement.Infrastructure", "--startup-project", "src/HotelManagement.Infrastructure", "--no-build"]
+
 FROM mcr.microsoft.com/dotnet/aspnet:${RUNTIME_VERSION} AS runtime
 WORKDIR /app
 COPY --from=publish /app/publish ./

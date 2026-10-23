@@ -59,7 +59,9 @@ Two variants share `compose.yaml`. Each has its own project name and therefore i
 | Development | `docker compose --env-file .env.dev -f compose.yaml -f compose.dev.yaml up --build` | SDK stage with `dotnet watch`; PostgreSQL published on `127.0.0.1` only |
 | Production check | `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml config` | Non-root runtime image; no PostgreSQL host port; nothing is deployed |
 
-Build the production image with `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml build`. The API waits for the database health check. Missing secrets stop Compose with an error.
+Both variants share the base file, which declares a `migrator` service next to the database and the API. It applies the pending migrations once and exits, and the API starts only after it succeeds. The runtime image never changes the schema by itself.
+
+Build the production image with `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml build`. The API waits for the database health check and for the migration. Missing secrets stop Compose with an error.
 
 ## Manual execution with PostgreSQL
 
