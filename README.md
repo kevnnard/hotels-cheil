@@ -2,7 +2,7 @@
 
 Full-stack application to administer and browse hotels, built as an interview validation exercise. Delivery date: 2026-10-28.
 
-Current status: the agent instruction system, documentation skeleton, .NET 10 API skeleton, hotel/rating domain rules and PostgreSQL persistence layer exist. The API still exposes only `/health`; HTTP hotel features, authentication, sessions, policies and the frontend remain planned.
+Current status: the agent instruction system, documentation skeleton, .NET 10 API skeleton, hotel/rating domain rules, PostgreSQL persistence layer and authentication exist. The API exposes `/health` and the authentication endpoints; hotel CRUD over HTTP and the frontend remain planned.
 
 ## Quick path
 
@@ -22,7 +22,7 @@ dotnet run --project apps/api/src/HotelManagement.Api --launch-profile http
 
 For reload on changes use `dotnet watch --project apps/api/src/HotelManagement.Api --launch-profile http`.
 
-Open <http://localhost:5080/health>. Expected response: status `200`, body `Healthy`. The profile is plain HTTP for local development only; there is no TLS or authentication. Docker Compose files and an API image are available and verified for development and production configuration. The API is not yet wired to PostgreSQL, so the Compose stack currently starts the database and health-only API; hotel HTTP features remain Planned.
+Open <http://localhost:5080/health>. Expected response: status `200`, body `Healthy`. The profile is plain HTTP for local development only; there is no TLS. The API needs PostgreSQL and the authentication settings: export `ConnectionStrings__Hotels`, `Authentication__Jwt__Issuer` and `Authentication__Jwt__Audience`, apply the migrations and start the process. See [Development](apps/docs/src/content/docs/development.md) and [Authentication](apps/docs/src/content/docs/authentication.md). Docker Compose files and an API image are available and verified for development and production configuration.
 
 ## Status legend
 
@@ -42,7 +42,8 @@ Open <http://localhost:5080/health>. Expected response: status `200`, body `Heal
 | Documentation skeleton and ADRs (content only, no Starlight project) | Implemented |
 | `apps/api` four-project skeleton with `/health` and pinned .NET 10 SDK | Implemented |
 | `apps/api` hotel domain rules and PostgreSQL persistence | Implemented |
-| `apps/api` hotel HTTP features and authentication | Planned |
+| `apps/api` authentication, sessions and authorization policies | Implemented |
+| `apps/api` hotel HTTP features | Planned |
 | `apps/web` Angular application | Planned |
 | `apps/docs` Astro Starlight project | Planned |
 | `compose.yaml`, development/production variants, API Dockerfile and environment samples | Implemented |
@@ -67,6 +68,7 @@ Pages live in `apps/docs/src/content/docs/` so a Starlight project can adopt the
 - [Introduction](apps/docs/src/content/docs/index.md)
 - [Architecture](apps/docs/src/content/docs/architecture.md)
 - [Development, configuration, testing and deployment](apps/docs/src/content/docs/development.md)
+- [Authentication, sessions and policies](apps/docs/src/content/docs/authentication.md)
 - [Working with agents](apps/docs/src/content/docs/agents.md)
 
 Architecture decision records:
@@ -82,7 +84,8 @@ Architecture decision records:
 - [ADR-009 .NET 10 SDK](apps/docs/src/content/docs/decisions/adr-009-dotnet-10-sdk.md)
 - [ADR-010 User scores and one replaceable rating per user](apps/docs/src/content/docs/decisions/adr-010-hotel-scores.md)
 - [ADR-011 PostgreSQL persistence for hotels and ratings](apps/docs/src/content/docs/decisions/adr-011-postgresql-persistence.md)
+- [ADR-012 Identity, JWT and revocable sessions](apps/docs/src/content/docs/decisions/adr-012-identity-jwt-and-revocable-sessions.md)
 
 ## Pending decisions
 
-Versions (Angular, Node, Tailwind, Starlight), allowed image formats and limits, the unit of "400 KB", the authentication transport. See [Working with agents](apps/docs/src/content/docs/agents.md).
+Versions (Angular, Node, Tailwind, Starlight), allowed image formats and limits and the unit of "400 KB". See [Working with agents](apps/docs/src/content/docs/agents.md).

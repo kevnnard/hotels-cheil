@@ -3,7 +3,7 @@ title: Development
 description: Requirements, setup, configuration, testing, build and deployment, with the status of each item.
 ---
 
-The API skeleton and its PostgreSQL persistence layer exist. The API does not use the database yet: `Program.cs` only serves `/health`. Status per item is given below; anything not marked Implemented is Planned.
+The API skeleton, its PostgreSQL persistence layer and the authentication endpoints exist. The API uses the database and requires the connection string to start. Hotel CRUD over HTTP remains Planned. Status per item is given below; anything not marked Implemented is Planned.
 
 ## Requirements
 
@@ -27,7 +27,17 @@ dotnet build apps/api/HotelManagement.slnx
 dotnet run --project apps/api/src/HotelManagement.Api --launch-profile http
 ```
 
-The API listens on `http://localhost:5080`, a development-only HTTP profile with no TLS and no authentication. `GET /health` returns `200` with the body `Healthy`. Use `dotnet watch --project apps/api/src/HotelManagement.Api --launch-profile http` to reload on changes.
+The API listens on `http://localhost:5080`, a development-only HTTP profile with no TLS. `GET /health` returns `200` with the body `Healthy`. Use `dotnet watch --project apps/api/src/HotelManagement.Api --launch-profile http` to reload on changes.
+
+The API now needs PostgreSQL and the authentication settings. Export the connection string and the JWT issuer and audience before starting it:
+
+```bash
+export ConnectionStrings__Hotels="Host=localhost;Port=5433;Database=hotels_dev;Username=hotels_dev;Password=<the password from .env.dev>"
+export Authentication__Jwt__Issuer=hotels-api
+export Authentication__Jwt__Audience=hotels-api-clients
+```
+
+The development launch profile already provides the issuer and the audience. The connection string has no default and must come from the environment. Apply the migrations before the first run, as described in Migrations.
 
 ## Environment files and secrets
 
@@ -62,11 +72,13 @@ set +a
 export ConnectionStrings__Hotels="Host=localhost;Port=${POSTGRES_HOST_PORT};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
 ```
 
-The connection string is only used by the migration tool and by code that calls `AddHotelPersistence`, which the API does not call yet.
+The connection string is used by the migration tool, by the API composition root and by the test fixtures. The API applies no migration at startup: the schema must be up to date before the process serves requests.
 
 ## Configuration
 
-Implemented: `appsettings.json`, `appsettings.Development.json`, the development launch profile and the environment samples `.env.dev.example` and `.env.prod.example`. Options Pattern and authentication settings remain Planned. Environment variables override ASP.NET Core configuration, using `__` for nesting (`ConnectionStrings__Hotels`). Secrets never enter Git.
+Implemented: `appsettings.json`, `appsettings.Development.json`, the development launch profile, the environment samples `.env.dev.example` and `.env.prod.example` and the authentication settings described in [Authentication](authentication.md). The Options Pattern is used for the JWT and the administrator bootstrap. Environment variables override ASP.NET Core configuration, using `__` for nesting (`ConnectionStrings__Hotels`, `Authentication__Jwt__SigningKey`). Secrets never enter Git.
+
+The environment samples list the database credentials and the ports. The authentication variables are documented in [Authentication](authentication.md): the issuer, the audience, the token lifetime, the signing key and the first administrator. The signing key and the administrator password have no default and are empty in the samples.
 
 ## Migrations
 
@@ -79,7 +91,7 @@ dotnet ef migrations add <Name> --project src/HotelManagement.Infrastructure --o
 dotnet ef database update --project src/HotelManagement.Infrastructure
 ```
 
-Source the environment and export `ConnectionStrings__Hotels` as shown above before `database update`. Generated migration files must have their comment headers removed to respect the zero comments policy.
+Source the environment and export `ConnectionStrings__Hotels` as shown above before `database update`. Generated migration files must have their comment headers removed to respect the zero comments policy. The API never migrates on startup, so run `database update` after every new migration.
 
 ## Testing
 
@@ -87,14 +99,16 @@ Source the environment and export `ConnectionStrings__Hotels` as shown above bef
 |---|---|---|
 | Backend domain | xUnit unit tests: `dotnet test apps/api/tests/HotelManagement.Domain.Tests` | Implemented |
 | Backend persistence | xUnit against a real PostgreSQL 17 database (rows, constraints, concurrent ratings) | Implemented |
-| Backend services, authorization, images, HTTP integration | xUnit | Planned |
+| Backend application services | xUnit unit tests over the authentication use cases with in-memory doubles | Implemented |
+| Backend HTTP and authorization | xUnit over the real server against a real PostgreSQL 17 database (endpoints, tokens, revocation, policies) | Implemented |
 | Frontend | Component, form, service, interceptor, guard and filter tests, plus end-to-end tests for critical flows | Planned |
 | Instructions | `node .pi/scripts/verify-instructions.mjs` structural check | Implemented |
 
-Persistence tests need `HOTEL_TEST_CONNECTION` to point to a database named `hotels_test` on a disposable PostgreSQL 17 server. The suite creates and drops its own uniquely named database and fails, never skips, when the variable or server is missing:
+Persistence and HTTP tests need `HOTEL_TEST_CONNECTION` to point to a database named `hotels_test` on a disposable PostgreSQL 17 server. The suite creates and drops its own uniquely named database and fails, never skips, when the variable or server is missing:
 
 ```bash
 HOTEL_TEST_CONNECTION='<connection string with Database=hotels_test>' dotnet test apps/api/tests/HotelManagement.Infrastructure.Tests
+HOTEL_TEST_CONNECTION='<connection string with Database=hotels_test>' dotnet test apps/api/tests/HotelManagement.Api.Tests
 ```
 
 The instruction validator checks structure only: required files, frontmatter, sections, links, ADR sections, absence of machine paths, obvious secrets and comment syntax in the script. It cannot prove that an agent followed the rules.

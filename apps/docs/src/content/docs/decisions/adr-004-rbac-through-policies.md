@@ -5,7 +5,7 @@ description: Decision to authorize through ASP.NET Core policies with fixed init
 
 ## Status
 
-Planned. Authentication transport is a pending decision.
+Implemented: the four policies are registered in the API composition root, the roles are created at startup and the authorization rules are covered by tests. The authentication transport is decided in ADR-012.
 
 ## Problem
 

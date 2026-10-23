@@ -3,13 +3,13 @@ title: Architecture
 description: Layers, security model, image handling and implementation status.
 ---
 
-The backend domain rules and PostgreSQL persistence layer are implemented; HTTP features, authentication and frontend remain planned. The status column states what is Implemented, Planned, Considered or Discarded.
+The backend domain rules, PostgreSQL persistence layer and authentication are implemented; the hotel HTTP features and the frontend remain planned. The status column states what is Implemented, Planned, Considered or Discarded.
 
 ## Monorepo
 
 | Path | Purpose | Status |
 |---|---|---|
-| `apps/api` | ASP.NET Core modular monolith | Domain and persistence Implemented; HTTP/auth Planned |
+| `apps/api` | ASP.NET Core modular monolith | Domain, persistence and authentication Implemented; hotel HTTP Planned |
 | `apps/web` | Angular application | Planned |
 | `apps/docs` | Astro Starlight documentation | Planned |
 | `compose.yaml` | Container orchestration | API/PostgreSQL Implemented; web/docs Planned |
@@ -25,7 +25,7 @@ Applications stay independent. Documentation must not block the frontend or back
 | `HotelManagement.Infrastructure` | EF Core, DbContext, migrations, persistence, file storage, image processing | Application, Domain |
 | `HotelManagement.Api` | Controllers, middleware, authentication, policies, composition root, error handling | All, as composition root |
 
-The four projects compile with these references. Domain contains hotel and rating rules; Application defines the targeted persistence contract; Infrastructure contains EF Core mappings, migrations and the PostgreSQL store. Api still maps only `/health` and does not wire persistence or authentication yet.
+The four projects compile with these references. Domain contains hotel and rating rules; Application defines the targeted persistence contract and the authentication use cases; Infrastructure contains EF Core mappings, migrations, the PostgreSQL store, Identity and the session store; Api hosts the authentication endpoints, the token issuer, the policies and the composition root.
 
 Backend style: modular monolith, application services instead of CQRS (ADR-003), PostgreSQL through Npgsql (ADR-002).
 
@@ -38,9 +38,13 @@ Backend style: modular monolith, application services instead of CQRS (ADR-003),
 | Item | Status |
 |---|---|
 | Public catalog readable without authentication | Planned |
-| Policies `hotels.read`, `hotels.create`, `hotels.update`, `hotels.delete` | Planned |
-| Roles `Administrator` (manage hotels) and `User` (read) | Planned |
-| Authentication transport | Pending decision |
+| Policies `hotels.read`, `hotels.create`, `hotels.update`, `hotels.delete` | Implemented |
+| Roles `Administrator` (manage hotels) and `User` (read) | Implemented |
+| Authentication transport | Identity with signed access tokens and revocable sessions (ADR-012) |
+| Registration, sign in, signed-in account and logout endpoints | Implemented |
+| First administrator provisioned from the environment | Implemented |
+
+The API is the only caller of the hotel endpoints, so no public catalog is exposed yet.
 
 Frontend guards are navigation only. The backend enforces authorization (ADR-004).
 

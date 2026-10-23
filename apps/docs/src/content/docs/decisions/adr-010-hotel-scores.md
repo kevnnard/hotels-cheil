@@ -5,7 +5,7 @@ description: Decision to model user scores from 1 to 5 as a rule separate from o
 
 ## Status
 
-Domain rule Implemented in `HotelManagement.Domain` with unit tests. Persistence, the uniqueness constraint and atomic writes are Implemented and tested against PostgreSQL ([ADR-011](/decisions/adr-011-postgresql-persistence/)). HTTP exposure is Planned.
+Domain rule Implemented in `HotelManagement.Domain` with unit tests. Persistence, the uniqueness constraint and atomic writes are Implemented and tested against PostgreSQL ([ADR-011](adr-011-postgresql-persistence.md)). HTTP exposure is Planned.
 
 ## Problem
 
@@ -47,7 +47,7 @@ The domain does not guarantee uniqueness or atomicity across requests. Those gua
 
 ## Related
 
-Hotel field limits and format rules are documented in [Hotel domain rules](/hotel-domain/).
+Hotel field limits and format rules are documented in [Hotel domain rules](../hotel-domain.md).
 
 ## Future improvements
 
