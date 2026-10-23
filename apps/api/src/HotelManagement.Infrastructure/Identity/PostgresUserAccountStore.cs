@@ -28,7 +28,7 @@ public sealed class PostgresUserAccountStore(UserManager<ApplicationUser> users)
         {
             created = await users.CreateAsync(user, password);
         }
-        catch (DbUpdateException exception) when (IsUniqueViolation(exception))
+        catch (DbUpdateException exception) when (IsDuplicateAccountViolation(exception))
         {
             return AccountCreation.EmailAlreadyRegistered;
         }
@@ -76,8 +76,9 @@ public sealed class PostgresUserAccountStore(UserManager<ApplicationUser> users)
         return roles.ToArray();
     }
 
-    private static bool IsUniqueViolation(DbUpdateException exception) =>
-        exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+    private static bool IsDuplicateAccountViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres
+        && postgres.ConstraintName is "UserNameIndex" or "EmailIndex";
 
     private static string FailureMessage(IdentityResult result) =>
         string.Join(" ", result.Errors.Select(error => error.Description));

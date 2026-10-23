@@ -4,6 +4,7 @@ using HotelManagement.Infrastructure.Identity;
 using HotelManagement.Infrastructure.Tests.Persistence;
 using HotelManagement.TestSupport.Persistence;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HotelManagement.Infrastructure.Tests.Identity;
@@ -31,6 +32,42 @@ public class IdentityPersistenceTests(PostgresDatabaseFixture database)
         Assert.Equal(Email, found.Email);
         Assert.True(await accounts.ExistsAsync(Email, CancellationToken.None));
         Assert.Equal(new[] { HotelRoles.User }, await accounts.GetRolesAsync(userId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Create_WithAnEmailThatAlreadyExists_AnswersEmailAlreadyRegistered()
+    {
+        using var scope = database.Services.CreateScope();
+        var accounts = scope.ServiceProvider.GetRequiredService<IUserAccountStore>();
+        await SeedRoleAsync(scope, HotelRoles.User);
+        var created = await accounts.CreateAsync(Guid.CreateVersion7(), Email, Password, HotelRoles.User, CancellationToken.None);
+
+        var duplicate = await accounts.CreateAsync(Guid.CreateVersion7(), Email, Password, HotelRoles.User, CancellationToken.None);
+
+        Assert.Equal(AccountCreationStatus.Created, created.Status);
+        Assert.Equal(AccountCreationStatus.EmailAlreadyRegistered, duplicate.Status);
+    }
+
+    [Fact]
+    public async Task Create_WithAUserIdThatAlreadyExists_DoesNotReportADuplicateEmail()
+    {
+        var userId = Guid.CreateVersion7();
+        using (var scope = database.Services.CreateScope())
+        {
+            var accounts = scope.ServiceProvider.GetRequiredService<IUserAccountStore>();
+            await SeedRoleAsync(scope, HotelRoles.User);
+            await accounts.CreateAsync(userId, Email, Password, HotelRoles.User, CancellationToken.None);
+        }
+
+        using var second = database.Services.CreateScope();
+        var store = second.ServiceProvider.GetRequiredService<IUserAccountStore>();
+
+        await Assert.ThrowsAnyAsync<DbUpdateException>(() => store.CreateAsync(
+            userId,
+            $"{Guid.CreateVersion7()}@example.com",
+            Password,
+            HotelRoles.User,
+            CancellationToken.None));
     }
 
     [Fact]
