@@ -58,13 +58,17 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
         Assert.Contains("Authentication:Jwt:SigningKey is required outside development", failure.Message);
     }
 
-    [Fact]
-    public async Task The_api_refuses_to_start_when_a_prefixed_inherited_signing_key_reaches_it()
+    [Theory]
+    [InlineData("DOTNET_")]
+    [InlineData("ASPNETCORE_")]
+    public async Task The_api_refuses_to_start_when_a_prefixed_inherited_signing_key_reaches_it(string prefix)
     {
         var settings = server.StartupSettings();
         settings.Remove("Authentication__Jwt__SigningKey");
 
-        Environment.SetEnvironmentVariable("DOTNET_Authentication__Jwt__SigningKey", "inherited-prefixed-signing-key-0123456789");
+        var variable = $"{prefix}Authentication__Jwt__SigningKey";
+        var previous = Environment.GetEnvironmentVariable(variable);
+        Environment.SetEnvironmentVariable(variable, "inherited-prefixed-signing-key-0123456789");
 
         try
         {
@@ -79,7 +83,7 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
         }
         finally
         {
-            Environment.SetEnvironmentVariable("DOTNET_Authentication__Jwt__SigningKey", null);
+            Environment.SetEnvironmentVariable(variable, previous);
         }
     }
 }
