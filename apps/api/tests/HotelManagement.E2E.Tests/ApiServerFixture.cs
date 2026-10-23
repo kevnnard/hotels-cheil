@@ -26,12 +26,21 @@ public sealed class ApiServerFixture : IAsyncDisposable
 
     public bool IsProcessRunning => server is not null && !server.HasExited;
 
-    public async Task StartAsync(Func<IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>>? configure = null)
+    public async Task StartAsync(
+        Func<IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>>? configure = null,
+        Func<PostgresDatabaseFixture, Task>? initializeDatabase = null)
     {
-        await database.InitializeAsync();
-
         try
         {
+            if (initializeDatabase is null)
+            {
+                await database.InitializeAsync();
+            }
+            else
+            {
+                await initializeDatabase(database);
+            }
+
             IReadOnlyDictionary<string, string> settings = StartupSettings();
             if (configure is not null)
             {

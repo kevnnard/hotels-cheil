@@ -22,6 +22,21 @@ public sealed class StartupCleanupTests
         Assert.Equal(0, await CountDatabasesAsync(harness.DatabaseName));
     }
 
+    [Fact]
+    public async Task A_start_that_fails_while_the_database_is_created_releases_the_database()
+    {
+        var harness = new ApiServerFixture();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.StartAsync(
+            initializeDatabase: async database =>
+            {
+                await database.InitializeAsync();
+                throw new InvalidOperationException("the schema migration failed");
+            }));
+
+        Assert.Equal(0, await CountDatabasesAsync(harness.DatabaseName));
+    }
+
     private static async Task<int> CountDatabasesAsync(string name)
     {
         var administrative = Environment.GetEnvironmentVariable("HOTEL_TEST_CONNECTION");
