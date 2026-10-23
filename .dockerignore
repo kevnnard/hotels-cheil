@@ -15,7 +15,7 @@
 **/*.p12
 **/secrets
 **/TestResults
-AGENTS.md
+/AGENTS.md
 README.md
 compose*.yaml
 apps/docs
