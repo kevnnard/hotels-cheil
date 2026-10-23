@@ -407,17 +407,24 @@ public class HotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
         return Convert.ToInt32(await command.ExecuteScalarAsync() ?? 0);
     }
 
-    private async Task<(string Name, int RatingCount, decimal RatingSum)> SnapshotAsync(Guid hotelId)
+    private async Task<(string Hotel, string Ratings)> SnapshotAsync(Guid hotelId)
     {
         await using var connection = new NpgsqlConnection(api.ConnectionString);
         await connection.OpenAsync();
-        await using var command = new NpgsqlCommand(
-            "SELECT h.name, count(r.hotel_id), coalesce(sum(r.score), 0) FROM hotels h LEFT JOIN hotel_ratings r ON r.hotel_id = h.id WHERE h.id = @id GROUP BY h.name",
+
+        await using var hotelCommand = new NpgsqlCommand(
+            "SELECT coalesce(to_jsonb(h), 'null'::jsonb)::text FROM hotels h WHERE h.id = @id",
             connection);
-        command.Parameters.AddWithValue("id", hotelId);
-        await using var reader = await command.ExecuteReaderAsync();
-        Assert.True(await reader.ReadAsync());
-        return (reader.GetString(0), reader.GetInt32(1), reader.GetDecimal(2));
+        hotelCommand.Parameters.AddWithValue("id", hotelId);
+        var hotel = (string?)await hotelCommand.ExecuteScalarAsync() ?? "<missing>";
+
+        await using var ratingCommand = new NpgsqlCommand(
+            "SELECT coalesce(json_agg(json_build_object('userId', user_id, 'score', score) ORDER BY user_id), '[]'::json)::text FROM hotel_ratings WHERE hotel_id = @id",
+            connection);
+        ratingCommand.Parameters.AddWithValue("id", hotelId);
+        var ratings = (string?)await ratingCommand.ExecuteScalarAsync() ?? "[]";
+
+        return (hotel, ratings);
     }
 
     private static async Task<HotelView> ReadHotelAsync(HttpResponseMessage response) =>
