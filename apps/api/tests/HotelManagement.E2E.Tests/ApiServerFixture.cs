@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography;
 using HotelManagement.TestSupport.Persistence;
 using Npgsql;
 
@@ -10,15 +11,14 @@ public sealed class ApiServerFixture : IAsyncDisposable
 {
     private const string Issuer = "hotels-e2e";
     private const string Audience = "hotels-e2e-clients";
-    private const string SigningKey = "hotels-e2e-signing-key-0123456789abcdefghijklmnop";
-
     private readonly PostgresDatabaseFixture database = new();
+    private readonly string signingKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
     private ApiServerProcess? server;
     private Uri? baseAddress;
 
     public string AdministratorEmail { get; } = $"admin-{Guid.NewGuid():N}@hotels.test";
 
-    public string AdministratorPassword { get; } = "Administrator1";
+    public string AdministratorPassword { get; } = $"Aa1{Convert.ToHexString(RandomNumberGenerator.GetBytes(16))}";
 
     public string DatabaseName => database.DatabaseName;
 
@@ -45,12 +45,13 @@ public sealed class ApiServerFixture : IAsyncDisposable
             }
 
             IReadOnlyDictionary<string, string> settings = StartupSettings();
+            var controlled = settings.Keys.ToArray();
             if (configure is not null)
             {
                 settings = configure(settings);
             }
 
-            server = await ApiServerProcess.StartAsync("Production", settings);
+            server = await ApiServerProcess.StartAsync("Production", settings, controlled);
             baseAddress = await server.WaitForAddressAsync(TimeSpan.FromSeconds(60));
             await WaitUntilHealthyAsync();
 
@@ -100,7 +101,7 @@ public sealed class ApiServerFixture : IAsyncDisposable
         ["ConnectionStrings__Hotels"] = database.ConnectionString,
         ["Authentication__Jwt__Issuer"] = Issuer,
         ["Authentication__Jwt__Audience"] = Audience,
-        ["Authentication__Jwt__SigningKey"] = SigningKey,
+        ["Authentication__Jwt__SigningKey"] = signingKey,
         ["Authentication__Jwt__AccessTokenLifetimeMinutes"] = "15",
         ["Authentication__Administrator__Email"] = AdministratorEmail,
         ["Authentication__Administrator__Password"] = AdministratorPassword

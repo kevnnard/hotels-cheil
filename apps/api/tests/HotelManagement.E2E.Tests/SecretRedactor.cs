@@ -1,8 +1,9 @@
+using System.Text.RegularExpressions;
 using Npgsql;
 
 namespace HotelManagement.E2E.Tests;
 
-internal static class SecretRedactor
+internal static partial class SecretRedactor
 {
     private const int LongValueLength = 12;
     private const int SensitiveValueLength = 4;
@@ -45,9 +46,13 @@ internal static class SecretRedactor
         {
             return new NpgsqlConnectionStringBuilder(connectionString).Password ?? string.Empty;
         }
-        catch (ArgumentException)
+        catch (Exception exception) when (exception is ArgumentException or FormatException or InvalidOperationException)
         {
-            return string.Empty;
+            var match = PasswordPair().Match(connectionString);
+            return match.Success ? match.Groups["value"].Value : string.Empty;
         }
     }
+
+    [GeneratedRegex(@"(?:^|;)\s*Password\s*=\s*(?<value>[^;]*)", RegexOptions.IgnoreCase)]
+    private static partial Regex PasswordPair();
 }

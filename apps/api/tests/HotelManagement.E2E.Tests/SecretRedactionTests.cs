@@ -55,4 +55,30 @@ public sealed class SecretRedactionTests
 
         Assert.Equal("the issuer is hotels-e2e and the lifetime is 15", redacted);
     }
+
+    [Theory]
+    [InlineData("Host=db;Port=not-a-port;Username=hotels;Password=s3cret-value")]
+    [InlineData("Host=db;Bogus=1;Password=s3cret-value")]
+    [InlineData("Host=db;Password=s3cret-value;;==;")]
+    public void The_redaction_removes_the_password_of_a_connection_string_the_parser_rejects(string connectionString)
+    {
+        var settings = new Dictionary<string, string> { ["ConnectionStrings__Hotels"] = connectionString };
+
+        var redacted = SecretRedactor.Redact("the database said s3cret-value", SecretRedactor.Secrets(settings));
+
+        Assert.DoesNotContain("s3cret-value", redacted);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not a connection string")]
+    [InlineData("Host=db;Database=hotels")]
+    public void The_redaction_survives_a_connection_string_without_a_password(string connectionString)
+    {
+        var settings = new Dictionary<string, string> { ["ConnectionStrings__Hotels"] = connectionString };
+
+        var redacted = SecretRedactor.Redact("the database said hello", SecretRedactor.Secrets(settings));
+
+        Assert.Equal("the database said hello", redacted);
+    }
 }

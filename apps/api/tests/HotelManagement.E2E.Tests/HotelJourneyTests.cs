@@ -236,6 +236,84 @@ public sealed class HotelJourneyTests(HotelApiServerFixture server)
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
     }
 
+    [Fact]
+    public async Task The_health_endpoint_answers_healthy_without_authentication()
+    {
+        using var client = server.CreateClient();
+
+        using var response = await client.GetAsync("/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Healthy", await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("0.99")]
+    [InlineData("5.01")]
+    [InlineData("-1")]
+    [InlineData("100")]
+    public async Task A_rating_outside_the_range_is_rejected_and_not_stored(string score)
+    {
+        using var client = server.CreateClient();
+        var administrator = await SignInAsync(client, server.AdministratorEmail, server.AdministratorPassword);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", administrator.AccessToken);
+
+        using var create = await client.PostAsJsonAsync("/api/hotels", new { name = UniqueName("Unrated") });
+        var hotel = await create.Content.ReadFromJsonAsync<HotelResponse>();
+
+        using var rating = await client.PostAsync(
+            $"/api/hotels/{hotel!.Id}/ratings",
+            new StringContent($"{{\"score\":{score}}}", System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, rating.StatusCode);
+        Assert.Empty(await server.ReadRatingsAsync(hotel.Id));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task A_hotel_without_a_usable_name_is_rejected(string name)
+    {
+        using var client = server.CreateClient();
+        var administrator = await SignInAsync(client, server.AdministratorEmail, server.AdministratorPassword);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", administrator.AccessToken);
+
+        using var response = await client.PostAsJsonAsync("/api/hotels", new { name });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(0, await server.CountHotelsAsync(name));
+    }
+
+    [Fact]
+    public async Task A_hotel_name_longer_than_the_limit_is_rejected_and_not_stored()
+    {
+        using var client = server.CreateClient();
+        var administrator = await SignInAsync(client, server.AdministratorEmail, server.AdministratorPassword);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", administrator.AccessToken);
+        var name = new string('x', 201);
+
+        using var response = await client.PostAsJsonAsync("/api/hotels", new { name });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(0, await server.CountHotelsAsync(name));
+    }
+
+    [Fact]
+    public async Task A_hotel_update_with_an_invalid_name_is_rejected_and_keeps_the_stored_name()
+    {
+        using var client = server.CreateClient();
+        var administrator = await SignInAsync(client, server.AdministratorEmail, server.AdministratorPassword);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", administrator.AccessToken);
+        var name = UniqueName("Stable");
+        using var create = await client.PostAsJsonAsync("/api/hotels", new { name });
+        var hotel = await create.Content.ReadFromJsonAsync<HotelResponse>();
+
+        using var update = await client.PutAsJsonAsync($"/api/hotels/{hotel!.Id}", new { name = " " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, update.StatusCode);
+        Assert.Equal(name, await server.ReadHotelNameAsync(hotel.Id));
+    }
+
     private static async Task<SignInResponse> SignInAsync(HttpClient client, string email, string password)
     {
         using var response = await client.PostAsJsonAsync("/api/auth/login", new { email, password });

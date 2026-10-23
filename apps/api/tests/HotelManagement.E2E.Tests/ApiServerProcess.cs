@@ -38,7 +38,8 @@ public sealed class ApiServerProcess : IAsyncDisposable
     public static Task<ApiServerProcess> StartAsync(
         string environment,
         IReadOnlyDictionary<string, string> settings,
-        IReadOnlyCollection<string>? removeFromEnvironment = null)
+        IReadOnlyCollection<string>? removeFromEnvironment = null,
+        IReadOnlyDictionary<string, string>? inheritedEnvironment = null)
     {
         var assembly = ApiAssemblyPath();
 
@@ -55,6 +56,11 @@ public sealed class ApiServerProcess : IAsyncDisposable
         startInfo.ArgumentList.Add(assembly);
         startInfo.ArgumentList.Add("--urls");
         startInfo.ArgumentList.Add("http://127.0.0.1:0");
+
+        foreach (var inherited in inheritedEnvironment ?? new Dictionary<string, string>())
+        {
+            startInfo.Environment[inherited.Key] = inherited.Value;
+        }
 
         var controlled = new HashSet<string>(StringComparer.Ordinal);
         foreach (var key in (removeFromEnvironment ?? Array.Empty<string>()).Concat(settings.Keys))
@@ -138,6 +144,7 @@ public sealed class ApiServerProcess : IAsyncDisposable
     {
         using var cancellation = new CancellationTokenSource(timeout);
         await process.WaitForExitAsync(cancellation.Token);
+        await WaitForOutputAsync();
     }
 
     public async ValueTask DisposeAsync()

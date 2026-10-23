@@ -5,20 +5,22 @@ namespace HotelManagement.E2E.Tests;
 
 public sealed class StartupCleanupTests
 {
+    private const string SigningKeySetting = "Authentication__Jwt__SigningKey";
+    private const string SigningKeyGuard = "Authentication:Jwt:SigningKey is required outside development";
+
     [Fact]
     public async Task A_start_that_fails_releases_the_database_and_the_process()
     {
         await using var harness = new ApiServerFixture();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.StartAsync(settings =>
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => harness.StartAsync(settings =>
         {
-            var broken = new Dictionary<string, string>(settings)
-            {
-                ["ConnectionStrings__Hotels"] = "Host=127.0.0.1;Port=1;Database=hotels;Username=hotels;Password=unused"
-            };
+            var broken = new Dictionary<string, string>(settings);
+            broken.Remove(SigningKeySetting);
             return broken;
         }));
 
+        Assert.Contains(SigningKeyGuard, failure.Message);
         AssertReleasedProcessIsGone(harness);
         Assert.Equal(0, await CountDatabasesAsync(harness.DatabaseName));
     }

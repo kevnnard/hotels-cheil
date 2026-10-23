@@ -68,7 +68,11 @@ public sealed class PostgresDatabaseFixture : IAsyncLifetime
             return;
         }
 
-        NpgsqlConnection.ClearAllPools();
+        using (var pooled = new NpgsqlConnection(ConnectionString))
+        {
+            NpgsqlConnection.ClearPool(pooled);
+        }
+
         await ExecuteAdministrativeAsync($"DROP DATABASE IF EXISTS \"{databaseName}\" WITH (FORCE)");
     }
 
