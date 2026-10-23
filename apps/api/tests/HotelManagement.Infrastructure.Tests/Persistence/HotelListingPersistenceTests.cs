@@ -65,14 +65,42 @@ public class HotelListingPersistenceTests(PostgresDatabaseFixture database)
     }
 
     [Fact]
-    public async Task NameFilter_TreatsWildcardCharactersAsLiteralText()
+    public async Task NameFilter_TreatsThePercentSignAsLiteralText()
     {
         var token = NewToken();
-        await StoreHotelAsync($"{token} Plain");
-        var literal = await StoreHotelAsync($"{token}%_Literal");
+        var literal = await StoreHotelAsync($"{token}%Literal");
+        await StoreHotelAsync($"{token}AnyLiteral");
 
         var page = await database.CreateStore().ListAsync(
-            new HotelQuery { Name = $"{token}%_" },
+            new HotelQuery { Name = $"{token}%" },
+            CancellationToken.None);
+
+        Assert.Equal(literal, Assert.Single(page.Items).Id);
+    }
+
+    [Fact]
+    public async Task NameFilter_TreatsTheUnderscoreAsLiteralText()
+    {
+        var token = NewToken();
+        var literal = await StoreHotelAsync($"{token}_Literal");
+        await StoreHotelAsync($"{token}XLiteral");
+
+        var page = await database.CreateStore().ListAsync(
+            new HotelQuery { Name = $"{token}_" },
+            CancellationToken.None);
+
+        Assert.Equal(literal, Assert.Single(page.Items).Id);
+    }
+
+    [Fact]
+    public async Task NameFilter_TreatsTheBackslashAsLiteralText()
+    {
+        var token = NewToken();
+        var literal = await StoreHotelAsync($"{token}Back\\Slash");
+        await StoreHotelAsync($"{token}BackSlash");
+
+        var page = await database.CreateStore().ListAsync(
+            new HotelQuery { Name = $"{token}Back\\Sl" },
             CancellationToken.None);
 
         Assert.Equal(literal, Assert.Single(page.Items).Id);

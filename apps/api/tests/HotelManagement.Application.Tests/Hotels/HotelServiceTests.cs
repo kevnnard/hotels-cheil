@@ -99,9 +99,9 @@ public class HotelServiceTests
         var outcome = await Service.ListAsync(query, CancellationToken.None);
 
         Assert.Equal(ListHotelsStatus.Listed, outcome.Status);
-        Assert.Same(page, outcome.Page);
+        Assert.Equal(page, outcome.Page);
         Assert.Null(outcome.Message);
-        Assert.Same(query, Assert.Single(hotels.ListedQueries));
+        Assert.Equal(query, Assert.Single(hotels.ListedQueries));
     }
 
     [Theory]
@@ -194,7 +194,7 @@ public class HotelServiceTests
         Assert.Equal(4m, outcome.Hotel.Rating.Average);
         Assert.Equal(2, outcome.Hotel.Rating.Count);
         var persisted = Assert.Single(hotels.Updated);
-        Assert.Same(hotel, persisted);
+        Assert.Equal(hotel.Id, persisted.Id);
         Assert.Equal("Renamed", persisted.Details.Name);
         Assert.Equal(Now, persisted.UpdatedAtUtc);
     }
@@ -207,6 +207,18 @@ public class HotelServiceTests
         Assert.Equal(UpdateHotelStatus.NotFound, outcome.Status);
         Assert.Null(outcome.Hotel);
         Assert.Empty(hotels.Updated);
+    }
+
+    [Fact]
+    public async Task Update_when_the_hotel_disappears_before_the_write_returns_not_found()
+    {
+        var hotel = SeedHotel();
+        hotels.UpdateResult = false;
+
+        var outcome = await Service.UpdateAsync(hotel.Id, new UpdateHotel(ValidInput("Renamed")), CancellationToken.None);
+
+        Assert.Equal(UpdateHotelStatus.NotFound, outcome.Status);
+        Assert.Null(outcome.Hotel);
     }
 
     [Fact]
@@ -315,5 +327,18 @@ public class HotelServiceTests
         Assert.Equal(RateHotelStatus.HotelNotFound, outcome.Status);
         Assert.Null(outcome.Rating);
         Assert.Empty(ratings.Rated);
+    }
+
+    [Fact]
+    public async Task Rate_when_the_hotel_disappears_before_the_vote_returns_not_found()
+    {
+        var hotel = SeedHotel();
+        ratings.RateResult = null;
+
+        var outcome = await Service.RateAsync(hotel.Id, Guid.NewGuid(), 4m, CancellationToken.None);
+
+        Assert.Equal(RateHotelStatus.HotelNotFound, outcome.Status);
+        Assert.Null(outcome.Rating);
+        Assert.Single(ratings.Rated);
     }
 }

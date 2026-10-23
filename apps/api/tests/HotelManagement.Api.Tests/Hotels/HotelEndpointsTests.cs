@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using HotelManagement.Api.Tests.Authentication;
 using HotelManagement.Application.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -22,6 +23,7 @@ public class HotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     private HttpClient administrator = null!;
     private HttpClient user = null!;
     private Guid userId;
+    private string userToken = null!;
 
     private string Marker { get; } = Guid.CreateVersion7().ToString("N");
 
@@ -39,6 +41,7 @@ public class HotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
         await anonymous.PostAsJsonAsync("/api/auth/register", new { email, password = UserPassword });
         var userToken = await SignInAsync(anonymous, email, UserPassword);
         userId = userToken.UserId;
+        this.userToken = userToken.AccessToken;
         user.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", userToken.AccessToken);
     }
 
@@ -91,6 +94,45 @@ public class HotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal(0, await CountHotelsAsync(name));
+    }
+
+    [Fact]
+    public async Task List_WithAPageBeyondTheIntegerOffset_ReturnsAnEmptyPageAndKeepsTheTotal()
+    {
+        for (var index = 0; index < 5; index++)
+        {
+            await CreateHotelAsync($"Overflow {Marker} {index}");
+        }
+
+        var firstPage = await ReadPageAsync(await administrator.GetAsync("/api/hotels?page=1&pageSize=100"));
+        var response = await administrator.GetAsync("/api/hotels?page=42949674&pageSize=100");
+
+        var page = await ReadPageAsync(response);
+        Assert.Empty(page.Items);
+        Assert.Equal(firstPage.TotalItems, page.TotalItems);
+        Assert.Equal(42949674, page.Page);
+        Assert.Equal(100, page.PageSize);
+    }
+
+    [Fact]
+    public async Task List_WithoutAToken_ReturnsUnauthorized()
+    {
+        var response = await anonymous.GetAsync("/api/hotels");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task List_WithAPrincipalWithoutTheHotelRoles_ReturnsForbidden()
+    {
+        using var client = factory!.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            TestPrincipals.TokenWithoutHotelRoles(userToken));
+
+        var response = await client.GetAsync("/api/hotels");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -231,13 +273,30 @@ public class HotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     public async Task Update_WithAUser_ReturnsForbiddenWithoutABodyAndKeepsTheStoredValues()
     {
         var created = await CreateHotelAsync($"Kept {Marker}");
+        await RateAsync(created.Id, 3m);
+        var before = await SnapshotAsync(created.Id);
+        var expected = await ReadHotelAsync(await administrator.GetAsync($"/api/hotels/{created.Id}"));
 
         var response = await user.PutAsJsonAsync($"/api/hotels/{created.Id}", Body($"Changed {Marker}", "Porto"));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(await response.Content.ReadAsStringAsync());
+        Assert.Equal(before, await SnapshotAsync(created.Id));
         var stored = await ReadHotelAsync(await administrator.GetAsync($"/api/hotels/{created.Id}"));
-        Assert.Equal(created, stored);
+        Assert.Equal(expected, stored);
+    }
+
+    [Fact]
+    public async Task Update_WithoutAToken_ReturnsUnauthorizedAndKeepsTheStoredValues()
+    {
+        var created = await CreateHotelAsync($"Untouched {Marker}");
+        await RateAsync(created.Id, 3m);
+        var before = await SnapshotAsync(created.Id);
+
+        var response = await anonymous.PutAsJsonAsync($"/api/hotels/{created.Id}", Body($"Changed {Marker}", "Porto"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(before, await SnapshotAsync(created.Id));
     }
 
     [Fact]
@@ -278,14 +337,31 @@ public class HotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     public async Task Delete_WithAUser_ReturnsForbiddenWithoutABodyAndKeepsTheHotel()
     {
         var created = await CreateHotelAsync($"Survivor {Marker}");
+        await RateAsync(created.Id, 3m);
+        var before = await SnapshotAsync(created.Id);
+        var expected = await ReadHotelAsync(await administrator.GetAsync($"/api/hotels/{created.Id}"));
 
         var response = await user.DeleteAsync($"/api/hotels/{created.Id}");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(await response.Content.ReadAsStringAsync());
+        Assert.Equal(before, await SnapshotAsync(created.Id));
         var stored = await ReadHotelAsync(await administrator.GetAsync($"/api/hotels/{created.Id}"));
-        Assert.Equal(created, stored);
+        Assert.Equal(expected, stored);
         Assert.Equal(1, await CountHotelsAsync($"Survivor {Marker}"));
+    }
+
+    [Fact]
+    public async Task Delete_WithoutAToken_ReturnsUnauthorizedAndKeepsTheHotel()
+    {
+        var created = await CreateHotelAsync($"Kept {Marker}");
+        await RateAsync(created.Id, 3m);
+        var before = await SnapshotAsync(created.Id);
+
+        var response = await anonymous.DeleteAsync($"/api/hotels/{created.Id}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(before, await SnapshotAsync(created.Id));
     }
 
     [Fact]
@@ -329,6 +405,19 @@ public class HotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
         await using var command = new NpgsqlCommand("SELECT count(*) FROM hotels WHERE name = @name", connection);
         command.Parameters.AddWithValue("name", name);
         return Convert.ToInt32(await command.ExecuteScalarAsync() ?? 0);
+    }
+
+    private async Task<(string Name, int RatingCount, decimal RatingSum)> SnapshotAsync(Guid hotelId)
+    {
+        await using var connection = new NpgsqlConnection(api.ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            "SELECT h.name, count(r.hotel_id), coalesce(sum(r.score), 0) FROM hotels h LEFT JOIN hotel_ratings r ON r.hotel_id = h.id WHERE h.id = @id GROUP BY h.name",
+            connection);
+        command.Parameters.AddWithValue("id", hotelId);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        return (reader.GetString(0), reader.GetInt32(1), reader.GetDecimal(2));
     }
 
     private static async Task<HotelView> ReadHotelAsync(HttpResponseMessage response) =>

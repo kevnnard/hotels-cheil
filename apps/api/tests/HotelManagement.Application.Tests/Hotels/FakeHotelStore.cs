@@ -20,6 +20,8 @@ internal sealed class FakeHotelStore : IHotelStore
 
     public bool DeleteResult { get; set; }
 
+    public bool UpdateResult { get; set; } = true;
+
     public void Seed(Hotel hotel) => hotels[hotel.Id] = hotel;
 
     public Task AddAsync(Hotel hotel, CancellationToken cancellationToken)
@@ -41,7 +43,7 @@ internal sealed class FakeHotelStore : IHotelStore
     public Task<bool> UpdateAsync(Hotel hotel, CancellationToken cancellationToken)
     {
         Updated.Add(hotel);
-        return Task.FromResult(hotels.ContainsKey(hotel.Id));
+        return Task.FromResult(UpdateResult);
     }
 
     public Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)

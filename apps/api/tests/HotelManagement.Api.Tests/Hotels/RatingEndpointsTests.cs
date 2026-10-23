@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using HotelManagement.Api.Tests.Authentication;
 using Npgsql;
 
 namespace HotelManagement.Api.Tests.Hotels;
@@ -22,6 +23,7 @@ public class RatingEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     private HttpClient secondUser = null!;
     private Guid firstUserId;
     private Guid secondUserId;
+    private string firstUserToken = null!;
 
     private string Marker { get; } = Guid.CreateVersion7().ToString("N");
 
@@ -38,6 +40,7 @@ public class RatingEndpointsTests(HotelApiFixture api) : IAsyncLifetime
 
         firstUserId = await RegisterAndAuthorizeAsync(firstUser);
         secondUserId = await RegisterAndAuthorizeAsync(secondUser);
+        firstUserToken = await ReadAccessTokenAsync(firstUser);
     }
 
     public async Task DisposeAsync()
@@ -180,6 +183,21 @@ public class RatingEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Rate_WithAPrincipalWithoutTheHotelRoles_ReturnsForbiddenAndStoresNothing()
+    {
+        var hotelId = await CreateHotelAsync();
+        using var client = factory!.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            TestPrincipals.TokenWithoutHotelRoles(firstUserToken));
+
+        var response = await client.PostAsJsonAsync($"/api/hotels/{hotelId}/ratings", new { score = 3m });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(0, await CountVotesAsync(hotelId));
+    }
+
+    [Fact]
     public async Task Rate_WithoutAToken_ReturnsUnauthorizedAndStoresNothing()
     {
         var hotelId = await CreateHotelAsync();
@@ -198,6 +216,13 @@ public class RatingEndpointsTests(HotelApiFixture api) : IAsyncLifetime
         var token = await SignInAsync(email, UserPassword);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
         return token.UserId;
+    }
+
+    private static async Task<string> ReadAccessTokenAsync(HttpClient client)
+    {
+        var header = client.DefaultRequestHeaders.Authorization;
+        Assert.NotNull(header);
+        return header.Parameter!;
     }
 
     private async Task<Guid> CreateHotelAsync()
