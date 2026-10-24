@@ -11,10 +11,14 @@ The backend domain rules, PostgreSQL persistence layer, authentication and the h
 |---|---|---|
 | `apps/api` | ASP.NET Core modular monolith | Domain, persistence, authentication and hotel endpoints Implemented |
 | `apps/web` | Angular application | Planned |
-| `apps/docs` | Astro Starlight documentation | Planned |
+| `apps/docs` | Astro Starlight documentation with the interactive architecture canvas | Implemented |
 | `compose.yaml` | Container orchestration | API/PostgreSQL Implemented; web/docs Planned |
 
 Applications stay independent. Documentation must not block the frontend or backend from running alone.
+
+## Architecture canvas
+
+The [architecture canvas](/), which is the home page of the site, draws the layers, the components inside them, the protocols between them, the API endpoints with the policy each one requires and the path of a request from the client to the database. Selecting a component shows what it does, what the system expects from it and where its data lives. Its content lives in `apps/docs/src/data/architecture.ts`, so keeping it current means editing that model. Run the site as described in [Development](development.md).
 
 ## Backend layers
 

@@ -1,0 +1,8 @@
+---
+const { siteTitle, siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a class="site-brand" href={siteTitleHref}>
+	<img class="site-brand-mark" src="/brand-mark.svg" width="40" height="40" alt="" />
+	<span class="site-brand-name" translate="no">{siteTitle}</span>
+</a>

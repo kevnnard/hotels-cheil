@@ -1,0 +1,28 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import "../styles/canvas.css";
+
+interface Props {
+	title: string;
+	description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<StarlightPage
+	frontmatter={{
+		title,
+		description,
+		template: "splash",
+		tableOfContents: false,
+		pagefind: false,
+		prev: false,
+		next: false,
+	}}
+	hasSidebar={true}
+>
+	<div class="architecture-root not-content">
+		<slot />
+	</div>
+</StarlightPage>

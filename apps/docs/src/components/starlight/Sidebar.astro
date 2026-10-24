@@ -1,0 +1,11 @@
+---
+import Default from "@astrojs/starlight/components/Sidebar.astro";
+import Search from "@astrojs/starlight/components/Search.astro";
+import SiteBrand from "../site/SiteBrand.astro";
+---
+
+<div class="sidebar-chrome">
+	<SiteBrand />
+	<Search />
+</div>
+<Default><slot /></Default>

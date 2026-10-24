@@ -46,7 +46,7 @@ Open <http://localhost:5080/health>. Expected response: status `200`, body `Heal
 | `apps/api` hotel HTTP features | Implemented |
 | `apps/api` end-to-end suite over a real API process | Implemented |
 | `apps/web` Angular application | Planned |
-| `apps/docs` Astro Starlight project | Planned |
+| `apps/docs` Astro Starlight site with the interactive architecture canvas | Implemented |
 | `compose.yaml`, development/production variants, API Dockerfile and environment samples | Implemented |
 
 ## Target structure
@@ -68,6 +68,7 @@ Pages live in `apps/docs/src/content/docs/` so a Starlight project can adopt the
 
 - [Introduction](apps/docs/src/content/docs/index.md)
 - [Architecture](apps/docs/src/content/docs/architecture.md)
+- [Interactive architecture canvas](apps/docs/src/content/docs/architecture.md#architecture-canvas), served at `/architecture/canvas/` when the documentation site runs
 - [Development, configuration, testing and deployment](apps/docs/src/content/docs/development.md)
 - [Authentication, sessions and policies](apps/docs/src/content/docs/authentication.md)
 - [Working with agents](apps/docs/src/content/docs/agents.md)

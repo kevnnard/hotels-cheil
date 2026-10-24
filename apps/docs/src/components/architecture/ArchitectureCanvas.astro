@@ -1,0 +1,414 @@
+---
+import {
+	dotnetArea,
+	edges,
+	layerById,
+	layers,
+	nodeById,
+	nodes,
+	protocolLabels,
+	requestFlow,
+	type ArchitectureNode,
+	type EdgeProtocol,
+	type LayerId,
+} from "../../data/architecture";
+
+const statusLabel = (node: ArchitectureNode) =>
+	node.status === "implemented" ? "Implemented" : "Planned";
+
+const blockLabel = (label: string) => label.replace(/([a-z])([A-Z])/g, "$1<wbr>$2");
+
+const nodesOf = (layer: LayerId) => nodes.filter((node) => node.layer === layer);
+
+const relations = (node: ArchitectureNode) => ({
+	dependsOn: edges
+		.filter((edge) => edge.from === node.id)
+		.flatMap((edge) => {
+			const target = nodeById.get(edge.to);
+			return target ? [{ node: target, label: edge.label, protocol: edge.protocol }] : [];
+		}),
+	usedBy: edges
+		.filter((edge) => edge.to === node.id)
+		.flatMap((edge) => {
+			const source = nodeById.get(edge.from);
+			return source ? [{ node: source, label: edge.label, protocol: edge.protocol }] : [];
+		}),
+});
+
+const relatedIds = (node: ArchitectureNode) => {
+	const { dependsOn, usedBy } = relations(node);
+	return [...dependsOn, ...usedBy].map((entry) => entry.node.id).join(",");
+};
+
+const searchText = (node: ArchitectureNode) =>
+	[
+		node.label,
+		node.kind,
+		node.layer,
+		node.summary,
+		node.data,
+		...node.responsibilities,
+		...node.expectations,
+		...(node.endpoints ?? []).flatMap((endpoint) => [endpoint.method, endpoint.path, endpoint.policy]),
+	]
+		.join(" ")
+		.toLowerCase();
+
+const initialNode = nodeById.get("hotels-controller") ?? nodes[0];
+
+const aggregated = new Map<string, { from: LayerId; to: LayerId; counts: Map<EdgeProtocol, number> }>();
+edges.forEach((edge) => {
+	const from = nodeById.get(edge.from);
+	const to = nodeById.get(edge.to);
+	if (!from || !to || from.layer === to.layer) {
+		return;
+	}
+	const key = `${from.layer}>${to.layer}`;
+	const entry = aggregated.get(key) ?? { from: from.layer, to: to.layer, counts: new Map() };
+	entry.counts.set(edge.protocol, (entry.counts.get(edge.protocol) ?? 0) + 1);
+	aggregated.set(key, entry);
+});
+
+const layerLinks = [...aggregated.values()].map((entry) => ({
+	fromLayer: entry.from,
+	toLayer: entry.to,
+	protocols: [...entry.counts.entries()]
+		.sort((a, b) => b[1] - a[1])
+		.map(([id]) => ({ id, label: protocolLabels[id] })),
+}));
+
+const usedProtocols = [...new Set(edges.map((edge) => edge.protocol))];
+
+const edgePayload = edges.map(({ from, to, protocol }) => ({ from, to, protocol }));
+
+const apiGroups = nodes
+	.filter((node) => node.endpoints?.length)
+	.map((node) => ({ node, endpoints: node.endpoints ?? [] }));
+
+const routeCount = (node: ArchitectureNode) => node.endpoints?.length ?? 0;
+
+const routeBadge = (node: ArchitectureNode) => {
+	const routes = routeCount(node);
+	return routes > 0 ? `${routes} ${routes === 1 ? "route" : "routes"}` : "";
+};
+
+const inspectorSections = (node: ArchitectureNode) => {
+	const { dependsOn, usedBy } = relations(node);
+	return { dependsOn, usedBy, layer: layerById.get(node.layer) };
+};
+
+const endpointCount = apiGroups.reduce((total, group) => total + group.endpoints.length, 0);
+---
+
+<header class="workspace-header">
+	<div class="workspace-heading">
+		<h1>Hotel Management System</h1>
+		<p>System architecture</p>
+	</div>
+
+	<nav class="workspace-tabs" aria-label="Views" data-view-tabs>
+		<a href="#architecture" data-view-link="architecture">Architecture</a>
+		<a href="#api-contract" data-view-link="api-contract">API contract</a>
+		<a href="#request-flow" data-view-link="request-flow">Request flow</a>
+	</nav>
+
+	<label class="workspace-search">
+		<span class="visually-hidden">Search components</span>
+		<input
+			type="search"
+			placeholder="Search components, routes, policies"
+			autocomplete="off"
+			data-search
+		/>
+	</label>
+</header>
+
+<div class="workspace" data-workspace data-view="architecture">
+	<main class="workspace-main">
+		<section class="view-panel" id="architecture" data-view-panel="architecture" aria-label="Architecture map">
+			<div class="map-toolbar">
+				<div class="layer-filters" role="group" aria-label="Filter by layer">
+					{layers.map((layer) => (
+						<button
+							type="button"
+							class={`layer-filter accent-${layer.accent}`}
+							aria-pressed="true"
+							data-layer-toggle={layer.id}
+						>
+							<span class="filter-dot" aria-hidden="true"></span>
+							{layer.title}
+						</button>
+					))}
+				</div>
+				<p class="result-count" role="status" data-result-count>
+					{nodes.length} of {nodes.length} components
+				</p>
+			</div>
+
+			<div class="map-wrap">
+				<div class="map" data-map>
+					<svg class="map-overlay" aria-hidden="true" focusable="false">
+						<defs>
+							{usedProtocols.map((protocol) => (
+								<marker
+									id={`arrow-${protocol}`}
+									viewBox="0 0 10 10"
+									refX="9"
+									refY="5"
+									markerWidth="7"
+									markerHeight="7"
+									markerUnits="userSpaceOnUse"
+									orient="auto"
+								>
+									<path d="M 0 0 L 10 5 L 0 10 z" class={`arrow-head protocol-${protocol}`}></path>
+								</marker>
+							))}
+						</defs>
+						<g data-layer-paths></g>
+						<g data-focus-paths></g>
+					</svg>
+					<div class="map-labels" aria-hidden="true" data-map-labels></div>
+
+					<div class="system" aria-hidden="true"></div>
+					<header class="system-header">
+						<span class="system-mark" aria-hidden="true">{dotnetArea.mark}</span>
+						<div>
+							<h2>{dotnetArea.title}</h2>
+							<p>{dotnetArea.subtitle} · {dotnetArea.layers.length} layers</p>
+						</div>
+					</header>
+
+					{layers.map((layer) => (
+						<section
+							class={`layer accent-${layer.accent}`}
+							data-box={layer.id}
+							data-layer-panel={layer.id}
+							aria-labelledby={`layer-title-${layer.id}`}
+						>
+							<header class="layer-header">
+								<span class="layer-glyph" aria-hidden="true"></span>
+								<div class="layer-heading">
+									<h3 id={`layer-title-${layer.id}`}>{layer.title}</h3>
+									<p>{layer.badges.join(" · ")}</p>
+								</div>
+							</header>
+							<ul class="blocks">
+								{nodesOf(layer.id).map((node) => (
+									<li>
+										<button
+											type="button"
+											class="block"
+											aria-pressed={node.id === initialNode.id ? "true" : "false"}
+											data-node-id={node.id}
+											data-related={relatedIds(node)}
+											data-search-text={searchText(node)}
+											title={node.kind}
+										>
+											<span class="block-label" set:html={blockLabel(node.label)} />
+											<span class="visually-hidden">{node.kind}</span>
+											{routeBadge(node) && <span class="block-routes">{routeBadge(node)}</span>}
+										</button>
+									</li>
+								))}
+							</ul>
+						</section>
+					))}
+
+					<aside class="map-key" aria-labelledby="map-key-title">
+						<h3 id="map-key-title">Connections</h3>
+						<p class="map-key-note">
+							Arrows show runtime calls and wiring, not source-code dependencies. Select a block
+							to trace its connections.
+						</p>
+						<ul class="legend">
+							{usedProtocols.map((protocol) => (
+								<li class={`protocol-${protocol}`}>
+									<span class="legend-swatch" aria-hidden="true"></span>
+									{protocolLabels[protocol]}
+								</li>
+							))}
+						</ul>
+					</aside>
+				</div>
+			</div>
+		</section>
+
+		<section class="view-panel" id="api-contract" data-view-panel="api-contract" aria-labelledby="contract-title">
+			<div class="overview">
+				<p class="overview-kicker">{apiGroups.length} controllers · {endpointCount} endpoints</p>
+				<h2 id="contract-title">API contract</h2>
+				<p>
+					Every endpoint, the policy that guards it and what it answers. Policies are
+					evaluated on the server; the client is never trusted.
+				</p>
+			</div>
+			<div class="contract-groups">
+				{apiGroups.map((group) => (
+					<section class="contract-group" aria-label={group.node.label}>
+						<header class="contract-group-header">
+							<h3>{group.node.label}</h3>
+							<p>{group.node.summary}</p>
+						</header>
+						<ul class="endpoint-list">
+							{group.endpoints.map((endpoint) => (
+								<li class="endpoint">
+									<div class="endpoint-line">
+										<span class={`method method-${endpoint.method.toLowerCase()}`}>{endpoint.method}</span>
+										<code class="endpoint-path">{endpoint.path}</code>
+										<span class="chip">{endpoint.policy}</span>
+									</div>
+									<dl class="endpoint-answers">
+										<div>
+											<dt>Success</dt>
+											<dd>{endpoint.success}</dd>
+										</div>
+										<div>
+											<dt>Failures</dt>
+											<dd>{endpoint.failures}</dd>
+										</div>
+									</dl>
+								</li>
+							))}
+						</ul>
+					</section>
+				))}
+			</div>
+		</section>
+
+		<section class="view-panel" id="request-flow" data-view-panel="request-flow" aria-labelledby="flow-title">
+			<div class="overview">
+				<p class="overview-kicker">{requestFlow.length} steps</p>
+				<h2 id="flow-title">How a request travels</h2>
+				<p>From the sign in to the answer, in the order the system performs each step.</p>
+			</div>
+			<ol class="flow-list">
+				{requestFlow.map((step, index) => (
+					<li class="flow-step">
+						<span class="flow-index">{index + 1}</span>
+						<div class="flow-body">
+							<h3>{step.title}</h3>
+							<p>{step.detail}</p>
+						</div>
+					</li>
+				))}
+			</ol>
+		</section>
+	</main>
+
+	<aside class="inspector" aria-label="Component inspector" data-inspector>
+		{nodes.map((node) => {
+			const { dependsOn, usedBy, layer } = inspectorSections(node);
+			return (
+				<article
+					class={`inspector-panel accent-${layer?.accent ?? "cyan"}`}
+					data-inspector-for={node.id}
+					hidden={node.id !== initialNode.id}
+				>
+					<header class="inspector-header" tabindex="-1" data-inspector-heading>
+						<p class="inspector-kind">{layer?.title} layer · {node.kind}</p>
+						<h2>{node.label}</h2>
+						<span class="badge badge-status">{statusLabel(node)}</span>
+					</header>
+
+					<div class="inspector-body" data-inspector-body>
+						<section>
+							<h3>Description</h3>
+							<p>{node.summary}</p>
+						</section>
+
+						<section>
+							<h3>Responsibilities</h3>
+							<ul class="bullet-list">
+								{node.responsibilities.map((item) => <li>{item}</li>)}
+							</ul>
+						</section>
+
+						<section>
+							<h3>What is expected</h3>
+							<ul class="bullet-list">
+								{node.expectations.map((item) => <li>{item}</li>)}
+							</ul>
+						</section>
+
+						<section>
+							<h3>Data</h3>
+							<p>{node.data}</p>
+						</section>
+
+						{node.endpoints && (
+							<section>
+								<h3>HTTP contract</h3>
+								<ul class="inspector-endpoints">
+									{node.endpoints.map((endpoint) => (
+										<li>
+											<div class="endpoint-line">
+												<span class={`method method-${endpoint.method.toLowerCase()}`}>{endpoint.method}</span>
+												<code class="endpoint-path">{endpoint.path}</code>
+											</div>
+											<p><span class="chip">{endpoint.policy}</span></p>
+											<p class="endpoint-note"><strong>Success</strong> {endpoint.success}</p>
+											<p class="endpoint-note"><strong>Failures</strong> {endpoint.failures}</p>
+										</li>
+									))}
+								</ul>
+							</section>
+						)}
+
+						{dependsOn.length > 0 && (
+							<section>
+								<h3>Calls</h3>
+								<ul class="relation-list">
+									{dependsOn.map((entry) => (
+										<li class={`protocol-${entry.protocol}`}>
+											<button type="button" data-select-node={entry.node.id}>{entry.node.label}</button>
+											<span>{entry.label} · {protocolLabels[entry.protocol]}</span>
+										</li>
+									))}
+								</ul>
+							</section>
+						)}
+
+						{usedBy.length > 0 && (
+							<section>
+								<h3>Called by</h3>
+								<ul class="relation-list">
+									{usedBy.map((entry) => (
+										<li class={`protocol-${entry.protocol}`}>
+											<button type="button" data-select-node={entry.node.id}>{entry.node.label}</button>
+											<span>{entry.label} · {protocolLabels[entry.protocol]}</span>
+										</li>
+									))}
+								</ul>
+							</section>
+						)}
+
+						{layer && (
+							<section>
+								<h3>{layer.title} layer</h3>
+								<p>{layer.responsibility}</p>
+							</section>
+						)}
+
+						{layer && (
+							<section>
+								<h3>Related documentation</h3>
+								<ul class="doc-links">
+									{layer.docs.map((doc) => (
+										<li><a href={doc.href}>{doc.label}</a></li>
+									))}
+								</ul>
+							</section>
+						)}
+					</div>
+				</article>
+			);
+		})}
+	</aside>
+</div>
+
+<script type="application/json" data-layer-links set:html={JSON.stringify(layerLinks)} />
+<script type="application/json" data-edges set:html={JSON.stringify(edgePayload)} />
+
+<script>
+	import "./architecture-workspace";
+</script>

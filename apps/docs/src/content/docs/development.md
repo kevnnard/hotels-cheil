@@ -7,7 +7,7 @@ The API skeleton, its PostgreSQL persistence layer, the authentication endpoints
 
 ## Requirements
 
-.NET 10 with SDK 10.0.402, pinned in `apps/api/global.json` (ADR-009). Versions of Node, Angular, Tailwind and Starlight are pending decisions. Docker is optional because manual execution must work (ADR-005).
+.NET 10 with SDK 10.0.402, pinned in `apps/api/global.json` (ADR-009). The documentation site runs on Astro 7.4.2 and Starlight 0.42.7 with Node 26.12.0 and pnpm; the versions of Angular and Tailwind are pending decisions. Docker is optional because manual execution must work (ADR-005).
 
 ## Installation and local development
 
@@ -15,7 +15,7 @@ The API skeleton, its PostgreSQL persistence layer, the authentication endpoints
 |---|---|
 | Run API without Docker | Implemented for the skeleton |
 | Run web without Docker | Planned |
-| Run docs without Docker | Planned |
+| Run docs without Docker | Implemented with pnpm |
 | Docker Compose with PostgreSQL and API | Implemented and verified for development; production configuration/image verified, not deployed |
 | Docker Compose with web and docs | Planned |
 
@@ -38,6 +38,18 @@ export Authentication__Jwt__Audience=hotels-api-clients
 ```
 
 The development launch profile already provides the issuer and the audience. The connection string has no default and must come from the environment. Apply the migrations before the first run, as described in Migrations.
+
+## Documentation site
+
+The site in `apps/docs` is independent of the API and needs no database. From the repository root:
+
+```bash
+cd apps/docs
+pnpm install
+pnpm run dev
+```
+
+The development server serves the site at <http://localhost:4321>, whose home page is the interactive architecture canvas; the introduction and status table are at <http://localhost:4321/overview/> and the previous canvas address <http://localhost:4321/architecture/canvas/> keeps working. `pnpm run build` writes the static site to `apps/docs/dist`, `pnpm run preview` serves that build and `pnpm run check` runs the Astro type check. Editing `apps/docs/src/data/architecture.ts` updates the canvas.
 
 ## Environment files and secrets
 
