@@ -41,4 +41,8 @@ Replaced or deleted files must be cleaned up. No real service credentials are ev
 
 ## Future improvements
 
-Add an R2 implementation of the same contract when deployment needs it.
+Consider an R2 implementation of the same contract only if deployment needs it. Nothing is committed.
+
+## Considerations
+
+No image storage exists in the API today, and the architecture canvas does not show it. Reconsider storage when the image requirement is taken on, and reconsider R2 only if the API runs on more than one instance or the volume backup becomes a burden. This is a consideration, not a commitment.

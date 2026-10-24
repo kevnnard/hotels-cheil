@@ -42,3 +42,7 @@ Remote, feature, derived and local state stay separated. Any library is added on
 ## Future improvements
 
 Reconsider if caching and synchronization become complex.
+
+## Considerations
+
+No browser client exists yet, so the architecture canvas models only the implemented API, its layers, PostgreSQL and Docker. A browser client, and with it a public read-only catalog, would be decided when the work starts. Every current hotel route requires a valid token, so anonymous reads would need a deliberate change to the authorization policies and an update to the API contract. Reconsider this ADR and add the client to the canvas only when that client is built. This is a consideration, not a commitment.
