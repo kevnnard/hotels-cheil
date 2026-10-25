@@ -351,6 +351,49 @@ export const nodes: ArchitectureNode[] = [
 		],
 	},
 	{
+		id: "public-hotels-controller",
+		label: "PublicHotelsController",
+		kind: "HTTP endpoints",
+		layer: "api",
+		status: "implemented",
+		summary:
+			"The anonymous, read-only catalog: list, detail and image of the active hotels.",
+		responsibilities: [
+			"Lists the active hotels with the name filter, the minimum rating filter and pagination, with the validation of the administrative listing.",
+			"Returns the same hotel response as the administrative reads, with no extra fields.",
+			"Serves the image bytes with the detected content type, an entity tag, nosniff and a private no-cache policy.",
+		],
+		expectations: [
+			"No token is required, and the administrative routes keep answering 401 without one.",
+			"An inactive hotel is absent from the list and answers 404 on the detail and the image.",
+			"The controller exposes no write; every change stays behind the administrative policies.",
+		],
+		data: "Reads the hotels table and the image files through the hotel and image services.",
+		endpoints: [
+			{
+				method: "GET",
+				path: "/api/public/hotels",
+				policy: "anonymous",
+				success: "200 with a page of active hotels",
+				failures: "400 invalid query",
+			},
+			{
+				method: "GET",
+				path: "/api/public/hotels/{id}",
+				policy: "anonymous",
+				success: "200 with the hotel",
+				failures: "404 unknown or inactive hotel",
+			},
+			{
+				method: "GET",
+				path: "/api/public/hotels/{id}/image",
+				policy: "anonymous",
+				success: "200 with the image bytes",
+				failures: "404 unknown or inactive hotel, or no image",
+			},
+		],
+	},
+	{
 		id: "hotel-images-controller",
 		label: "HotelImagesController",
 		kind: "HTTP endpoints",
@@ -480,6 +523,7 @@ export const nodes: ArchitectureNode[] = [
 			"Computes the rating summary from the stored votes.",
 			"Refuses an invalid input before it reaches the database.",
 			"Releases the image file of a deleted hotel after the row is gone.",
+			"Restricts the public reads to active hotels through the active-only query flag and the active lookups.",
 		],
 		expectations: [
 			"The minimum rating filter keeps the hotels whose average is at least the value.",
@@ -500,6 +544,7 @@ export const nodes: ArchitectureNode[] = [
 			"Rejects empty and oversized input, then asks the optimizer for a verified lossless result.",
 			"Stages the new file under a generated key, swaps the database reference, then deletes the replaced file.",
 			"Removes the staged file if the swap fails or the hotel is gone, unless the reference already points at it.",
+			"Opens the image of an active hotel only for the public read, reporting an inactive hotel as not found.",
 		],
 		expectations: [
 			"The previous file is deleted only after the new reference is stored, and only the key that was displaced.",
@@ -778,6 +823,7 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "composition-root", to: "hotels-controller", label: "maps routes", protocol: "in-process" },
 	{ from: "composition-root", to: "ratings-controller", label: "maps routes", protocol: "in-process" },
 	{ from: "composition-root", to: "hotel-images-controller", label: "maps routes", protocol: "in-process" },
+	{ from: "composition-root", to: "public-hotels-controller", label: "maps routes", protocol: "in-process" },
 	{ from: "composition-root", to: "jwt-bearer", label: "adds the middleware", protocol: "in-process" },
 	{ from: "composition-root", to: "policies", label: "declares the policies", protocol: "in-process" },
 	{ from: "composition-root", to: "health", label: "maps the endpoint", protocol: "in-process" },
@@ -785,6 +831,8 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "hotels-controller", to: "hotel-service", label: "use case", protocol: "in-process" },
 	{ from: "ratings-controller", to: "hotel-service", label: "use case", protocol: "in-process" },
 	{ from: "hotel-images-controller", to: "hotel-image-service", label: "use case", protocol: "in-process" },
+	{ from: "public-hotels-controller", to: "hotel-service", label: "active hotels", protocol: "in-process" },
+	{ from: "public-hotels-controller", to: "hotel-image-service", label: "active hotel image", protocol: "in-process" },
 	{ from: "jwt-bearer", to: "ports", label: "session lookup", protocol: "identity" },
 	{ from: "policies", to: "ports", label: "role claim", protocol: "identity" },
 	{ from: "authentication-service", to: "token-issuer", label: "issues the token", protocol: "in-process" },
@@ -827,6 +875,11 @@ export const requestFlow: RequestFlowStep[] = [
 		title: "The policy is evaluated",
 		detail:
 			"The policy of the route decides with the role of the token: both roles read and rate, only the Administrator writes.",
+	},
+	{
+		title: "A visitor reads the public catalog",
+		detail:
+			"GET /api/public/hotels, /api/public/hotels/{id} and /api/public/hotels/{id}/image need no token and skip the token and policy steps. The controller asks the services for active hotels only, so an inactive hotel is absent from the list and answers 404 elsewhere.",
 	},
 	{
 		title: "The controller calls the use case",

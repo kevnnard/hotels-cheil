@@ -13,6 +13,7 @@ The API authenticates with ASP.NET Core Identity and short-lived signed access t
 | `POST` | `/api/auth/login` | Anonymous | `200` with the access token, its expiry, the session id, the account id, the email and the roles | `400` invalid input, `401` wrong email or password |
 | `GET` | `/api/auth/me` | Bearer token | `200` with the account, its roles, the session id and the session expiry | `401` missing, expired, revoked or invalid token |
 | `POST` | `/api/auth/logout` | Bearer token | `204` | `401` missing or invalid token |
+| `GET` | `/api/public/hotels`, `/api/public/hotels/{id}`, `/api/public/hotels/{id}/image` | Anonymous | `200` with the active hotels and their image | `400` invalid query, `404` unknown or inactive hotel |
 
 Registration always assigns the `User` role. The endpoint cannot grant `Administrator`.
 
@@ -55,4 +56,4 @@ An account without the role can still sign in, but every write returns `403`.
 | `hotels.update` | Allowed | Forbidden |
 | `hotels.delete` | Allowed | Forbidden |
 
-A request without a valid token returns `401`. A request with a valid token that lacks the policy returns `403`. Neither changes stored data.
+The anonymous public catalog is read-only and sits outside these policies. A request without a valid token to an administrative route returns `401`. A request with a valid token that lacks the policy returns `403`. Neither changes stored data.

@@ -3,7 +3,7 @@ title: Hotel API
 description: Endpoints, filters, pagination and rating behavior of the hotel management API.
 ---
 
-The hotel management API exposes the administrative CRUD of the hotels and the ratings of the signed-in accounts (ADR-013). Every route requires a valid access token, and the session behind the token must still be open.
+The hotel management API exposes the administrative CRUD of the hotels and the ratings of the signed-in accounts (ADR-013). Every route under `/api/hotels` requires a valid access token, and the session behind the token must still be open. The read-only public catalog under `/api/public/hotels` needs no token.
 
 ## Endpoints
 
@@ -21,6 +21,18 @@ The hotel management API exposes the administrative CRUD of the hotels and the r
 
 The three image routes are described in [Hotel images](hotel-images.md).
 A rejected write never changes the stored data: a `401` or a `403` answer leaves the hotel exactly as it was.
+
+## Public catalog
+
+| Method | Route | Auth | Success | Failures |
+|---|---|---|---|---|
+| `GET` | `/api/public/hotels` | Anonymous | `200` with a page of active hotels | `400` invalid query |
+| `GET` | `/api/public/hotels/{id}` | Anonymous | `200` with the hotel | `404` unknown or inactive hotel |
+| `GET` | `/api/public/hotels/{id}/image` | Anonymous | `200` with the image bytes | `404` unknown or inactive hotel, or no image |
+
+The public list accepts the same `name`, `minRating`, `page` and `pageSize` parameters as the administrative list, with the same defaults and the same `400` answers. The hotel body has the same fields as the administrative reads. The image answers with the detected content type, an entity tag, `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-cache`.
+
+Hotels with `isActive` set to `false` are hidden from the public catalog: they are absent from the list and answer `404` on the detail and the image. The administrative list and reads keep returning them. No endpoint changes the active flag yet.
 
 ## Listing
 
@@ -117,4 +129,6 @@ One account has one rating per hotel. Rating again replaces the previous value: 
 
 The four hotel permissions come from the API skill and cover the administrative CRUD. The rating has its own named policy because rating is an action of an account over a hotel and not an administrative change of it. No dynamic permission management exists: the five policies are static.
 
-A request without a valid token returns `401`. A request with a valid token that lacks the policy returns `403`. Neither changes stored data.
+The public catalog has no policy. The administrative `GET` routes keep `hotels.read` and answer `401` without a token.
+
+A request without a valid token returns `401` on the administrative routes. A request with a valid token that lacks the policy returns `403`. Neither changes stored data.

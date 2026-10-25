@@ -29,9 +29,11 @@ curl -X PUT "$API/api/hotels/$HOTEL_ID/image" \
 | `GET` | `/api/hotels/{id}/image` | `hotels.read` | `200` with the bytes | `404` unknown hotel or no image, `401` |
 | `DELETE` | `/api/hotels/{id}/image` | `hotels.update` | `204` | `404` unknown hotel or no image, `403`, `401` |
 
+The image of an active hotel is also served without authentication by `GET /api/public/hotels/{id}/image`, with the same bytes and headers. It answers `404` for an unknown or inactive hotel and for a hotel without an image.
+
 Hotel responses, single and listed, carry `image` as the same metadata object or `null`. The create and update JSON bodies are unchanged and never carry an image. Updating a hotel or rating it never changes its image.
 
-The download returns the stored content type, an `ETag`, `Cache-Control: private, no-cache` and `X-Content-Type-Options: nosniff`. The storage directory is never served statically: every read goes through the read policy.
+The download returns the stored content type, an `ETag`, `Cache-Control: private, no-cache` and `X-Content-Type-Options: nosniff`. The storage directory is never served statically: administrative reads go through the read policy, and the public image route serves only active hotels without authentication.
 
 ## What is accepted
 
