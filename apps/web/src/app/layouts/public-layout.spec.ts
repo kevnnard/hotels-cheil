@@ -17,6 +17,8 @@ function hotel(id: string, city: string | null, country: string | null): Hotel {
     updatedAtUtc: '2026-10-01T00:00:00Z',
     rating: { sum: 9, count: 2, average: 4.5 },
     image: null,
+    images: [],
+    pricing: null,
   };
 }
 

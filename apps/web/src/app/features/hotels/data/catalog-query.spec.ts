@@ -31,6 +31,20 @@ describe('parseCatalogQuery', () => {
     expect(ratingOptions.map((option) => option.label)).toEqual(['4.90+', '4.95+', '5.0 ★']);
   });
 
+  it('keeps positive maximum prices, including decimals', () => {
+    expect(parse({ maxPrice: '300' }).maxPrice).toBe(300);
+    expect(parse({ maxPrice: '50' }).maxPrice).toBe(50);
+    expect(parse({ maxPrice: '199.99' }).maxPrice).toBe(199.99);
+    expect(parse({ maxPrice: '0.5' }).maxPrice).toBe(0.5);
+  });
+
+  it('ignores maximum prices that are zero, negative or not numeric', () => {
+    for (const value of ['0', '0.0', '-50', 'abc', '3,5', '300.', '.5', '1e3', '']) {
+      expect(parse({ maxPrice: value }).maxPrice).toBeNull();
+    }
+    expect(parse({}).maxPrice).toBeNull();
+  });
+
   it('falls back to the first page for invalid pages', () => {
     expect(parse({ page: '-3' }).page).toBe(1);
     expect(parse({ page: '0' }).page).toBe(1);

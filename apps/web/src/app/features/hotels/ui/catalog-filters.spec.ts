@@ -5,15 +5,18 @@ import { CatalogFilters } from './catalog-filters';
 describe('CatalogFilters', () => {
   let fixture: ComponentFixture<CatalogFilters>;
   let searchControl: FormControl<string>;
+  let priceControl: FormControl<number>;
 
   function stubDesktop(matches: boolean) {
     vi.stubGlobal('matchMedia', (media: string) => ({ matches, media }));
   }
 
-  function render(minRating: number | null = null) {
+  function render(minRating: number | null = null, price = 1000) {
     searchControl = new FormControl('', { nonNullable: true });
+    priceControl = new FormControl(price, { nonNullable: true });
     fixture = TestBed.createComponent(CatalogFilters);
     fixture.componentRef.setInput('searchControl', searchControl);
+    fixture.componentRef.setInput('priceControl', priceControl);
     fixture.componentRef.setInput('minRating', minRating);
     fixture.detectChanges();
   }
@@ -153,7 +156,8 @@ describe('CatalogFilters', () => {
     const price = query('[data-testid="filter-price"]') as HTMLInputElement;
     expect(price.type).toBe('range');
     expect(price.disabled).toBe(false);
-    expect(query('label[for="filter-price"]')?.textContent?.trim()).toBe('Minimum price per night');
+    expect([price.min, price.max, price.step]).toEqual(['50', '1000', '50']);
+    expect(query('label[for="filter-price"]')?.textContent?.trim()).toBe('Maximum price per night');
 
     const amenities = queryAll('input[type="checkbox"]') as HTMLInputElement[];
     expect(amenities.map((box) => box.closest('label')?.textContent?.trim())).toEqual([
@@ -169,13 +173,13 @@ describe('CatalogFilters', () => {
     }
   });
 
-  it('shows one Not available yet note per group, in the same place and style, linked to its group', () => {
+  it('shows one Not available yet note per inert group, in the same place and style, linked to its group', () => {
     render();
 
     const notes = queryAll('[data-testid="unavailable-note"]');
-    expect(notes.length).toBe(5);
+    expect(notes.length).toBe(4);
     const groups = queryAll('[data-testid="filter-group"]');
-    expect(groups.length).toBe(5);
+    expect(groups.length).toBe(4);
     for (const group of groups) {
       const groupNotes = Array.from(group.querySelectorAll('[data-testid="unavailable-note"]'));
       expect(groupNotes.length).toBe(1);
@@ -184,7 +188,7 @@ describe('CatalogFilters', () => {
       expect(groupNotes[0].id).not.toBe('');
     }
     expect(new Set(notes.map((note) => note.className)).size).toBe(1);
-    for (const id of ['filter-destination', 'filter-property-type', 'filter-price']) {
+    for (const id of ['filter-destination', 'filter-property-type']) {
       const describedBy = query(`#${id}`)?.getAttribute('aria-describedby');
       expect(query(`#${describedBy}`)?.textContent?.trim()).toBe('Not available yet');
     }
@@ -216,9 +220,6 @@ describe('CatalogFilters', () => {
     destination.dispatchEvent(new Event('input'));
     const type = query('[data-testid="filter-property-type"]') as HTMLSelectElement;
     type.dispatchEvent(new Event('change'));
-    const price = query('[data-testid="filter-price"]') as HTMLInputElement;
-    price.value = '50';
-    price.dispatchEvent(new Event('input'));
     for (const control of queryAll('input[type="checkbox"], [data-testid^="filter-category-"]')) {
       control.click();
     }
@@ -227,6 +228,71 @@ describe('CatalogFilters', () => {
     expect(ratingChange).not.toHaveBeenCalled();
     expect(cleared).not.toHaveBeenCalled();
     expect(searchControl.value).toBe('');
+    expect(priceControl.value).toBe(1000);
+  });
+
+  it('turns the price group into a working control without the Not available yet note', () => {
+    render();
+
+    const price = query('[data-testid="filter-price"]') as HTMLInputElement;
+    const group = query('[data-testid="price-group"]') as HTMLElement;
+    expect(group.contains(price)).toBe(true);
+    expect(group.querySelector('[data-testid="unavailable-note"]')).toBeNull();
+    expect(group.textContent).not.toContain('Not available yet');
+    expect(query('#note-price')).toBeNull();
+    const describedBy = price.getAttribute('aria-describedby');
+    expect(query(`#${describedBy}`)?.dataset['testid']).toBe('price-value');
+  });
+
+  it('shows Any price at the top of the range and the limit in USD below it', () => {
+    render();
+
+    const price = query('[data-testid="filter-price"]') as HTMLInputElement;
+    const value = query('[data-testid="price-value"]') as HTMLElement;
+    expect(price.value).toBe('1000');
+    expect(value.textContent?.trim()).toBe('Any price');
+    expect(price.getAttribute('aria-valuetext')).toBe('Any price');
+
+    price.value = '400';
+    price.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(value.textContent?.trim()).toBe('Up to $400');
+    expect(price.getAttribute('aria-valuetext')).toBe('Up to $400');
+  });
+
+  it('writes the slider position into the price control as a number', () => {
+    render();
+
+    const price = query('[data-testid="filter-price"]') as HTMLInputElement;
+    price.value = '300';
+    price.dispatchEvent(new Event('input'));
+    price.dispatchEvent(new Event('change'));
+
+    expect(priceControl.value).toBe(300);
+  });
+
+  it('reflects a price control set from outside in the slider and its value text', () => {
+    render(null, 250);
+
+    expect((query('[data-testid="filter-price"]') as HTMLInputElement).value).toBe('250');
+    expect(query('[data-testid="price-value"]')?.textContent?.trim()).toBe('Up to $250');
+
+    priceControl.setValue(1000, { emitEvent: false });
+    fixture.detectChanges();
+
+    expect(query('[data-testid="price-value"]')?.textContent?.trim()).toBe('Any price');
+  });
+
+  it('shows Reset while only a price limit is applied and hides it at Any price', () => {
+    render(null, 300);
+
+    expect(query('[data-testid="clear-filters"]')?.textContent?.trim()).toBe('Reset');
+
+    priceControl.setValue(1000, { emitEvent: false });
+    fixture.detectChanges();
+
+    expect(query('[data-testid="clear-filters"]')).toBeNull();
   });
 
   it('emits the chosen rating, including null for All', () => {

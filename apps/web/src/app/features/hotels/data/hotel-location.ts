@@ -9,5 +9,7 @@ export function formatLocation(address: HotelAddress): string {
 }
 
 export function formatCityRegion(address: HotelAddress): string {
-  return joinParts([address.city, address.region], ' • ');
+  const { city, region } = address;
+  const sameName = !!city && !!region && city.toLowerCase() === region.toLowerCase();
+  return joinParts([city, sameName ? null : region], ' • ');
 }

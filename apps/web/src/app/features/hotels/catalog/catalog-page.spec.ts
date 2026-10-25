@@ -16,6 +16,8 @@ function hotel(overrides: Partial<Hotel> & { id: string; name: string }): Hotel 
     updatedAtUtc: '2026-10-01T00:00:00Z',
     rating: { sum: 9, count: 2, average: 4.5 },
     image: null,
+    images: [],
+    pricing: null,
     ...overrides,
   };
 }
@@ -268,7 +270,7 @@ describe('CatalogPage', () => {
     expect(query('label[for="hotel-search"]')?.textContent?.trim()).toBe('Search by name');
   });
 
-  it('keeps every advanced filter out of the request, the address and the results', async () => {
+  it('keeps every inert advanced filter out of the request, the address and the results', async () => {
     await open('/?name=sea&minRating=4.9');
     expectList().flush(pageOf([hotel({ id: 'a', name: 'Alpha' })]));
     await settle();
@@ -280,10 +282,7 @@ describe('CatalogPage', () => {
     expect(destination.disabled).toBe(false);
     destination.value = 'Lima';
     destination.dispatchEvent(new Event('input'));
-    const price = query('[data-testid="filter-price"]') as HTMLInputElement;
-    expect(price.disabled).toBe(false);
-    price.value = '80';
-    price.dispatchEvent(new Event('input'));
+    (query('[data-testid="filter-property-type"]') as HTMLSelectElement).dispatchEvent(new Event('change'));
     for (const control of Array.from(root().querySelectorAll<HTMLElement>('#advanced-filters button, #advanced-filters input[type="checkbox"]'))) {
       control.click();
     }
@@ -300,7 +299,8 @@ describe('CatalogPage', () => {
     expectList().flush(pageOf([]));
     await settle();
 
-    expect(root().querySelectorAll('[data-testid="unavailable-note"]').length).toBe(5);
+    expect(root().querySelectorAll('[data-testid="unavailable-note"]').length).toBe(4);
+    expect(query('[data-testid="price-group"] [data-testid="unavailable-note"]')).toBeNull();
     expect(query('[data-testid="more-filters"]')?.getAttribute('aria-controls')).toBe('advanced-filters');
   });
 
@@ -630,5 +630,200 @@ describe('CatalogPage', () => {
     expect(controls.classList.contains('top-space-md')).toBe(true);
     expect(controls.classList.contains('md:bottom-space-xl')).toBe(true);
     expect(controls.classList.contains('bottom-space-md')).toBe(false);
+  });
+
+  const plainPrice = { currency: 'USD' as const, nightlyRate: 400, discountPercent: null, discountedNightlyRate: null };
+  const discountPrice = { currency: 'USD' as const, nightlyRate: 200, discountPercent: 15, discountedNightlyRate: 170 };
+
+  function slide(value: number) {
+    const price = query('[data-testid="filter-price"]') as HTMLInputElement;
+    price.value = String(value);
+    price.dispatchEvent(new Event('input'));
+    price.dispatchEvent(new Event('change'));
+  }
+
+  it('shows the plain and the discounted prices on the cards and no price row without pricing', async () => {
+    await open('/');
+    expectList().flush(
+      pageOf([
+        hotel({ id: 'a', name: 'Alpha', pricing: plainPrice }),
+        hotel({ id: 'b', name: 'Beta', pricing: discountPrice }),
+        hotel({ id: 'c', name: 'Gamma' }),
+      ]),
+    );
+    await settle();
+
+    const cards = root().querySelectorAll('[data-testid="hotel-card"]');
+    expect(cards[0].querySelector('[data-testid="card-price"]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('$400 per night');
+    expect(cards[1].querySelector('s[data-testid="price-original"]')?.textContent).toContain('$200');
+    expect(cards[1].querySelector('[data-testid="price-current"]')?.textContent).toContain('$170');
+    expect(cards[1].querySelector('[data-testid="card-price"] [data-testid="price-discount"]')).toBeNull();
+    expect(cards[1].querySelector('[data-testid="card-discount"]')?.textContent?.trim()).toBe('-15%');
+    expect(cards[2].querySelector('[data-testid="card-price"]')).toBeNull();
+    expect(query('[data-testid="featured-hotel"]')?.textContent).not.toContain('$');
+  });
+
+  it('uses no booking, reservation or total wording next to the prices', async () => {
+    await open('/');
+    expectList().flush(pageOf([hotel({ id: 'a', name: 'Alpha', pricing: plainPrice }), hotel({ id: 'b', name: 'Beta', pricing: discountPrice })]));
+    await settle();
+
+    const text = root().textContent ?? '';
+    for (const forbidden of ['Book', 'book', 'Reserv', 'reserv', 'Total', 'total']) {
+      expect(text).not.toContain(forbidden);
+    }
+  });
+
+  it('reflects the price slider in the address after the debounce, resets the page and requests maxPrice', async () => {
+    await open('/?page=3');
+    expectList().flush(pageOf([], 3, 4));
+    await settle();
+
+    slide(300);
+    await vi.advanceTimersByTimeAsync(100);
+    http.expectNone((r) => r.url === '/api/public/hotels');
+    expect(router.url).toBe('/?page=3');
+    await vi.advanceTimersByTimeAsync(300);
+    await settle();
+
+    expect(router.url).toBe('/?maxPrice=300');
+    const request = expectList((p) => p('maxPrice') === '300');
+    expect(request.request.params.get('page')).toBe('1');
+    request.flush(pageOf([]));
+  });
+
+  it('sends only the last slider position after a quick sequence of moves', async () => {
+    await open('/');
+    expectList().flush(pageOf([]));
+    await settle();
+
+    slide(700);
+    await vi.advanceTimersByTimeAsync(100);
+    slide(500);
+    await vi.advanceTimersByTimeAsync(100);
+    slide(250);
+    await vi.advanceTimersByTimeAsync(300);
+    await settle();
+
+    expect(router.url).toBe('/?maxPrice=250');
+    expectList((p) => p('maxPrice') === '250').flush(pageOf([]));
+  });
+
+  it('removes maxPrice from the address and the request when the slider returns to Any price', async () => {
+    await open('/?maxPrice=300&name=sea');
+    expectList((p) => p('maxPrice') === '300').flush(pageOf([]));
+    await settle();
+
+    slide(1000);
+    await vi.advanceTimersByTimeAsync(300);
+    await settle();
+
+    expect(router.url).toBe('/?name=sea');
+    const request = expectList((p) => p('name') === 'sea');
+    expect(request.request.params.has('maxPrice')).toBe(false);
+    request.flush(pageOf([]));
+  });
+
+  it('reads maxPrice from the address into the slider and ignores invalid values', async () => {
+    await open('/?maxPrice=450');
+    expectList((p) => p('maxPrice') === '450').flush(pageOf([]));
+    await settle();
+
+    expect((query('[data-testid="filter-price"]') as HTMLInputElement).value).toBe('450');
+    expect(query('[data-testid="price-value"]')?.textContent?.trim()).toBe('Up to $450');
+
+    await open('/?maxPrice=0');
+    const zero = expectList();
+    expect(zero.request.params.has('maxPrice')).toBe(false);
+    zero.flush(pageOf([]));
+    await settle();
+    expect((query('[data-testid="filter-price"]') as HTMLInputElement).value).toBe('1000');
+    expect(query('[data-testid="price-value"]')?.textContent?.trim()).toBe('Any price');
+
+    for (const invalid of ['-5', 'abc']) {
+      await open(`/?maxPrice=${invalid}`);
+      const request = expectList();
+      expect(request.request.params.has('maxPrice')).toBe(false);
+      request.flush(pageOf([]));
+    }
+  });
+
+  it('keeps the viewport in place when the price filter changes', async () => {
+    await open('/');
+    expectList().flush(pageOf([hotel({ id: 'a', name: 'Alpha' })], 1, 2));
+    await settle();
+    const navigate = spyOnNavigation();
+
+    slide(300);
+    await vi.advanceTimersByTimeAsync(300);
+    await settle();
+
+    expect(router.url).toBe('/?maxPrice=300');
+    expect(navigate.mock.calls[0][1]?.scroll).toBe('manual');
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expectList((p) => p('maxPrice') === '300').flush(pageOf([]));
+  });
+
+  it('shows Reset with only maxPrice applied and clears it back to Any price', async () => {
+    await open('/?maxPrice=300');
+    expectList().flush(pageOf([]));
+    await settle();
+
+    expect(query('[data-testid="clear-filters"]')?.textContent?.trim()).toBe('Reset');
+    query('[data-testid="clear-filters"]')?.click();
+    await settle();
+
+    expect(router.url).toBe('/');
+    const request = expectList();
+    expect(request.request.params.has('maxPrice')).toBe(false);
+    request.flush(pageOf([]));
+    await settle();
+
+    expect((query('[data-testid="filter-price"]') as HTMLInputElement).value).toBe('1000');
+    expect(query('[data-testid="clear-filters"]')).toBeNull();
+    await vi.advanceTimersByTimeAsync(1000);
+    http.expectNone((r) => r.url === '/api/public/hotels');
+  });
+
+  it('clears the name, the rating and the price together with Reset', async () => {
+    await open('/?name=sea&minRating=4.9&maxPrice=300&page=2');
+    const first = expectList();
+    expect(first.request.params.get('maxPrice')).toBe('300');
+    first.flush(pageOf([], 2, 3));
+    await settle();
+
+    query('[data-testid="clear-filters"]')?.click();
+    await settle();
+
+    expect(router.url).toBe('/');
+    const request = expectList();
+    for (const name of ['name', 'minRating', 'maxPrice']) {
+      expect(request.request.params.has(name)).toBe(false);
+    }
+    expect(request.request.params.get('page')).toBe('1');
+    request.flush(pageOf([]));
+    await settle();
+
+    expect((query('[data-testid="search-input"]') as HTMLInputElement).value).toBe('');
+    expect((query('[data-testid="filter-price"]') as HTMLInputElement).value).toBe('1000');
+  });
+
+  it('keeps the previous hotels visible and marks the results busy while a price filter loads', async () => {
+    await open('/');
+    expectList().flush(pageOf([hotel({ id: 'a', name: 'Alpha', pricing: plainPrice })]));
+    await settle();
+
+    slide(300);
+    await vi.advanceTimersByTimeAsync(300);
+    await settle();
+
+    const request = expectList((p) => p('maxPrice') === '300');
+    expect(query('[data-testid="catalog-results"]')?.getAttribute('aria-busy')).toBe('true');
+    expect(query('[data-testid="hotel-card"]')?.textContent).toContain('Alpha');
+    request.flush(pageOf([]));
+    await settle();
+
+    expect(query('[data-testid="catalog-empty"]')).not.toBeNull();
+    expect(query('[data-testid="catalog-reset"]')?.textContent?.trim()).toBe('Clear filters');
   });
 });

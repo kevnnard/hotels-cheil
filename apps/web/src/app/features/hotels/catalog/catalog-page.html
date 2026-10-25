@@ -27,7 +27,7 @@
 
   <section #collection id="collection" class="scroll-mt-(--header-height) w-full px-margin-mobile md:px-margin-tablet lg:px-margin-desktop">
     <div class="mx-auto max-w-360">
-      <app-catalog-filters [searchControl]="searchControl" [minRating]="query().minRating" (ratingChange)="selectRating($event)" (cleared)="clearFilters()" />
+      <app-catalog-filters [searchControl]="searchControl" [priceControl]="priceControl" [minRating]="query().minRating" (ratingChange)="selectRating($event)" (cleared)="clearFilters()" />
 
       <div class="flex flex-col gap-space-lg py-space-lg">
         <div class="flex flex-col justify-between gap-space-xs pb-space-sm md:flex-row md:items-end">
@@ -36,7 +36,7 @@
             <h2 class="font-serif text-headline-lg-mobile tracking-tight text-primary md:text-headline-lg">Registered sanctuaries</h2>
           </div>
           <p class="max-w-md text-body-md text-on-surface-variant">
-            Explore the hotels of the AUREA collection, search by name and filter by rating.
+            Explore the hotels of the AUREA collection, search by name and filter by rating or nightly price.
           </p>
         </div>
 
@@ -61,7 +61,7 @@
               <app-state-panel
                 data-testid="catalog-empty"
                 heading="No hotels found"
-                message="No hotel matches your search. Try another name or lower the minimum rating."
+                message="No hotel matches your search. Try another name, lower the minimum rating or raise the price limit."
                 [actionLabel]="hasFilters() ? 'Clear filters' : null"
                 actionTestId="catalog-reset"
                 (action)="clearFilters()"

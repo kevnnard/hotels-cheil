@@ -15,6 +15,8 @@ const hotel: Hotel = {
   updatedAtUtc: '2026-10-01T00:00:00Z',
   rating: { sum: 9, count: 2, average: 4.5 },
   image: null,
+  images: [],
+  pricing: null,
 };
 
 const page: HotelPage = { items: [hotel], page: 2, pageSize: 6, totalItems: 7, totalPages: 2 };
@@ -57,6 +59,34 @@ describe('HotelCatalogService', () => {
     request.flush(page);
   });
 
+  it('sends the maximum price when it is set', () => {
+    service.list({ name: '', minRating: null, maxPrice: 300, page: 1, pageSize: 8 }).subscribe();
+
+    const request = http.expectOne((r) => r.url === '/api/public/hotels');
+    expect(request.request.params.get('maxPrice')).toBe('300');
+    request.flush(page);
+  });
+
+  it('sends a decimal maximum price exactly', () => {
+    service.list({ name: '', minRating: null, maxPrice: 199.99, page: 1, pageSize: 8 }).subscribe();
+
+    const request = http.expectOne((r) => r.url === '/api/public/hotels');
+    expect(request.request.params.get('maxPrice')).toBe('199.99');
+    request.flush(page);
+  });
+
+  it('omits the maximum price when it is null or absent', () => {
+    service.list({ name: '', minRating: null, maxPrice: null, page: 1, pageSize: 8 }).subscribe();
+    service.list({ name: '', minRating: null, page: 1, pageSize: 8 }).subscribe();
+
+    const requests = http.match((r) => r.url === '/api/public/hotels');
+    expect(requests.length).toBe(2);
+    for (const request of requests) {
+      expect(request.request.params.has('maxPrice')).toBe(false);
+      request.flush(page);
+    }
+  });
+
   it('trims the name before sending it', () => {
     service.list({ name: '  sea  ', minRating: null, page: 1, pageSize: 12 }).subscribe();
 
@@ -78,5 +108,26 @@ describe('HotelCatalogService', () => {
 
   it('builds the public image address of a hotel', () => {
     expect(service.imageUrl(hotel.id)).toBe(`/api/public/hotels/${hotel.id}/image`);
+  });
+
+  it('builds the public address of the image stored at a given position', () => {
+    expect(service.imagePositionUrl(hotel.id, 0)).toBe(`/api/public/hotels/${hotel.id}/images/0`);
+    expect(service.imagePositionUrl(hotel.id, 2)).toBe(`/api/public/hotels/${hotel.id}/images/2`);
+  });
+
+  it('keeps the explicit positions of a sparse image list', () => {
+    let received: Hotel | undefined;
+    service.get(hotel.id).subscribe((value) => (received = value));
+
+    http.expectOne(`/api/public/hotels/${hotel.id}`).flush({
+      ...hotel,
+      images: [
+        { position: 0, contentType: 'image/jpeg', width: 900, height: 600, sizeBytes: 1000 },
+        { position: 2, contentType: 'image/webp', width: 800, height: 500, sizeBytes: 2000 },
+      ],
+    });
+
+    expect(received?.images.map((image) => image.position)).toEqual([0, 2]);
+    expect(received?.images[1].contentType).toBe('image/webp');
   });
 });

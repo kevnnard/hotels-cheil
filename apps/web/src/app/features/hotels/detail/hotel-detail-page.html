@@ -1,28 +1,52 @@
 <main>
   <section class="w-full bg-surface-container-low px-margin-mobile py-space-md md:px-margin-tablet lg:px-margin-desktop">
-    <div class="mx-auto flex max-w-360 items-center">
-      <a
-        data-testid="back-to-catalog"
-        routerLink="/"
-        class="group inline-flex items-center gap-space-xs text-label-lg uppercase text-primary transition-transform hover:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:-translate-x-0.5"
-      >
-        <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M19 12H5m6-7-7 7 7 7" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        Back to the collection
-      </a>
+    <div class="mx-auto flex max-w-360 flex-col justify-between gap-space-sm md:flex-row md:items-center">
+      <div class="flex items-center gap-space-md">
+        <a
+          data-testid="back-to-catalog"
+          routerLink="/"
+          class="group inline-flex min-h-11 items-center gap-space-xs text-label-lg uppercase text-primary transition-transform hover:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:-translate-x-0.5"
+        >
+          <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M19 12H5m6-7-7 7 7 7" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Back to the collection
+        </a>
+        @if (hotel.hasValue()) {
+          @let item = hotel.value();
+          <nav aria-label="Breadcrumb" class="hidden sm:block">
+            <ol class="flex flex-wrap items-center gap-space-xs text-label-md text-on-surface-variant">
+              <li class="flex items-center gap-space-xs before:opacity-40 before:content-['/']">
+                <a
+                  routerLink="/"
+                  fragment="collection"
+                  class="inline-flex min-h-11 items-center transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >Collection</a>
+              </li>
+              @if (item.address.country; as country) {
+                <li class="flex items-center gap-space-xs before:opacity-40 before:content-['/']">{{ country }}</li>
+              }
+              <li aria-current="page" class="flex items-center gap-space-xs font-semibold text-primary before:font-normal before:text-on-surface-variant before:opacity-40 before:content-['/']">{{ item.name }}</li>
+            </ol>
+          </nav>
+        }
+      </div>
     </div>
   </section>
 
-  <div class="px-margin-mobile pb-space-xl pt-space-lg md:px-margin-tablet lg:px-margin-desktop">
-    <div class="mx-auto flex max-w-360 flex-col gap-space-lg">
-      @if (notFound()) {
+  @if (notFound()) {
+    <div class="px-margin-mobile pb-space-xl pt-space-lg md:px-margin-tablet lg:px-margin-desktop">
+      <div class="mx-auto max-w-360">
         <app-state-panel
           data-testid="detail-not-found"
           heading="Hotel not found"
           message="This hotel does not exist or is no longer available."
         />
-      } @else if (hotel.error()) {
+      </div>
+    </div>
+  } @else if (hotel.error()) {
+    <div class="px-margin-mobile pb-space-xl pt-space-lg md:px-margin-tablet lg:px-margin-desktop">
+      <div class="mx-auto max-w-360">
         <app-state-panel
           data-testid="detail-error"
           tone="error"
@@ -32,58 +56,130 @@
           actionTestId="detail-retry"
           (action)="retry()"
         />
-      } @else if (hotel.isLoading()) {
-        <div data-testid="detail-loading" aria-busy="true" aria-label="Loading hotel" class="flex flex-col gap-space-lg">
-          <div class="h-12 w-2/3 animate-pulse rounded-lg bg-surface-container-high"></div>
-          <div class="h-95 animate-pulse rounded-xl bg-surface-container-high sm:h-120 lg:h-155"></div>
-        </div>
-      } @else if (hotel.value(); as item) {
-        <header class="flex flex-col justify-between gap-space-md lg:flex-row lg:items-end">
+      </div>
+    </div>
+  } @else if (hotel.isLoading()) {
+    <div class="px-margin-mobile pb-space-xl pt-space-lg md:px-margin-tablet lg:px-margin-desktop">
+      <div data-testid="detail-loading" aria-busy="true" aria-label="Loading hotel" class="mx-auto flex max-w-360 flex-col gap-space-lg">
+        <div class="h-12 w-2/3 animate-pulse rounded-lg bg-surface-container-high"></div>
+        <div class="h-95 animate-pulse rounded-xl bg-surface-container-high sm:h-120 lg:h-155"></div>
+      </div>
+    </div>
+  } @else if (hotel.value(); as item) {
+    <section class="w-full px-margin-mobile pb-space-xl pt-space-lg md:px-margin-tablet lg:px-margin-desktop">
+      <div class="mx-auto max-w-360">
+        <header class="mb-space-lg flex flex-col justify-between gap-space-md lg:flex-row lg:items-end">
           <div class="flex max-w-3xl flex-col gap-space-xs">
             @if (location()) {
               <p data-testid="detail-location" class="text-label-sm uppercase tracking-widest text-on-surface-variant">{{ location() }}</p>
             }
-            <h1 class="font-serif text-headline-lg text-primary md:text-display-md">{{ item.name }}</h1>
+            <h1 class="font-serif text-headline-lg tracking-tight text-primary md:text-display-md">{{ item.name }}</h1>
           </div>
           <app-rating-summary [rating]="item.rating" />
         </header>
+        <app-hotel-gallery [hotelId]="item.id" [hotelName]="item.name" [images]="item.images" />
+      </div>
+    </section>
 
-        <app-hotel-image-view
-          data-testid="detail-photo"
-          class="h-95 w-full overflow-hidden rounded-xl bg-surface-container-highest sm:h-120 lg:h-155"
-          [hotelId]="item.id"
-          [hotelName]="item.name"
-          [hasImage]="item.image !== null"
-        />
+    <section class="w-full px-margin-mobile pb-space-xl md:px-margin-tablet lg:px-margin-desktop">
+      <div class="mx-auto grid max-w-360 grid-cols-1 items-start gap-gutter-desktop lg:grid-cols-12">
+        <div data-testid="detail-content" class="flex min-w-0 flex-col gap-space-xl lg:col-span-8">
+          @if (facts().length > 0) {
+            <dl data-testid="hotel-facts" class="grid grid-cols-2 gap-space-md rounded-xl bg-surface-container-low p-space-md sm:grid-cols-4">
+              @for (fact of facts(); track fact.label) {
+                <div class="flex min-w-0 flex-col gap-space-xs">
+                  <dt class="text-label-sm uppercase text-on-surface-variant">{{ fact.label }}</dt>
+                  <dd class="break-words text-title-md text-primary">{{ fact.value }}</dd>
+                </div>
+              }
+            </dl>
+          }
 
-        <div class="grid grid-cols-1 items-start gap-gutter-desktop lg:grid-cols-12">
-          <div class="flex flex-col gap-space-xl lg:col-span-8">
-            @if (facts().length > 0) {
-              <dl data-testid="hotel-facts" class="grid grid-cols-2 gap-space-md rounded-xl bg-surface-container-low p-space-md sm:grid-cols-4">
-                @for (fact of facts(); track fact.label) {
-                  <div class="flex flex-col gap-space-xs">
-                    <dt class="text-label-sm uppercase text-on-surface-variant">{{ fact.label }}</dt>
-                    <dd class="text-title-md text-primary">{{ fact.value }}</dd>
-                  </div>
-                }
-              </dl>
-            }
+          <article data-testid="hotel-narrative" aria-labelledby="hotel-narrative-heading" class="flex flex-col gap-space-md">
+            <div class="flex items-center gap-space-xs text-secondary">
+              <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M4 20h16M6 16l9.5-9.5a2.1 2.1 0 0 1 3 3L9 19H6v-3Z" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <span class="text-label-sm uppercase tracking-widest">Architectural narrative</span>
+            </div>
+            <h2 id="hotel-narrative-heading" class="font-serif text-headline-lg tracking-tight text-primary">About {{ item.name }}</h2>
             @if (item.description) {
-              <article class="flex flex-col gap-space-md">
-                <h2 class="font-serif text-headline-lg tracking-tight text-primary">About the hotel</h2>
-                <p data-testid="hotel-description" class="whitespace-pre-line text-body-lg font-light leading-relaxed text-on-surface-variant">
-                  {{ item.description }}
-                </p>
-              </article>
+              <p data-testid="hotel-description" class="whitespace-pre-line text-body-lg font-light leading-relaxed text-on-surface-variant">
+                {{ item.description }}
+              </p>
             }
-          </div>
+            <figure data-testid="detail-quote" class="relative my-space-md overflow-hidden rounded-xl bg-surface-container p-space-lg">
+              <svg viewBox="0 0 24 24" class="pointer-events-none absolute -bottom-6 -right-4 h-30 w-30 text-surface-container-highest" fill="currentColor" aria-hidden="true">
+                <path d="M4.6 17.3C3.6 16.2 3 15 3 13c0-3.5 2.5-6.6 6-8.2l.9 1.4C6.6 8 6 10.2 6.2 11.7c.2-.1.5-.1.7-.1 1.8.2 3.2 1.6 3.2 3.4 0 1.9-1.6 3.5-3.5 3.5-.8 0-1.5-.4-2-1.2Zm10 0c-1-1.1-1.6-2.3-1.6-4.3 0-3.5 2.5-6.6 6-8.2l.9 1.4c-3.3 1.8-3.9 4-3.7 5.5.2-.1.5-.1.7-.1 1.8.2 3.2 1.6 3.2 3.4 0 1.9-1.6 3.5-3.5 3.5-.8 0-1.5-.4-2-1.2Z" />
+              </svg>
+              <blockquote class="relative z-10 max-w-xl font-serif text-headline-sm italic text-primary">“{{ quote.text }}”</blockquote>
+              <figcaption class="relative z-10 mt-space-md flex items-center gap-space-sm">
+                <span class="h-px w-8 bg-secondary" aria-hidden="true"></span>
+                <span class="text-label-md uppercase text-on-surface-variant">{{ quote.attribution }}</span>
+              </figcaption>
+            </figure>
+          </article>
 
+          <app-suites-showcase />
+
+          <section data-testid="amenities" aria-labelledby="amenities-heading" class="flex flex-col gap-space-md">
+            <div>
+              <span class="text-label-sm uppercase text-secondary">Tailored hospitality</span>
+              <h2 id="amenities-heading" class="mt-1 font-serif text-headline-md text-primary">Sanctuary services</h2>
+            </div>
+            <ul class="grid grid-cols-1 gap-space-sm sm:grid-cols-2 md:grid-cols-3">
+              @for (amenity of amenities; track amenity.title) {
+                <li data-testid="amenity" class="flex flex-col gap-space-xs rounded-lg bg-surface-container-low p-space-md transition-colors hover:bg-surface-container">
+                  <svg viewBox="0 0 24 24" class="h-7 w-7 text-primary-container" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                    <path [attr.d]="amenity.iconPath" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <h3 class="text-title-md text-primary">{{ amenity.title }}</h3>
+                  <p class="text-body-sm text-on-surface-variant">{{ amenity.description }}</p>
+                </li>
+              }
+            </ul>
+          </section>
+
+          @if (addressLines().length > 0) {
+            <section aria-labelledby="location-heading" class="flex flex-col gap-space-sm pt-space-md">
+              <div class="flex flex-col justify-between gap-space-xs sm:flex-row sm:items-end">
+                <div>
+                  <span class="text-label-sm uppercase text-secondary">The setting</span>
+                  <h2 id="location-heading" class="mt-1 font-serif text-headline-md text-primary">Location and surroundings</h2>
+                </div>
+                @if (cityCountry()) {
+                  <span class="text-body-sm text-on-surface-variant">{{ cityCountry() }}</span>
+                }
+              </div>
+              <div class="relative flex h-72 items-end overflow-hidden rounded-xl bg-linear-to-br from-primary-container to-primary p-space-md shadow-sm">
+                <svg viewBox="0 0 24 24" class="pointer-events-none absolute -right-6 -top-6 h-56 w-56 text-on-primary-container/20" fill="none" stroke="currentColor" stroke-width="0.6" aria-hidden="true">
+                  <path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21Zm0-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+                </svg>
+                <address data-testid="detail-address" class="relative max-w-sm rounded-lg bg-surface/90 p-space-md not-italic shadow-md backdrop-blur-md">
+                  <span class="flex items-center gap-space-xs text-title-md text-primary">
+                    <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0 text-surface-tint" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21Zm0-9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke-linejoin="round" />
+                    </svg>
+                    {{ item.name }}
+                  </span>
+                  @for (line of addressLines(); track $index) {
+                    <span data-testid="address-line" class="mt-1 block text-body-sm text-on-surface-variant">{{ line }}</span>
+                  }
+                </address>
+              </div>
+            </section>
+          }
+        </div>
+
+        <aside data-testid="detail-aside" aria-label="Plan a stay" class="flex min-w-0 flex-col gap-space-md lg:sticky lg:top-28 lg:col-span-4">
+          <app-reservation-card [pricing]="item.pricing" [hotelName]="item.name" />
           @if (hasContact()) {
-            <aside
+            <section
               data-testid="contact-card"
-              class="sticky top-28 flex flex-col gap-space-md rounded-xl bg-surface-container-lowest p-space-lg shadow-xl lg:col-span-4"
+              aria-labelledby="contact-card-heading"
+              class="flex flex-col gap-space-md rounded-xl bg-surface-container-lowest p-space-lg shadow-xl"
             >
-              <h2 class="font-serif text-headline-md text-primary">Contact</h2>
+              <h2 id="contact-card-heading" class="font-serif text-headline-md text-primary">Contact</h2>
               @if (item.contact.phone; as phone) {
                 <div class="flex flex-col gap-space-xs">
                   <span class="text-label-sm uppercase text-on-surface-variant">Phone</span>
@@ -126,10 +222,21 @@
                   }
                 </div>
               }
-            </aside>
+            </section>
           }
-        </div>
-      }
-    </div>
-  </div>
+          <div data-testid="manager-card" class="flex items-center gap-space-md rounded-xl bg-surface-container-low p-space-md">
+            <span
+              data-testid="manager-initials"
+              aria-hidden="true"
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-container font-serif text-title-md text-on-primary"
+            >{{ managerInitials }}</span>
+            <div>
+              <p class="text-title-md text-primary">{{ manager.name }}</p>
+              <p class="text-body-sm text-on-surface-variant">{{ manager.role }}</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  }
 </main>

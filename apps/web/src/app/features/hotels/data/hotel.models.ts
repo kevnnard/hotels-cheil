@@ -25,6 +25,17 @@ export interface HotelImage {
   sizeBytes: number;
 }
 
+export interface HotelGalleryImage extends HotelImage {
+  position: number;
+}
+
+export interface HotelPricing {
+  currency: 'USD';
+  nightlyRate: number;
+  discountPercent: number | null;
+  discountedNightlyRate: number | null;
+}
+
 export interface Hotel {
   id: string;
   name: string;
@@ -36,6 +47,8 @@ export interface Hotel {
   updatedAtUtc: string;
   rating: HotelRating;
   image: HotelImage | null;
+  images: HotelGalleryImage[];
+  pricing: HotelPricing | null;
 }
 
 export interface HotelPage {
@@ -49,6 +62,7 @@ export interface HotelPage {
 export interface HotelListQuery {
   name: string;
   minRating: number | null;
+  maxPrice?: number | null;
   page: number;
   pageSize: number;
 }

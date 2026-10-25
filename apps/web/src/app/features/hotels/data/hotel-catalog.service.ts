@@ -18,6 +18,10 @@ export class HotelCatalogService {
     if (query.minRating !== null) {
       params = params.set('minRating', query.minRating);
     }
+    const maxPrice = query.maxPrice ?? null;
+    if (maxPrice !== null && maxPrice > 0) {
+      params = params.set('maxPrice', maxPrice);
+    }
     return this.http.get<HotelPage>(publicHotelsUrl, { params });
   }
 
@@ -27,5 +31,9 @@ export class HotelCatalogService {
 
   imageUrl(id: string): string {
     return `${publicHotelsUrl}/${id}/image`;
+  }
+
+  imagePositionUrl(id: string, position: number): string {
+    return `${publicHotelsUrl}/${id}/images/${position}`;
   }
 }

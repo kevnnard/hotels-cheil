@@ -1,6 +1,6 @@
-import { Component, computed, effect, input, output, signal } from '@angular/core';
+import { Component, WritableSignal, computed, effect, input, output, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ratingOptions } from '../data/catalog-query';
+import { priceRange, ratingOptions } from '../data/catalog-query';
 
 @Component({
   selector: 'app-catalog-filters',
@@ -121,10 +121,21 @@ import { ratingOptions } from '../data/catalog-query';
         <span id="note-property-type" data-testid="unavailable-note" class="text-xs text-on-surface-variant">Not available yet</span>
       </div>
 
-      <div data-testid="filter-group" class="flex flex-col gap-space-sm">
-        <label for="filter-price" class="text-sm font-medium text-on-surface">Minimum price per night</label>
-        <input id="filter-price" data-testid="filter-price" type="range" min="0" max="100" value="0" aria-describedby="note-price" class="h-11 w-full accent-primary-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" />
-        <span id="note-price" data-testid="unavailable-note" class="text-xs text-on-surface-variant">Not available yet</span>
+      <div data-testid="price-group" class="flex flex-col gap-space-sm">
+        <label for="filter-price" class="text-sm font-medium text-on-surface">Maximum price per night</label>
+        <input
+          id="filter-price"
+          data-testid="filter-price"
+          type="range"
+          aria-describedby="price-value"
+          class="h-11 w-full accent-primary-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          [min]="priceRange.min"
+          [max]="priceRange.max"
+          [step]="priceRange.step"
+          [attr.aria-valuetext]="priceLabel()"
+          [formControl]="priceControl()"
+        />
+        <span id="price-value" data-testid="price-value" class="text-xs text-on-surface-variant">{{ priceLabel() }}</span>
       </div>
 
       <div data-testid="filter-group" role="group" aria-labelledby="categories-label" class="flex flex-col gap-space-sm sm:col-span-2 lg:col-span-3">
@@ -156,32 +167,27 @@ import { ratingOptions } from '../data/catalog-query';
 })
 export class CatalogFilters {
   readonly searchControl = input.required<FormControl<string>>();
+  readonly priceControl = input.required<FormControl<number>>();
   readonly minRating = input.required<number | null>();
   readonly ratingChange = output<number | null>();
   readonly cleared = output<void>();
 
   protected readonly ratingOptions = ratingOptions;
   protected readonly advancedOpen = signal(false);
+  protected readonly priceRange = priceRange;
   private readonly searchText = signal('');
-  protected readonly hasAppliedFilters = computed(() => this.searchText().trim() !== '' || this.minRating() !== null);
+  private readonly priceLimit = signal<number>(priceRange.max);
+  protected readonly priceLabel = computed(() => {
+    const limit = this.priceLimit();
+    return limit >= priceRange.max ? 'Any price' : `Up to $${limit}`;
+  });
+  protected readonly hasAppliedFilters = computed(
+    () => this.searchText().trim() !== '' || this.minRating() !== null || this.priceLimit() < priceRange.max,
+  );
 
   constructor() {
-    effect((onCleanup) => {
-      const control = this.searchControl();
-      let active = true;
-      const track = (value: string) => {
-        if (active) {
-          this.searchText.set(value);
-        }
-      };
-      track(control.value);
-      control.registerOnChange(track);
-      const subscription = control.valueChanges.subscribe(track);
-      onCleanup(() => {
-        active = false;
-        subscription.unsubscribe();
-      });
-    });
+    this.mirror(this.searchControl, this.searchText);
+    this.mirror(this.priceControl, this.priceLimit);
   }
 
   protected segmentClasses(selected: boolean): string {
@@ -194,5 +200,24 @@ export class CatalogFilters {
 
   protected toggleAdvanced(): void {
     this.advancedOpen.update((open) => !open);
+  }
+
+  private mirror<T>(source: () => FormControl<T>, target: WritableSignal<T>): void {
+    effect((onCleanup) => {
+      const control = source();
+      let active = true;
+      const track = (value: T) => {
+        if (active) {
+          target.set(value);
+        }
+      };
+      track(control.value);
+      control.registerOnChange(track);
+      const subscription = control.valueChanges.subscribe(track);
+      onCleanup(() => {
+        active = false;
+        subscription.unsubscribe();
+      });
+    });
   }
 }

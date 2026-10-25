@@ -111,6 +111,7 @@ export const layers: LayerDescriptor[] = [
 			{ label: "ADR-013 Hotel HTTP contract", href: "/decisions/adr-013-hotel-http-contract/" },
 			{ label: "ADR-015 Strict lossless hotel images", href: "/decisions/adr-015-strict-lossless-hotel-images/" },
 			{ label: "ADR-017 Up to three images per hotel", href: "/decisions/adr-017-up-to-three-images-per-hotel/" },
+			{ label: "ADR-018 Nightly price and discount", href: "/decisions/adr-018-nightly-price-and-discount/" },
 		],
 	},
 	{
@@ -136,6 +137,7 @@ export const layers: LayerDescriptor[] = [
 		docs: [
 			{ label: "Hotel domain rules", href: "/hotel-domain/" },
 			{ label: "ADR-010 Hotel scores", href: "/decisions/adr-010-hotel-scores/" },
+			{ label: "ADR-018 Nightly price and discount", href: "/decisions/adr-018-nightly-price-and-discount/" },
 		],
 	},
 	{
@@ -149,6 +151,7 @@ export const layers: LayerDescriptor[] = [
 			{ label: "ADR-012 Identity, JWT and sessions", href: "/decisions/adr-012-identity-jwt-and-revocable-sessions/" },
 			{ label: "ADR-015 Strict lossless hotel images", href: "/decisions/adr-015-strict-lossless-hotel-images/" },
 			{ label: "ADR-017 Up to three images per hotel", href: "/decisions/adr-017-up-to-three-images-per-hotel/" },
+			{ label: "ADR-018 Nightly price and discount", href: "/decisions/adr-018-nightly-price-and-discount/" },
 			{ label: "ADR-006 Local storage over Cloudflare R2", href: "/decisions/adr-006-local-storage-over-cloudflare-r2/" },
 		],
 	},
@@ -163,6 +166,7 @@ export const layers: LayerDescriptor[] = [
 			{ label: "ADR-011 PostgreSQL persistence", href: "/decisions/adr-011-postgresql-persistence/" },
 			{ label: "ADR-006 Local storage over Cloudflare R2", href: "/decisions/adr-006-local-storage-over-cloudflare-r2/" },
 			{ label: "ADR-017 Up to three images per hotel", href: "/decisions/adr-017-up-to-three-images-per-hotel/" },
+			{ label: "ADR-018 Nightly price and discount", href: "/decisions/adr-018-nightly-price-and-discount/" },
 		],
 	},
 	{
@@ -281,13 +285,16 @@ export const nodes: ArchitectureNode[] = [
 		responsibilities: [
 			"Reads the hotels for both roles.",
 			"Creates, updates and deletes a hotel for the Administrator role only.",
-			"Answers the listing with the items, the page and the totals.",
+			"Answers the listing with the items, the page and the totals, filtered by name, minimum rating and maximum nightly price.",
 			"Includes the primary image metadata, or null, and the images of every position in every hotel it returns.",
+			"Accepts the optional pricePerNight and discountPercent on create and update, and returns a pricing block in USD, or null, in every hotel.",
 		],
 		expectations: [
 			"A rejected write leaves the stored hotel exactly as it was.",
 			"The listing order is the creation timestamp and then the identifier.",
 			"Updating the descriptive details never changes the images of the hotel.",
+			"An update replaces the whole details, so an update without the pricing fields clears the pricing.",
+			"An invalid price or discount is answered with 400 and the field pricePerNight or discountPercent; a maxPrice that is not a positive number is answered with 400.",
 		],
 		data: "Reads and writes the hotels table through the hotel service.",
 		endpoints: [
@@ -364,7 +371,7 @@ export const nodes: ArchitectureNode[] = [
 		summary:
 			"The anonymous, read-only catalog: list, detail and the images of the active hotels.",
 		responsibilities: [
-			"Lists the active hotels with the name filter, the minimum rating filter and pagination, with the validation of the administrative listing.",
+			"Lists the active hotels with the name filter, the minimum rating filter, the maximum nightly price filter and pagination, with the validation of the administrative listing.",
 			"Returns the same hotel response as the administrative reads, with no extra fields.",
 			"Serves the bytes of each image position with the detected content type, an entity tag, nosniff and a private no-cache policy; the image route is position 0.",
 		],
@@ -563,6 +570,8 @@ export const nodes: ArchitectureNode[] = [
 		expectations: [
 			"The minimum rating filter keeps the hotels whose average is at least the value.",
 			"Hotels without votes never match a minimum rating filter.",
+			"The maximum price must be greater than 0; hotels without a price never match it.",
+			"A price or discount error names the failing field, checked after the name.",
 			"A failed file cleanup never turns a deleted hotel into an error.",
 		],
 		data: "Hotels and ratings through the hotel and rating ports.",
@@ -626,22 +635,25 @@ export const nodes: ArchitectureNode[] = [
 	},
 	{
 		id: "hotel-domain",
-		label: "Hotel and HotelDetails",
+		label: "Hotel, HotelDetails and HotelPricing",
 		kind: "Domain model",
 		layer: "domain",
 		status: "implemented",
 		summary:
-			"The hotel aggregate with its descriptive details, its contact data and its active state.",
+			"The hotel aggregate with its descriptive details, its contact data, its optional pricing and its active state.",
 		responsibilities: [
 			"Requires a name and normalizes the optional texts.",
 			"Validates the email, the phone and the website formats.",
+			"Validates the optional nightly price in USD (greater than 0, at most 100000, at most two decimals) and the optional discount (an integer from 1 to 90, only with a price).",
+			"Computes the discounted nightly rate as price * (100 - discount) / 100, rounded to cents away from zero.",
 			"Keeps the creation timestamp and moves the update timestamp.",
 		],
 		expectations: [
 			"Two hotels may share a name; the name is not a key.",
 			"The details are bounded; an oversized text is rejected, not truncated.",
+			"The currency is always USD and the discounted rate is computed, never stored.",
 		],
-		data: "Mapped to the hotels table.",
+		data: "Mapped to the hotels table; the pricing uses two nullable columns.",
 	},
 	{
 		id: "hotel-image-domain",
@@ -716,6 +728,7 @@ export const nodes: ArchitectureNode[] = [
 			"The database enforces the rating range and the one vote per account.",
 			"The database keys the images by hotel and position, accepts positions 0 to 2 only, caps the size at 400,000 bytes, allows one row per stored file and deletes the rows with their hotel.",
 			"The gallery migration copies every existing image to position 0 before it drops the old image columns, and it is forward-only.",
+			"The database checks the nightly price (greater than 0, at most 100000), the discount (1 to 90) and that a discount always has a price; the pricing migration adds nullable columns, keeps existing hotels without pricing and is forward-only.",
 		],
 		data: "The hotels, hotel_images, hotel_ratings and auth_sessions tables.",
 	},
@@ -732,6 +745,7 @@ export const nodes: ArchitectureNode[] = [
 			"Compute the average and the count of votes in one aggregate query.",
 			"Write a rating with an atomic upsert on the account and hotel pair.",
 			"Swap and clear the image of one position, and delete a hotel with every image, under the hotel row lock, reporting what was displaced.",
+			"Filter the listing by the effective nightly price (the discounted rate when there is a discount) inside the SQL query, before the count and the page.",
 		],
 		expectations: [
 			"The listing never issues one query per hotel; the images of a page load with the page.",
@@ -851,7 +865,7 @@ export const nodes: ArchitectureNode[] = [
 			"The rating range and the uniqueness of the vote are constraints, not application checks.",
 			"The database port is not published in production.",
 		],
-		data: "hotels, hotel_images (up to three image rows per hotel), hotel_ratings, auth_sessions and the Identity tables.",
+		data: "hotels (with the optional price_per_night and discount_percent), hotel_images (up to three image rows per hotel), hotel_ratings, auth_sessions and the Identity tables.",
 	},
 	{
 		id: "public-web-routes",
@@ -863,16 +877,38 @@ export const nodes: ArchitectureNode[] = [
 			"The anonymous screens of apps/web: the catalog at / and the hotel detail at /hotels/:id, lazy loaded inside the public layout.",
 		responsibilities: [
 			"Show the catalog with a hero for the first hotel that has an image, a sticky name search, the minimum rating thresholds All, 4.90+, 4.95+ and 5.0 (decimals kept exactly) and the pagination, all reflected in the query string.",
-			"Show the detail of one hotel with a back link, its city and region, rating summary, a single full-width image, description, address facts and a sticky contact card limited to the contact values the API returned.",
+			"Show the nightly price in USD on every card that has pricing: the rate and per night, or the struck-through original rate, the discounted rate and a percentage badge when the hotel has a discount. The hero shows no price.",
+			"Offer a maximum price per night slider (50 to 1000 in steps of 50, debounced 300 ms) in the advanced filters; 1000 means any price and sends no maxPrice. Destination, property type, categories and amenities stay inert and marked Not available yet.",
+			"Show the detail of one hotel with a back link and a breadcrumb to its country, its city and region, the rating summary when it has ratings, a three-tile photo mosaic, the real facts, address and description, and a column that is sticky from lg with the stay estimate, the contact card limited to the contact values the API returned and a sample manager card.",
 			"Show loading, empty, error and not found states, and a placeholder when a hotel has no image.",
 			"Show a footer whose Destinations area lists the distinct, sorted city and country pairs of the hotels returned by one GET /api/public/hotels request made by the public layout, and is omitted when there are none.",
 		],
 		expectations: [
-			"Only data returned by the public API is shown; there is no price, booking, category or amenity.",
+			"Hotel facts, prices and images come only from the public API. The quote, the suites, the amenities, the perks and the manager card on the detail are typed sample constants with no remote asset, and nothing on the detail makes a booking or claims availability.",
 			"Components never call HTTP directly; they read hotels through the catalog service.",
-			"A changed filter resets the page to 1 and an unset rating is never sent.",
+			"A changed filter resets the page to 1; an unset rating or price limit is never sent, and a maxPrice in the address that is not a positive number is ignored.",
+			"Reset clears the name, the rating and the price limit together.",
 		],
 		data: "Local view state in Signals and the query string only. Nothing is persisted in the browser.",
+	},
+	{
+		id: "hotel-detail-components",
+		label: "Hotel detail components",
+		kind: "Angular components",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The presentation pieces composed by the detail page: HotelGallery, ReservationCard and SuitesShowcase.",
+		responsibilities: [
+			"HotelGallery places the image of positions 0, 1 and 2 by their explicit position in a mosaic, keeps the placeholder for an empty position, and opens the existing images in a native modal dialog that closes with its button, Escape or a backdrop click and returns focus to the opener.",
+			"ReservationCard shows the nightly price block or Price on request, a nights stepper from 1 to 14, a sample guests select and an estimated total of the effective nightly price times the nights, announced politely.",
+			"SuitesShowcase shows three sample suites in an accessible tablist with roving focus and the arrow, Home and End keys.",
+		],
+		expectations: [
+			"The request and concierge buttons are inert: they only show Demo only: nothing was sent. and make no request.",
+			"No component calls HTTP; image addresses come from the catalog service and the browser loads them.",
+		],
+		data: "Local view state in Signals only: the open dialog, the nights and the selected suite.",
 	},
 	{
 		id: "hotel-catalog-service",
@@ -881,10 +917,10 @@ export const nodes: ArchitectureNode[] = [
 		layer: "delivery",
 		status: "implemented",
 		summary:
-			"The typed HttpClient service of the public catalog, with explicit contracts for the hotel and the page of hotels.",
+			"The typed HttpClient service of the public catalog, with explicit contracts for the hotel, its pricing block and the page of hotels.",
 		responsibilities: [
-			"Build the list request with name, minRating, page and pageSize, omitting the name and the rating when unset.",
-			"Request one hotel by identifier and build the public image address.",
+			"Build the list request with name, minRating, maxPrice, page and pageSize, omitting the name, the rating and the price limit when unset.",
+			"Request one hotel by identifier, with its images by position, and build the public image address of position 0 for the cards and of any position for the detail gallery.",
 			"Reach the API through the same-origin /api path, proxied to the API in development.",
 		],
 		expectations: [
@@ -912,7 +948,9 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "public-hotels-controller", to: "hotel-service", label: "active hotels", protocol: "in-process" },
 	{ from: "public-hotels-controller", to: "hotel-image-service", label: "active hotel image", protocol: "in-process" },
 	{ from: "public-web-routes", to: "hotel-catalog-service", label: "reads hotels", protocol: "in-process" },
-	{ from: "hotel-catalog-service", to: "public-hotels-controller", label: "GET list, detail and image", protocol: "https" },
+	{ from: "public-web-routes", to: "hotel-detail-components", label: "composes the detail", protocol: "in-process" },
+	{ from: "hotel-detail-components", to: "hotel-catalog-service", label: "image addresses by position", protocol: "in-process" },
+	{ from: "hotel-catalog-service", to: "public-hotels-controller", label: "GET list, detail, image and image positions", protocol: "https" },
 	{ from: "jwt-bearer", to: "ports", label: "session lookup", protocol: "identity" },
 	{ from: "policies", to: "ports", label: "role claim", protocol: "identity" },
 	{ from: "authentication-service", to: "token-issuer", label: "issues the token", protocol: "in-process" },
@@ -959,12 +997,12 @@ export const requestFlow: RequestFlowStep[] = [
 	{
 		title: "A visitor reads the public catalog",
 		detail:
-			"GET /api/public/hotels, /api/public/hotels/{id}, /api/public/hotels/{id}/image and /api/public/hotels/{id}/images/{position} need no token and skip the token and policy steps. The controller asks the services for active hotels only, so an inactive hotel is absent from the list and answers 404 elsewhere.",
+			"GET /api/public/hotels, /api/public/hotels/{id}, /api/public/hotels/{id}/image and /api/public/hotels/{id}/images/{position} need no token and skip the token and policy steps. The controller asks the services for active hotels only, so an inactive hotel is absent from the list and answers 404 elsewhere. An optional maxPrice keeps the hotels whose effective nightly price is at most the value, evaluated in the SQL query.",
 	},
 	{
 		title: "The Angular client reads the catalog",
 		detail:
-			"The public web routes ask the catalog service for a page or a hotel. The service calls the public routes over same-origin /api, with minRating omitted when unset, and the screen renders loading, empty, error or not found states from the answer. The public layout makes its own request for up to 100 hotels to derive the footer destinations, and shows none when it fails.",
+			"The public web routes ask the catalog service for a page or a hotel. The service calls the public routes over same-origin /api, with minRating and maxPrice omitted when unset, and the screen renders loading, empty, error or not found states from the answer. The detail page loads the image of each stored position from /api/public/hotels/{id}/images/{position} and requests nothing else. The public layout makes its own request for up to 100 hotels to derive the footer destinations, and shows none when it fails.",
 	},
 	{
 		title: "The controller calls the use case",
@@ -994,7 +1032,7 @@ export const requestFlow: RequestFlowStep[] = [
 	{
 		title: "The answer returns",
 		detail:
-			"The summary comes from the aggregate of the stored votes. A hotel without votes answers a count of zero and a null average.",
+			"The summary comes from the aggregate of the stored votes. A hotel without votes answers a count of zero and a null average. The pricing block carries the USD currency, the nightly rate, the discount and the discounted rate computed by the domain, or is null when the hotel has no price.",
 	},
 ];
 

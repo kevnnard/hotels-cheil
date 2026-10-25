@@ -18,6 +18,20 @@ describe('HotelImageView', () => {
     expect(image?.getAttribute('alt')).toBe('Aurea Test');
   });
 
+  it('loads the image stored at an explicit position with the given alternative text', () => {
+    const fixture = TestBed.createComponent(HotelImageView);
+    fixture.componentRef.setInput('hotelId', 'abc');
+    fixture.componentRef.setInput('hotelName', 'Aurea Test');
+    fixture.componentRef.setInput('hasImage', true);
+    fixture.componentRef.setInput('position', 2);
+    fixture.componentRef.setInput('alt', 'Aurea Test, photo 3');
+    fixture.detectChanges();
+    const image = (fixture.nativeElement as HTMLElement).querySelector('img');
+
+    expect(image?.getAttribute('src')).toBe('/api/public/hotels/abc/images/2');
+    expect(image?.getAttribute('alt')).toBe('Aurea Test, photo 3');
+  });
+
   it('shows the placeholder and no image element when the hotel has no image', () => {
     const root = render(false);
 

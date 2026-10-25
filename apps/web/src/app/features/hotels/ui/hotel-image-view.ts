@@ -10,7 +10,7 @@ import { HotelCatalogService } from '../data/hotel-catalog.service';
         class="h-full w-full object-cover"
         loading="lazy"
         [src]="source()"
-        [alt]="hotelName()"
+        [alt]="alt() ?? hotelName()"
         (error)="failed.set(true)"
       />
     } @else {
@@ -32,8 +32,13 @@ export class HotelImageView {
   readonly hotelId = input.required<string>();
   readonly hotelName = input.required<string>();
   readonly hasImage = input.required<boolean>();
+  readonly position = input<number | null>(null);
+  readonly alt = input<string | null>(null);
 
   protected readonly failed = signal(false);
   protected readonly showImage = computed(() => this.hasImage() && !this.failed());
-  protected readonly source = computed(() => this.catalog.imageUrl(this.hotelId()));
+  protected readonly source = computed(() => {
+    const position = this.position();
+    return position === null ? this.catalog.imageUrl(this.hotelId()) : this.catalog.imagePositionUrl(this.hotelId(), position);
+  });
 }

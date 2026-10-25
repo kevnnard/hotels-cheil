@@ -3,6 +3,8 @@ import { HotelListQuery } from './hotel.models';
 
 export const catalogPageSize = 8;
 
+export const priceRange = { min: 50, max: 1000, step: 50 } as const;
+
 export interface RatingOption {
   value: number;
   label: string;
@@ -30,10 +32,19 @@ function minimumRating(value: string | null): number | null {
   return parsed >= 1 && parsed <= 5 ? parsed : null;
 }
 
+function maximumPrice(value: string | null): number | null {
+  if (value === null || !/^\d+(\.\d+)?$/.test(value)) {
+    return null;
+  }
+  const parsed = Number(value);
+  return parsed > 0 ? parsed : null;
+}
+
 export function parseCatalogQuery(params: ParamMap): HotelListQuery {
   return {
     name: params.get('name') ?? '',
     minRating: minimumRating(params.get('minRating')),
+    maxPrice: maximumPrice(params.get('maxPrice')),
     page: positiveInteger(params.get('page')) ?? 1,
     pageSize: catalogPageSize,
   };
