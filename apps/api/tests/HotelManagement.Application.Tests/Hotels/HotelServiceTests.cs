@@ -1,4 +1,5 @@
 using HotelManagement.Application.Hotels;
+using HotelManagement.Application.Tests.Images;
 using HotelManagement.Domain.Hotels;
 using HotelManagement.Domain.Ratings;
 
@@ -11,9 +12,10 @@ public class HotelServiceTests
 
     private readonly FakeHotelStore hotels = new();
     private readonly FakeHotelRatingsStore ratings = new();
+    private readonly FakeFileStorage storage = new();
     private readonly FixedTimeProvider clock = new(Now);
 
-    private HotelService Service => new(hotels, ratings, clock);
+    private HotelService Service => new(hotels, ratings, storage, clock);
 
     private static HotelDetailsInput ValidInput(string? name = "Grand Plaza") => new(
         name,
@@ -278,6 +280,74 @@ public class HotelServiceTests
 
         Assert.Equal(storeResult, deleted);
         Assert.Equal(hotelId, Assert.Single(hotels.Deleted));
+    }
+
+    [Fact]
+    public async Task Delete_releases_the_image_bytes_of_the_deleted_hotel()
+    {
+        var image = new HotelImage("e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5.png", HotelImage.Png, 4, 4, 3);
+        storage.Seed(image.StorageKey, [1, 2, 3]);
+        hotels.DeleteResult = true;
+        hotels.ReleasedImageOnDelete = image;
+
+        var deleted = await Service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.True(deleted);
+        Assert.Equal([image.StorageKey], storage.DeleteRequests);
+        Assert.Empty(storage.Keys);
+    }
+
+    [Fact]
+    public async Task Delete_of_a_missing_hotel_deletes_no_bytes()
+    {
+        storage.Seed("f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6.png", [1]);
+        hotels.DeleteResult = false;
+        hotels.ReleasedImageOnDelete = new HotelImage("f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6.png", HotelImage.Png, 1, 1, 1);
+
+        var deleted = await Service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(deleted);
+        Assert.Empty(storage.DeleteRequests);
+        Assert.Single(storage.Keys);
+    }
+
+    [Fact]
+    public async Task Delete_still_succeeds_when_the_image_bytes_cannot_be_deleted()
+    {
+        var image = new HotelImage("e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5.png", HotelImage.Png, 4, 4, 3);
+        storage.Seed(image.StorageKey, [1, 2, 3]);
+        storage.UndeletableKeys.Add(image.StorageKey);
+        hotels.DeleteResult = true;
+        hotels.ReleasedImageOnDelete = image;
+
+        Assert.True(await Service.DeleteAsync(Guid.NewGuid(), CancellationToken.None));
+        Assert.Single(storage.Keys);
+    }
+
+    [Fact]
+    public async Task Find_projects_the_image_metadata_and_omits_it_for_hotels_without_one()
+    {
+        var image = new HotelImage("a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7.webp", HotelImage.WebP, 800, 600, 1234);
+        var withImage = Hotel.Restore(Guid.NewGuid(), new HotelDetails("With"), true, Earlier, Earlier, image);
+        var without = SeedHotel();
+        hotels.Seed(withImage);
+
+        Assert.Equal(image, (await Service.FindAsync(withImage.Id, CancellationToken.None))!.Image);
+        Assert.Null((await Service.FindAsync(without.Id, CancellationToken.None))!.Image);
+    }
+
+    [Fact]
+    public async Task Update_returns_the_summary_with_the_image_the_hotel_already_had()
+    {
+        var image = new HotelImage("a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7.webp", HotelImage.WebP, 800, 600, 1234);
+        var hotel = Hotel.Restore(Guid.NewGuid(), new HotelDetails("Old Name"), true, Earlier, Earlier, image);
+        hotels.Seed(hotel);
+
+        var outcome = await Service.UpdateAsync(hotel.Id, new UpdateHotel(ValidInput("New Name")), CancellationToken.None);
+
+        Assert.Equal(UpdateHotelStatus.Updated, outcome.Status);
+        Assert.Equal(image, outcome.Hotel!.Image);
+        Assert.Equal(image, Assert.Single(hotels.Updated).Image);
     }
 
     [Fact]

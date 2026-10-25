@@ -13,6 +13,7 @@ public sealed class ApiServerFixture : IAsyncDisposable
     private const string Audience = "hotels-e2e-clients";
     private readonly PostgresDatabaseFixture database = new();
     private readonly string signingKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+    private readonly string workspace = Path.Combine(Path.GetTempPath(), "hotel-e2e", Guid.NewGuid().ToString("N"));
     private ApiServerProcess? server;
     private Uri? baseAddress;
 
@@ -21,6 +22,8 @@ public sealed class ApiServerFixture : IAsyncDisposable
     public string AdministratorPassword { get; } = $"Aa1{Convert.ToHexString(RandomNumberGenerator.GetBytes(16))}";
 
     public string DatabaseName => database.DatabaseName;
+
+    public string ImageRoot => Path.Combine(workspace, "images");
 
     public Uri BaseAddress => baseAddress ?? throw new InvalidOperationException("The API server is not running.");
 
@@ -93,6 +96,10 @@ public sealed class ApiServerFixture : IAsyncDisposable
         {
             server = null;
             await database.DisposeAsync();
+            if (Directory.Exists(workspace))
+            {
+                Directory.Delete(workspace, recursive: true);
+            }
         }
     }
 
@@ -104,7 +111,8 @@ public sealed class ApiServerFixture : IAsyncDisposable
         ["Authentication__Jwt__SigningKey"] = signingKey,
         ["Authentication__Jwt__AccessTokenLifetimeMinutes"] = "15",
         ["Authentication__Administrator__Email"] = AdministratorEmail,
-        ["Authentication__Administrator__Password"] = AdministratorPassword
+        ["Authentication__Administrator__Password"] = AdministratorPassword,
+        ["Storage__Images__RootPath"] = ImageRoot
     };
 
     public async Task<int> CountHotelsAsync(string name)

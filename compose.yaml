@@ -46,7 +46,11 @@ services:
       Authentication__Jwt__AccessTokenLifetimeMinutes: ${JWT_ACCESS_TOKEN_LIFETIME_MINUTES:-15}
       Authentication__Administrator__Email: ${ADMINISTRATOR_EMAIL:-}
       Authentication__Administrator__Password: ${ADMINISTRATOR_PASSWORD:-}
+      Storage__Images__RootPath: /var/lib/hotel-images
+    volumes:
+      - hotel-images:/var/lib/hotel-images
     restart: unless-stopped
 
 volumes:
   postgres-17-data:
+  hotel-images:

@@ -31,6 +31,12 @@ public sealed record HotelContactResponse(string? Phone, string? Email, string? 
         new(contact.Phone, contact.Email, contact.Website);
 }
 
+public sealed record HotelImageResponse(string ContentType, int Width, int Height, int SizeBytes)
+{
+    public static HotelImageResponse From(HotelImage image) =>
+        new(image.ContentType, image.Width, image.Height, image.SizeBytes);
+}
+
 public sealed record HotelResponse(
     Guid Id,
     string Name,
@@ -40,7 +46,8 @@ public sealed record HotelResponse(
     bool IsActive,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
-    RatingSummaryResponse Rating)
+    RatingSummaryResponse Rating,
+    HotelImageResponse? Image)
 {
     public static HotelResponse From(HotelSummary hotel) =>
         new(
@@ -52,7 +59,8 @@ public sealed record HotelResponse(
             hotel.IsActive,
             hotel.CreatedAtUtc,
             hotel.UpdatedAtUtc,
-            RatingSummaryResponse.From(hotel.Rating));
+            RatingSummaryResponse.From(hotel.Rating),
+            hotel.Image is null ? null : HotelImageResponse.From(hotel.Image));
 }
 
 public sealed record HotelPageResponse(

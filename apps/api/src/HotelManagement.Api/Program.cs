@@ -2,9 +2,11 @@ using System.Text;
 using HotelManagement.Api.Authentication;
 using HotelManagement.Application.Hotels;
 using HotelManagement.Application.Identity;
+using HotelManagement.Application.Images;
 using HotelManagement.Domain.Identity;
 using HotelManagement.Infrastructure;
 using HotelManagement.Infrastructure.Identity;
+using HotelManagement.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -29,10 +31,12 @@ builder.Services.AddHealthChecks();
 
 builder.Services.AddHotelPersistence(connectionString);
 builder.Services.AddHotelIdentity(bootstrapOptions);
+builder.Services.AddHotelImages(ImageStorageOptions.Resolve(builder.Configuration, builder.Environment));
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IHotelService, HotelService>();
+builder.Services.AddScoped<IHotelImageService, HotelImageService>();
 builder.Services.AddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -15,6 +15,11 @@ internal sealed class HotelRecord
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
+    public string? ImageStorageKey { get; set; }
+    public string? ImageContentType { get; set; }
+    public int? ImageWidth { get; set; }
+    public int? ImageHeight { get; set; }
+    public int? ImageSizeBytes { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
@@ -51,6 +56,17 @@ internal sealed class HotelRecord
             new HotelAddress(Street, City, Region, Country, PostalCode),
             new HotelContact(Phone, Email, Website));
 
-        return Hotel.Restore(Id, details, IsActive, DateTime.SpecifyKind(CreatedAtUtc, DateTimeKind.Utc), DateTime.SpecifyKind(UpdatedAtUtc, DateTimeKind.Utc));
+        return Hotel.Restore(
+            Id,
+            details,
+            IsActive,
+            DateTime.SpecifyKind(CreatedAtUtc, DateTimeKind.Utc),
+            DateTime.SpecifyKind(UpdatedAtUtc, DateTimeKind.Utc),
+            ToImage());
     }
+
+    public HotelImage? ToImage() =>
+        ImageStorageKey is null
+            ? null
+            : new HotelImage(ImageStorageKey, ImageContentType, ImageWidth.GetValueOrDefault(), ImageHeight.GetValueOrDefault(), ImageSizeBytes.GetValueOrDefault());
 }

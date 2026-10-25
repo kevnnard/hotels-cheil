@@ -5,6 +5,7 @@ public sealed class Hotel
     public Guid Id { get; }
     public HotelDetails Details { get; private set; }
     public bool IsActive { get; private set; }
+    public HotelImage? Image { get; private set; }
     public DateTime CreatedAtUtc { get; }
     public DateTime UpdatedAtUtc { get; private set; }
 
@@ -23,7 +24,13 @@ public sealed class Hotel
         return new Hotel(Guid.CreateVersion7(), details, nowUtc);
     }
 
-    public static Hotel Restore(Guid id, HotelDetails details, bool isActive, DateTime createdAtUtc, DateTime updatedAtUtc)
+    public static Hotel Restore(
+        Guid id,
+        HotelDetails details,
+        bool isActive,
+        DateTime createdAtUtc,
+        DateTime updatedAtUtc,
+        HotelImage? image = null)
     {
         if (id == Guid.Empty)
         {
@@ -40,7 +47,8 @@ public sealed class Hotel
         return new Hotel(id, details, createdAtUtc)
         {
             IsActive = isActive,
-            UpdatedAtUtc = updatedAtUtc
+            UpdatedAtUtc = updatedAtUtc,
+            Image = image
         };
     }
 

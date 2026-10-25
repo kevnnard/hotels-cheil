@@ -106,9 +106,10 @@ public class HotelPersistenceTests(PostgresDatabaseFixture database)
         await database.CreateRatingStore().RateAsync(doomed.Id, Guid.NewGuid(), 4m, CancellationToken.None);
         await database.CreateRatingStore().RateAsync(survivor.Id, Guid.NewGuid(), 2m, CancellationToken.None);
 
-        var deleted = await database.CreateStore().DeleteAsync(doomed.Id, CancellationToken.None);
+        var deletion = await database.CreateStore().DeleteAsync(doomed.Id, CancellationToken.None);
 
-        Assert.True(deleted);
+        Assert.True(deletion.Deleted);
+        Assert.Null(deletion.ReleasedImage);
         Assert.Null(await database.CreateStore().FindAsync(doomed.Id, CancellationToken.None));
         Assert.Null(await database.CreateRatingStore().GetSummaryAsync(doomed.Id, CancellationToken.None));
         Assert.Equal(1, (await database.CreateRatingStore().GetSummaryAsync(survivor.Id, CancellationToken.None))!.Count);
@@ -117,6 +118,6 @@ public class HotelPersistenceTests(PostgresDatabaseFixture database)
     [Fact]
     public async Task DeletingUnknownHotel_ReportsMissing()
     {
-        Assert.False(await database.CreateStore().DeleteAsync(Guid.NewGuid(), CancellationToken.None));
+        Assert.False((await database.CreateStore().DeleteAsync(Guid.NewGuid(), CancellationToken.None)).Deleted);
     }
 }

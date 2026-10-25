@@ -185,6 +185,28 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("email");
 
+                    b.Property<string>("ImageContentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("image_content_type");
+
+                    b.Property<int?>("ImageHeight")
+                        .HasColumnType("integer")
+                        .HasColumnName("image_height");
+
+                    b.Property<int?>("ImageSizeBytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("image_size_bytes");
+
+                    b.Property<string>("ImageStorageKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("image_storage_key");
+
+                    b.Property<int?>("ImageWidth")
+                        .HasColumnType("integer")
+                        .HasColumnName("image_width");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -227,7 +249,15 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_hotels");
 
-                    b.ToTable("hotels", (string)null);
+                    b.HasIndex("ImageStorageKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_hotels_image_storage_key")
+                        .HasFilter("image_storage_key IS NOT NULL");
+
+                    b.ToTable("hotels", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_hotels_image_metadata", "(image_storage_key IS NULL AND image_content_type IS NULL AND image_width IS NULL AND image_height IS NULL AND image_size_bytes IS NULL) OR (image_storage_key IS NOT NULL AND image_content_type IS NOT NULL AND image_width > 0 AND image_height > 0 AND image_size_bytes BETWEEN 1 AND 400000)");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>

@@ -23,6 +23,8 @@ public sealed record HotelContactResponse(string? Phone, string? Email, string? 
 
 public sealed record RatingSummaryResponse(decimal Sum, int Count, decimal? Average);
 
+public sealed record HotelImageResponse(string ContentType, int Width, int Height, int SizeBytes);
+
 public sealed record HotelResponse(
     Guid Id,
     string Name,
@@ -32,7 +34,8 @@ public sealed record HotelResponse(
     bool IsActive,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
-    RatingSummaryResponse Rating);
+    RatingSummaryResponse Rating,
+    HotelImageResponse? Image = null);
 
 public sealed record HotelPageResponse(
     IReadOnlyList<HotelResponse> Items,

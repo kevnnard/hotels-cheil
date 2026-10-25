@@ -1,4 +1,5 @@
 using HotelManagement.Application.Hotels;
+using HotelManagement.Application.Images;
 using HotelManagement.Application.Persistence;
 using HotelManagement.Domain.Hotels;
 using HotelManagement.Domain.Ratings;
@@ -60,7 +61,8 @@ public sealed class PostgresHotelStore(HotelDbContext database) : IHotelStore
                     domain.IsActive,
                     domain.CreatedAtUtc,
                     domain.UpdatedAtUtc,
-                    RatingSummary.From(row.RatingSum, row.RatingCount));
+                    RatingSummary.From(row.RatingSum, row.RatingCount),
+                    domain.Image);
             })
             .ToList();
 
@@ -98,6 +100,78 @@ public sealed class PostgresHotelStore(HotelDbContext database) : IHotelStore
         }
     }
 
-    public async Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken) =>
-        await database.Hotels.Where(hotel => hotel.Id == hotelId).ExecuteDeleteAsync(cancellationToken) > 0;
+    public async Task<HotelDeletion> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)
+    {
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        var locked = await LockAsync(hotelId, cancellationToken);
+        if (locked is null)
+        {
+            return new HotelDeletion(false, null);
+        }
+
+        await database.Hotels.Where(hotel => hotel.Id == hotelId).ExecuteDeleteAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new HotelDeletion(true, locked.ToImage());
+    }
+
+    public async Task<ImageSlotChange> ReplaceImageAsync(Guid hotelId, HotelImage image, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        var locked = await LockAsync(hotelId, cancellationToken);
+        if (locked is null)
+        {
+            return new ImageSlotChange(false, null);
+        }
+
+        await database.Hotels
+            .Where(hotel => hotel.Id == hotelId)
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(hotel => hotel.ImageStorageKey, image.StorageKey)
+                    .SetProperty(hotel => hotel.ImageContentType, image.ContentType)
+                    .SetProperty(hotel => hotel.ImageWidth, image.Width)
+                    .SetProperty(hotel => hotel.ImageHeight, image.Height)
+                    .SetProperty(hotel => hotel.ImageSizeBytes, image.SizeBytes)
+                    .SetProperty(hotel => hotel.UpdatedAtUtc, nowUtc),
+                cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new ImageSlotChange(true, locked.ToImage());
+    }
+
+    public async Task<ImageSlotChange> ClearImageAsync(Guid hotelId, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        var locked = await LockAsync(hotelId, cancellationToken);
+        if (locked is null)
+        {
+            return new ImageSlotChange(false, null);
+        }
+
+        if (locked.ToImage() is not null)
+        {
+            await database.Hotels
+                .Where(hotel => hotel.Id == hotelId)
+                .ExecuteUpdateAsync(
+                    set => set
+                        .SetProperty(hotel => hotel.ImageStorageKey, (string?)null)
+                        .SetProperty(hotel => hotel.ImageContentType, (string?)null)
+                        .SetProperty(hotel => hotel.ImageWidth, (int?)null)
+                        .SetProperty(hotel => hotel.ImageHeight, (int?)null)
+                        .SetProperty(hotel => hotel.ImageSizeBytes, (int?)null)
+                        .SetProperty(hotel => hotel.UpdatedAtUtc, nowUtc),
+                    cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return new ImageSlotChange(true, locked.ToImage());
+    }
+
+    private async Task<HotelRecord?> LockAsync(Guid hotelId, CancellationToken cancellationToken)
+    {
+        var rows = await database.Hotels
+            .FromSql($"SELECT * FROM hotels WHERE id = {hotelId} FOR UPDATE")
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+        return rows.SingleOrDefault();
+    }
 }

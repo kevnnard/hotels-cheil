@@ -12,4 +12,5 @@ public sealed record HotelSummary(
     bool IsActive,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
-    RatingSummary Rating);
+    RatingSummary Rating,
+    HotelImage? Image = null);

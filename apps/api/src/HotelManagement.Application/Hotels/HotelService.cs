@@ -1,3 +1,4 @@
+using HotelManagement.Application.Images;
 using HotelManagement.Application.Persistence;
 using HotelManagement.Domain;
 using HotelManagement.Domain.Hotels;
@@ -5,7 +6,7 @@ using HotelManagement.Domain.Ratings;
 
 namespace HotelManagement.Application.Hotels;
 
-public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings, TimeProvider clock) : IHotelService
+public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings, IFileStorageService storage, TimeProvider clock) : IHotelService
 {
     public async Task<CreateHotelOutcome> CreateAsync(CreateHotel command, CancellationToken cancellationToken)
     {
@@ -58,8 +59,16 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
         return UpdateHotelOutcome.Updated(await SummarizeAsync(hotel, cancellationToken));
     }
 
-    public Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken) =>
-        hotels.DeleteAsync(hotelId, cancellationToken);
+    public async Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)
+    {
+        var deletion = await hotels.DeleteAsync(hotelId, cancellationToken);
+        if (deletion.ReleasedImage is { } image)
+        {
+            await storage.DeleteAsync(image.StorageKey);
+        }
+
+        return deletion.Deleted;
+    }
 
     public async Task<RateHotelOutcome> RateAsync(Guid hotelId, Guid userId, decimal score, CancellationToken cancellationToken)
     {
@@ -94,7 +103,8 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
             hotel.IsActive,
             hotel.CreatedAtUtc,
             hotel.UpdatedAtUtc,
-            rating);
+            rating,
+            hotel.Image);
     }
 
     private static bool TryBuildDetails(

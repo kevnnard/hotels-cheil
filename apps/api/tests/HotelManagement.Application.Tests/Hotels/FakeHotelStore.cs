@@ -1,4 +1,5 @@
 using HotelManagement.Application.Hotels;
+using HotelManagement.Application.Images;
 using HotelManagement.Application.Persistence;
 using HotelManagement.Domain.Hotels;
 
@@ -21,6 +22,16 @@ internal sealed class FakeHotelStore : IHotelStore
     public bool DeleteResult { get; set; }
 
     public bool UpdateResult { get; set; } = true;
+
+    public HotelImage? ReleasedImageOnDelete { get; set; }
+
+    public bool ReplaceFindsHotel { get; set; } = true;
+
+    public Exception? ReplaceFailure { get; set; }
+
+    public bool ReplaceFailureAfterApplying { get; set; }
+
+    public List<HotelImage> ReplacedImages { get; } = [];
 
     public void Seed(Hotel hotel) => hotels[hotel.Id] = hotel;
 
@@ -46,9 +57,51 @@ internal sealed class FakeHotelStore : IHotelStore
         return Task.FromResult(UpdateResult);
     }
 
-    public Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)
+    public Task<HotelDeletion> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)
     {
         Deleted.Add(hotelId);
-        return Task.FromResult(DeleteResult);
+        return Task.FromResult(new HotelDeletion(DeleteResult, DeleteResult ? ReleasedImageOnDelete : null));
     }
+
+    public Task<ImageSlotChange> ReplaceImageAsync(Guid hotelId, HotelImage image, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        if (ReplaceFailure is not null && !ReplaceFailureAfterApplying)
+        {
+            throw ReplaceFailure;
+        }
+
+        if (!ReplaceFindsHotel || !hotels.TryGetValue(hotelId, out var hotel))
+        {
+            return Task.FromResult(new ImageSlotChange(false, null));
+        }
+
+        var previous = hotel.Image;
+        hotels[hotelId] = WithImage(hotel, image, nowUtc);
+        ReplacedImages.Add(image);
+        if (ReplaceFailure is not null)
+        {
+            throw ReplaceFailure;
+        }
+
+        return Task.FromResult(new ImageSlotChange(true, previous));
+    }
+
+    public Task<ImageSlotChange> ClearImageAsync(Guid hotelId, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        if (!hotels.TryGetValue(hotelId, out var hotel))
+        {
+            return Task.FromResult(new ImageSlotChange(false, null));
+        }
+
+        var previous = hotel.Image;
+        if (previous is not null)
+        {
+            hotels[hotelId] = WithImage(hotel, null, nowUtc);
+        }
+
+        return Task.FromResult(new ImageSlotChange(true, previous));
+    }
+
+    private static Hotel WithImage(Hotel hotel, HotelImage? image, DateTime nowUtc) =>
+        Hotel.Restore(hotel.Id, hotel.Details, hotel.IsActive, hotel.CreatedAtUtc, nowUtc, image);
 }
