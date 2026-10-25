@@ -66,18 +66,28 @@ Put the generated value after `POSTGRES_PASSWORD=` in `.env.dev`. Use letters an
 
 ## Docker Compose
 
-Two variants share `compose.yaml`. Each has its own project name and therefore its own volume. The volume name includes the PostgreSQL major (`postgres-17-data`); never mount it with another major.
+Two variants exist, each with its own project name and therefore its own volumes. The volume name includes the PostgreSQL major (`postgres-17-data`); never mount it with another major.
 
 | Variant | Command | Notes |
 |---|---|---|
-| Development | `docker compose --env-file .env.dev -f compose.yaml -f compose.dev.yaml up --build` | SDK stage with `dotnet watch`; PostgreSQL published on `127.0.0.1` only |
+| Development | `docker compose --env-file .env.dev -f compose.dev.yaml up --build` | Self-contained: database, migrator, API with `dotnet watch` and the seed; PostgreSQL and the API are published on `127.0.0.1` only |
 | Production check | `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml config` | Non-root runtime image; no PostgreSQL host port; nothing is deployed |
 
-Both variants share the base file, which declares a `migrator` service next to the database and the API. It applies the pending migrations once and exits, and the API starts only after it succeeds. The runtime image never changes the schema by itself.
+`compose.dev.yaml` does not need `compose.yaml`. It declares `db`, `migrator`, `api` and `seed`. The migrator applies the pending migrations once and exits with code 0, and the API starts only after it succeeds. The runtime image never changes the schema by itself. Production keeps using `compose.yaml` with `compose.prod.yaml`.
 
-The API service mounts the named volume `hotel-images` at `/var/lib/hotel-images`, owned by the non-root runtime user, and receives `Storage__Images__RootPath` pointing there. The volume belongs to the Compose project like the database volume, so removing the project volumes removes the images. The image directory is never part of a source bind mount.
+Development requires `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ASPNETCORE_ENVIRONMENT`, `ADMINISTRATOR_EMAIL` and `ADMINISTRATOR_PASSWORD`; Compose stops with an error when one is missing. `JWT_SIGNING_KEY` stays optional in development, where the API uses an ephemeral key. The host ports default to `POSTGRES_HOST_PORT=5433` and `API_HTTP_PORT=5080`.
 
-Build the production image with `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml build`. The API waits for the database health check and for the migration. Missing secrets stop Compose with an error.
+The API service mounts the named volume `hotel-images` at `/var/lib/hotel-images` and receives `Storage__Images__RootPath` pointing there. The volume belongs to the Compose project like the database volume, so removing the project volumes removes the images. The image directory is never part of a source bind mount.
+
+### Development seed
+
+The `seed` service runs once on every `up` and then exits. It uses the pinned image `python:3.13.9-alpine3.22`, mounts `docker/seed` read-only and has `restart: "no"`. The script `docker/seed/seed_hotels.py` uses only the Python standard library and reads the hotels from `docker/seed/hotels.json`: 30 fictitious hotels in English across many countries, with name, description, address and contact, using `example.test` emails and `example.com` websites. The first four carry an image from `docker/seed/images`; the other 26 have none and their images are completed by hand through the administrative panel. The hotels have no prices, categories or amenities.
+
+The seed goes through the public HTTP API, so the normal validation rules apply. It waits for `/health`, signs in with `ADMINISTRATOR_EMAIL` and `ADMINISTRATOR_PASSWORD`, which it receives from the same variables as the API and never prints, and then handles each hotel: it looks the name up with `GET /api/hotels?name=<name>` using the administrator token, compares the names exactly, and sends `POST /api/hotels` only when the hotel is missing. Running it again therefore creates nothing, and a hotel renamed or deleted through the API is the only thing that changes the outcome. If the API stays unavailable after the retry budget, or the sign-in is rejected, the seed exits with a non-zero code.
+
+Run it again without rebuilding with `docker compose --env-file .env.dev -f compose.dev.yaml up -d seed`. The seed is for development only and is not part of the production configuration. Its tests run with `python3 -I -m unittest discover -s docker/seed/tests -t docker/seed`.
+
+Build the production image with `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml build`. The production API waits for the database health check and for the migration, and the image directory is owned by the non-root runtime user. Missing secrets stop Compose with an error.
 
 ## Manual execution with PostgreSQL
 

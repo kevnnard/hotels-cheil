@@ -2,21 +2,81 @@ name: hotels-dev
 
 services:
   db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres-17-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  migrator:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrator
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:?ASPNETCORE_ENVIRONMENT is required}
+      ConnectionStrings__Hotels: Host=db;Port=5432;Database=${POSTGRES_DB:?POSTGRES_DB is required};Username=${POSTGRES_USER:?POSTGRES_USER is required};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    restart: "no"
 
   api:
     build:
+      context: .
+      dockerfile: apps/api/Dockerfile
       target: dev
+    depends_on:
+      db:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:?ASPNETCORE_ENVIRONMENT is required}
+      ConnectionStrings__Hotels: Host=db;Port=5432;Database=${POSTGRES_DB:?POSTGRES_DB is required};Username=${POSTGRES_USER:?POSTGRES_USER is required};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      Authentication__Jwt__Issuer: ${JWT_ISSUER:-hotels-api}
+      Authentication__Jwt__Audience: ${JWT_AUDIENCE:-hotels-api-clients}
+      Authentication__Jwt__SigningKey: ${JWT_SIGNING_KEY:-}
+      Authentication__Jwt__AccessTokenLifetimeMinutes: ${JWT_ACCESS_TOKEN_LIFETIME_MINUTES:-15}
+      Authentication__Administrator__Email: ${ADMINISTRATOR_EMAIL:?ADMINISTRATOR_EMAIL is required}
+      Authentication__Administrator__Password: ${ADMINISTRATOR_PASSWORD:?ADMINISTRATOR_PASSWORD is required}
+      Storage__Images__RootPath: /var/lib/hotel-images
     ports:
       - "127.0.0.1:${API_HTTP_PORT:-5080}:8080"
     volumes:
+      - hotel-images:/var/lib/hotel-images
       - ./apps/api/src:/src/src
-      - /src/src/HotelManagement.Domain/obj
-      - /src/src/HotelManagement.Domain/bin
-      - /src/src/HotelManagement.Application/obj
-      - /src/src/HotelManagement.Application/bin
-      - /src/src/HotelManagement.Infrastructure/obj
-      - /src/src/HotelManagement.Infrastructure/bin
-      - /src/src/HotelManagement.Api/obj
-      - /src/src/HotelManagement.Api/bin
+    restart: unless-stopped
+
+  seed:
+    image: python:3.13.9-alpine3.22
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      API_BASE_URL: http://api:8080
+      ADMINISTRATOR_EMAIL: ${ADMINISTRATOR_EMAIL:?ADMINISTRATOR_EMAIL is required}
+      ADMINISTRATOR_PASSWORD: ${ADMINISTRATOR_PASSWORD:?ADMINISTRATOR_PASSWORD is required}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./docker/seed:/seed:ro
+      - ./docker/seed/images:/seed/images:ro
+    working_dir: /seed
+    command: ["python", "/seed/seed_hotels.py"]
+    restart: "no"
+
+volumes:
+  postgres-17-data:
+  hotel-images:
