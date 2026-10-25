@@ -1,0 +1,135 @@
+<main>
+  <section class="w-full bg-surface-container-low px-margin-mobile py-space-md md:px-margin-tablet lg:px-margin-desktop">
+    <div class="mx-auto flex max-w-360 items-center">
+      <a
+        data-testid="back-to-catalog"
+        routerLink="/"
+        class="group inline-flex items-center gap-space-xs text-label-lg uppercase text-primary transition-transform hover:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:-translate-x-0.5"
+      >
+        <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M19 12H5m6-7-7 7 7 7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Back to the collection
+      </a>
+    </div>
+  </section>
+
+  <div class="px-margin-mobile pb-space-xl pt-space-lg md:px-margin-tablet lg:px-margin-desktop">
+    <div class="mx-auto flex max-w-360 flex-col gap-space-lg">
+      @if (notFound()) {
+        <app-state-panel
+          data-testid="detail-not-found"
+          heading="Hotel not found"
+          message="This hotel does not exist or is no longer available."
+        />
+      } @else if (hotel.error()) {
+        <app-state-panel
+          data-testid="detail-error"
+          tone="error"
+          heading="We could not load this hotel"
+          message="Something went wrong while contacting the server. Try again in a moment."
+          actionLabel="Try again"
+          actionTestId="detail-retry"
+          (action)="retry()"
+        />
+      } @else if (hotel.isLoading()) {
+        <div data-testid="detail-loading" aria-busy="true" aria-label="Loading hotel" class="flex flex-col gap-space-lg">
+          <div class="h-12 w-2/3 animate-pulse rounded-lg bg-surface-container-high"></div>
+          <div class="h-95 animate-pulse rounded-xl bg-surface-container-high sm:h-120 lg:h-155"></div>
+        </div>
+      } @else if (hotel.value(); as item) {
+        <header class="flex flex-col justify-between gap-space-md lg:flex-row lg:items-end">
+          <div class="flex max-w-3xl flex-col gap-space-xs">
+            @if (location()) {
+              <p data-testid="detail-location" class="text-label-sm uppercase tracking-widest text-on-surface-variant">{{ location() }}</p>
+            }
+            <h1 class="font-serif text-headline-lg text-primary md:text-display-md">{{ item.name }}</h1>
+          </div>
+          <app-rating-summary [rating]="item.rating" />
+        </header>
+
+        <app-hotel-image-view
+          data-testid="detail-photo"
+          class="h-95 w-full overflow-hidden rounded-xl bg-surface-container-highest sm:h-120 lg:h-155"
+          [hotelId]="item.id"
+          [hotelName]="item.name"
+          [hasImage]="item.image !== null"
+        />
+
+        <div class="grid grid-cols-1 items-start gap-gutter-desktop lg:grid-cols-12">
+          <div class="flex flex-col gap-space-xl lg:col-span-8">
+            @if (facts().length > 0) {
+              <dl data-testid="hotel-facts" class="grid grid-cols-2 gap-space-md rounded-xl bg-surface-container-low p-space-md sm:grid-cols-4">
+                @for (fact of facts(); track fact.label) {
+                  <div class="flex flex-col gap-space-xs">
+                    <dt class="text-label-sm uppercase text-on-surface-variant">{{ fact.label }}</dt>
+                    <dd class="text-title-md text-primary">{{ fact.value }}</dd>
+                  </div>
+                }
+              </dl>
+            }
+            @if (item.description) {
+              <article class="flex flex-col gap-space-md">
+                <h2 class="font-serif text-headline-lg tracking-tight text-primary">About the hotel</h2>
+                <p data-testid="hotel-description" class="whitespace-pre-line text-body-lg font-light leading-relaxed text-on-surface-variant">
+                  {{ item.description }}
+                </p>
+              </article>
+            }
+          </div>
+
+          @if (hasContact()) {
+            <aside
+              data-testid="contact-card"
+              class="sticky top-28 flex flex-col gap-space-md rounded-xl bg-surface-container-lowest p-space-lg shadow-xl lg:col-span-4"
+            >
+              <h2 class="font-serif text-headline-md text-primary">Contact</h2>
+              @if (item.contact.phone; as phone) {
+                <div class="flex flex-col gap-space-xs">
+                  <span class="text-label-sm uppercase text-on-surface-variant">Phone</span>
+                  <a
+                    data-testid="contact-phone"
+                    class="text-title-md text-primary hover:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    [href]="'tel:' + phone"
+                  >
+                    {{ phone }}
+                  </a>
+                </div>
+              }
+              @if (item.contact.email; as email) {
+                <div class="flex flex-col gap-space-xs">
+                  <span class="text-label-sm uppercase text-on-surface-variant">Email</span>
+                  <a
+                    data-testid="contact-email"
+                    class="break-all text-title-md text-primary hover:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    [href]="'mailto:' + email"
+                  >
+                    {{ email }}
+                  </a>
+                </div>
+              }
+              @if (item.contact.website; as website) {
+                <div class="flex flex-col gap-space-xs">
+                  <span class="text-label-sm uppercase text-on-surface-variant">Website</span>
+                  @if (isWebAddress(website)) {
+                    <a
+                      data-testid="contact-website"
+                      class="break-all text-title-md text-primary hover:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      [href]="website"
+                    >
+                      {{ website }}
+                    </a>
+                  } @else {
+                    <span data-testid="contact-website" class="break-all text-title-md text-primary">{{ website }}</span>
+                  }
+                </div>
+              }
+            </aside>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</main>

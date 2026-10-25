@@ -22,3 +22,5 @@ Each record states problem, alternatives, decision, justification, advantages, d
 | ADR-013 | Hotel HTTP contract for CRUD, filters, pagination and ratings | Implemented |
 | ADR-014 | End-to-end tests over a real API process | Implemented |
 | ADR-015 | Strict lossless hotel images with Magick.NET | Implemented and tested |
+| ADR-016 | Angular frontend stack with exact pins | Foundation Implemented, screens Planned, TypeScript 7 Considered |
+| ADR-017 | Up to three images per hotel | Implemented and tested |

@@ -1,0 +1,17 @@
+/dist
+/tmp
+/out-tsc
+/node_modules
+npm-debug.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+/.angular/cache
+/coverage
+/playwright-report
+/test-results
+__screenshots__/
+.DS_Store
+Thumbs.db

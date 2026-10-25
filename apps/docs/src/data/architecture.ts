@@ -74,7 +74,7 @@ export const workspaceLinks: WorkspaceLink[] = [
 	{ label: "Architecture", href: "/architecture/", description: "Layers, rules and boundaries" },
 	{ label: "Security and authentication", href: "/authentication/", description: "Identity, tokens and sessions" },
 	{ label: "Hotel API", href: "/hotel-api/", description: "HTTP contract of the hotel resources" },
-	{ label: "Hotel images", href: "/hotel-images/", description: "Strict lossless image lifecycle and its limits" },
+	{ label: "Hotel images", href: "/hotel-images/", description: "Up to three strict lossless images per hotel and their limits" },
 	{ label: "Hotel domain", href: "/hotel-domain/", description: "Rules of hotels and ratings" },
 	{ label: "Development", href: "/development/", description: "Run, build and test" },
 	{ label: "Agents", href: "/agents/", description: "How instructions and skills are loaded" },
@@ -110,6 +110,7 @@ export const layers: LayerDescriptor[] = [
 			{ label: "ADR-004 RBAC through policies", href: "/decisions/adr-004-rbac-through-policies/" },
 			{ label: "ADR-013 Hotel HTTP contract", href: "/decisions/adr-013-hotel-http-contract/" },
 			{ label: "ADR-015 Strict lossless hotel images", href: "/decisions/adr-015-strict-lossless-hotel-images/" },
+			{ label: "ADR-017 Up to three images per hotel", href: "/decisions/adr-017-up-to-three-images-per-hotel/" },
 		],
 	},
 	{
@@ -123,6 +124,7 @@ export const layers: LayerDescriptor[] = [
 			{ label: "ADR-003 Application services over CQRS", href: "/decisions/adr-003-application-services-over-cqrs/" },
 			{ label: "ADR-012 Identity, JWT and sessions", href: "/decisions/adr-012-identity-jwt-and-revocable-sessions/" },
 			{ label: "ADR-015 Strict lossless hotel images", href: "/decisions/adr-015-strict-lossless-hotel-images/" },
+			{ label: "ADR-017 Up to three images per hotel", href: "/decisions/adr-017-up-to-three-images-per-hotel/" },
 		],
 	},
 	{
@@ -146,6 +148,7 @@ export const layers: LayerDescriptor[] = [
 			{ label: "ADR-011 PostgreSQL persistence", href: "/decisions/adr-011-postgresql-persistence/" },
 			{ label: "ADR-012 Identity, JWT and sessions", href: "/decisions/adr-012-identity-jwt-and-revocable-sessions/" },
 			{ label: "ADR-015 Strict lossless hotel images", href: "/decisions/adr-015-strict-lossless-hotel-images/" },
+			{ label: "ADR-017 Up to three images per hotel", href: "/decisions/adr-017-up-to-three-images-per-hotel/" },
 			{ label: "ADR-006 Local storage over Cloudflare R2", href: "/decisions/adr-006-local-storage-over-cloudflare-r2/" },
 		],
 	},
@@ -159,16 +162,18 @@ export const layers: LayerDescriptor[] = [
 			{ label: "ADR-002 PostgreSQL", href: "/decisions/adr-002-postgresql-over-sql-server-and-sqlite/" },
 			{ label: "ADR-011 PostgreSQL persistence", href: "/decisions/adr-011-postgresql-persistence/" },
 			{ label: "ADR-006 Local storage over Cloudflare R2", href: "/decisions/adr-006-local-storage-over-cloudflare-r2/" },
+			{ label: "ADR-017 Up to three images per hotel", href: "/decisions/adr-017-up-to-three-images-per-hotel/" },
 		],
 	},
 	{
 		id: "delivery",
 		title: "Delivery",
-		responsibility: "Runs the API and the database with the same definition in every environment.",
+		responsibility: "Runs the API and the database with the same definition in every environment, and holds the public Angular client that reads the catalog.",
 		accent: "violet",
-		badges: ["Docker Compose"],
+		badges: ["Docker Compose", "Angular"],
 		docs: [
 			{ label: "Development", href: "/development/" },
+			{ label: "ADR-016 Angular frontend stack", href: "/decisions/adr-016-angular-frontend-stack/" },
 			{ label: "ADR-005 Docker Compose and manual execution", href: "/decisions/adr-005-docker-compose-and-manual-execution/" },
 		],
 	},
@@ -277,12 +282,12 @@ export const nodes: ArchitectureNode[] = [
 			"Reads the hotels for both roles.",
 			"Creates, updates and deletes a hotel for the Administrator role only.",
 			"Answers the listing with the items, the page and the totals.",
-			"Includes the image metadata, or null, in every hotel it returns.",
+			"Includes the primary image metadata, or null, and the images of every position in every hotel it returns.",
 		],
 		expectations: [
 			"A rejected write leaves the stored hotel exactly as it was.",
 			"The listing order is the creation timestamp and then the identifier.",
-			"Updating the descriptive details never changes the image of the hotel.",
+			"Updating the descriptive details never changes the images of the hotel.",
 		],
 		data: "Reads and writes the hotels table through the hotel service.",
 		endpoints: [
@@ -357,15 +362,15 @@ export const nodes: ArchitectureNode[] = [
 		layer: "api",
 		status: "implemented",
 		summary:
-			"The anonymous, read-only catalog: list, detail and image of the active hotels.",
+			"The anonymous, read-only catalog: list, detail and the images of the active hotels.",
 		responsibilities: [
 			"Lists the active hotels with the name filter, the minimum rating filter and pagination, with the validation of the administrative listing.",
 			"Returns the same hotel response as the administrative reads, with no extra fields.",
-			"Serves the image bytes with the detected content type, an entity tag, nosniff and a private no-cache policy.",
+			"Serves the bytes of each image position with the detected content type, an entity tag, nosniff and a private no-cache policy; the image route is position 0.",
 		],
 		expectations: [
 			"No token is required, and the administrative routes keep answering 401 without one.",
-			"An inactive hotel is absent from the list and answers 404 on the detail and the image.",
+			"An inactive hotel is absent from the list and answers 404 on the detail and every image route.",
 			"The controller exposes no write; every change stays behind the administrative policies.",
 		],
 		data: "Reads the hotels table and the image files through the hotel and image services.",
@@ -388,8 +393,15 @@ export const nodes: ArchitectureNode[] = [
 				method: "GET",
 				path: "/api/public/hotels/{id}/image",
 				policy: "anonymous",
-				success: "200 with the image bytes",
+				success: "200 with the bytes of position 0",
 				failures: "404 unknown or inactive hotel, or no image",
+			},
+			{
+				method: "GET",
+				path: "/api/public/hotels/{id}/images/{position}",
+				policy: "anonymous",
+				success: "200 with the bytes of position 0, 1 or 2",
+				failures: "404 unknown or inactive hotel, empty position or position outside 0 to 2",
 			},
 		],
 	},
@@ -400,17 +412,18 @@ export const nodes: ArchitectureNode[] = [
 		layer: "api",
 		status: "implemented",
 		summary:
-			"Uploads, replaces, serves and removes the single image of a hotel behind the existing read and update policies.",
+			"Uploads, replaces, serves and removes the images of a hotel in positions 0, 1 and 2 behind the existing read and update policies.",
 		responsibilities: [
 			"Reads the multipart field image with a bounded buffer and hands the bytes to the image service.",
-			"Maps each rejection to 400, 413, 415 or 422 and a missing hotel or image to 404.",
+			"Maps each rejection to 400, 413, 415 or 422 and a missing hotel, an empty position or a position outside 0 to 2 to 404 with problem details.",
+			"Keeps the image routes as position 0 with the same statuses, bodies and headers.",
 			"Serves the stored bytes with the detected content type, an entity tag and nosniff.",
 		],
 		expectations: [
 			"The image is never served from a static directory; every read goes through the read policy.",
-			"A rejected request leaves the stored image, its file and the hotel row exactly as they were.",
+			"A rejected request leaves every stored image, its files and the hotel row exactly as they were.",
 		],
-		data: "Reads and writes the image metadata of the hotels table and the image files through the image service.",
+		data: "Reads and writes the hotel_images table and the image files through the image service.",
 		endpoints: [
 			{
 				method: "PUT",
@@ -433,6 +446,28 @@ export const nodes: ArchitectureNode[] = [
 				policy: "hotels.update",
 				success: "204 with no body",
 				failures: "404 unknown hotel or no image, 403 forbidden role, 401 missing or invalid token",
+			},
+			{
+				method: "PUT",
+				path: "/api/hotels/{id}/images/{position}",
+				policy: "hotels.update",
+				success: "200 with the image metadata of the position",
+				failures:
+					"400, 413, 415 or 422 like the image route, 404 unknown hotel or position outside 0 to 2, 403 forbidden role, 401 missing or invalid token",
+			},
+			{
+				method: "GET",
+				path: "/api/hotels/{id}/images/{position}",
+				policy: "hotels.read",
+				success: "200 with the bytes of the position",
+				failures: "404 unknown hotel, empty position or position outside 0 to 2, 401 missing or invalid token",
+			},
+			{
+				method: "DELETE",
+				path: "/api/hotels/{id}/images/{position}",
+				policy: "hotels.update",
+				success: "204 with no body; the other positions keep their places",
+				failures: "404 unknown hotel, empty position or position outside 0 to 2, 403 forbidden role, 401 missing or invalid token",
 			},
 		],
 	},
@@ -522,7 +557,7 @@ export const nodes: ArchitectureNode[] = [
 			"Translates the query into the filters the store understands.",
 			"Computes the rating summary from the stored votes.",
 			"Refuses an invalid input before it reaches the database.",
-			"Releases the image file of a deleted hotel after the row is gone.",
+			"Releases the image file of every position of a deleted hotel after the row is gone.",
 			"Restricts the public reads to active hotels through the active-only query flag and the active lookups.",
 		],
 		expectations: [
@@ -541,13 +576,14 @@ export const nodes: ArchitectureNode[] = [
 		summary:
 			"Orchestrates the image lifecycle across PostgreSQL and the filesystem, which cannot share a transaction.",
 		responsibilities: [
+			"Reports a position outside 0 to 2 as not found before reading the content or touching any store.",
 			"Rejects empty and oversized input, then asks the optimizer for a verified lossless result.",
-			"Stages the new file under a generated key, swaps the database reference, then deletes the replaced file.",
-			"Removes the staged file if the swap fails or the hotel is gone, unless the reference already points at it.",
-			"Opens the image of an active hotel only for the public read, reporting an inactive hotel as not found.",
+			"Stages the new file under a generated key, swaps the database reference of that position, then deletes the file it displaced.",
+			"Removes the staged file if the swap fails or the hotel is gone, unless that position already points at it.",
+			"Opens the image of a position of an active hotel only for the public read, reporting an inactive hotel as not found.",
 		],
 		expectations: [
-			"The previous file is deleted only after the new reference is stored, and only the key that was displaced.",
+			"The previous file is deleted only after the new reference is stored, and only the key that was displaced; positions are independent.",
 			"A cleanup failure leaves an orphan file and a successful answer; it is never claimed as a transaction.",
 		],
 		data: "Image metadata through the hotel port and image bytes through the file storage port.",
@@ -609,21 +645,22 @@ export const nodes: ArchitectureNode[] = [
 	},
 	{
 		id: "hotel-image-domain",
-		label: "HotelImage",
+		label: "HotelImage and HotelImageSlot",
 		kind: "Domain model",
 		layer: "domain",
 		status: "implemented",
 		summary:
-			"The descriptive record of the single image of a hotel: storage key, content type, dimensions and size.",
+			"The descriptive record of one hotel image and the slot that places it in position 0, 1 or 2 of the hotel.",
 		responsibilities: [
 			"Accepts only image/png, image/jpeg and image/webp.",
 			"Requires positive dimensions and a size between 1 and 400,000 bytes.",
+			"Gives a hotel at most one image per position and never one file in two positions; position 0 is the primary image.",
 		],
 		expectations: [
 			"The record describes the stored bytes; it never contains them.",
-			"A hotel without an image is valid; existing hotels need no migration of data.",
+			"A hotel without images is valid; removing a position never shifts the others.",
 		],
-		data: "Mapped to five nullable columns of the hotels table.",
+		data: "Mapped to one row of the hotel_images table per filled position.",
 	},
 	{
 		id: "rating-domain",
@@ -671,15 +708,16 @@ export const nodes: ArchitectureNode[] = [
 		summary:
 			"The mapping of the domain to PostgreSQL, with the migrations that create and evolve the schema.",
 		responsibilities: [
-			"Maps the hotels and the hotel_ratings tables with their constraints, including the image columns.",
+			"Maps the hotels, hotel_images and hotel_ratings tables with their constraints.",
 			"Owns the migrations and the model snapshot.",
 		],
 		expectations: [
 			"The schema is created by the migrations, never by an ad hoc script.",
 			"The database enforces the rating range and the one vote per account.",
-			"The database requires the key and the content type together, caps a present size at 400,000 bytes and allows one hotel per stored file; the application writes all five values together.",
+			"The database keys the images by hotel and position, accepts positions 0 to 2 only, caps the size at 400,000 bytes, allows one row per stored file and deletes the rows with their hotel.",
+			"The gallery migration copies every existing image to position 0 before it drops the old image columns, and it is forward-only.",
 		],
-		data: "The hotels, hotel_ratings and auth_sessions tables.",
+		data: "The hotels, hotel_images, hotel_ratings and auth_sessions tables.",
 	},
 	{
 		id: "stores",
@@ -693,14 +731,14 @@ export const nodes: ArchitectureNode[] = [
 			"Escape the wildcard characters of the name filter.",
 			"Compute the average and the count of votes in one aggregate query.",
 			"Write a rating with an atomic upsert on the account and hotel pair.",
-			"Swap, clear and delete the image reference under a row lock and report the displaced image.",
+			"Swap and clear the image of one position, and delete a hotel with every image, under the hotel row lock, reporting what was displaced.",
 		],
 		expectations: [
-			"The listing never issues one query per hotel.",
+			"The listing never issues one query per hotel; the images of a page load with the page.",
 			"The page offset is computed in 64 bits and bounded before it reaches the driver.",
-			"A descriptive update never writes the image columns, so it cannot erase a concurrent replacement.",
+			"A descriptive update never writes the hotel_images table, so it cannot erase a concurrent replacement.",
 		],
-		data: "The hotels and hotel_ratings tables.",
+		data: "The hotels, hotel_images and hotel_ratings tables.",
 	},
 	{
 		id: "image-optimizer",
@@ -790,7 +828,7 @@ export const nodes: ArchitectureNode[] = [
 			"Stay writable by the non-root runtime user and outside any served directory.",
 		],
 		expectations: [
-			"A file is either referenced by one hotel row or an orphan left by a failed cleanup.",
+			"A file is either referenced by one hotel_images row or an orphan left by a failed cleanup.",
 			"It suits a single API instance; a shared store would need a different implementation of the port.",
 		],
 		data: "Files named by generated keys, plus a staging folder.",
@@ -813,7 +851,47 @@ export const nodes: ArchitectureNode[] = [
 			"The rating range and the uniqueness of the vote are constraints, not application checks.",
 			"The database port is not published in production.",
 		],
-		data: "hotels (with the nullable image metadata), hotel_ratings, auth_sessions and the Identity tables.",
+		data: "hotels, hotel_images (up to three image rows per hotel), hotel_ratings, auth_sessions and the Identity tables.",
+	},
+	{
+		id: "public-web-routes",
+		label: "Public web routes",
+		kind: "Angular routes",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The anonymous screens of apps/web: the catalog at / and the hotel detail at /hotels/:id, lazy loaded inside the public layout.",
+		responsibilities: [
+			"Show the catalog with a hero for the first hotel that has an image, a sticky name search, the minimum rating thresholds All, 4.90+, 4.95+ and 5.0 (decimals kept exactly) and the pagination, all reflected in the query string.",
+			"Show the detail of one hotel with a back link, its city and region, rating summary, a single full-width image, description, address facts and a sticky contact card limited to the contact values the API returned.",
+			"Show loading, empty, error and not found states, and a placeholder when a hotel has no image.",
+			"Show a footer whose Destinations area lists the distinct, sorted city and country pairs of the hotels returned by one GET /api/public/hotels request made by the public layout, and is omitted when there are none.",
+		],
+		expectations: [
+			"Only data returned by the public API is shown; there is no price, booking, category or amenity.",
+			"Components never call HTTP directly; they read hotels through the catalog service.",
+			"A changed filter resets the page to 1 and an unset rating is never sent.",
+		],
+		data: "Local view state in Signals and the query string only. Nothing is persisted in the browser.",
+	},
+	{
+		id: "hotel-catalog-service",
+		label: "HotelCatalogService",
+		kind: "Angular HTTP service",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The typed HttpClient service of the public catalog, with explicit contracts for the hotel and the page of hotels.",
+		responsibilities: [
+			"Build the list request with name, minRating, page and pageSize, omitting the name and the rating when unset.",
+			"Request one hotel by identifier and build the public image address.",
+			"Reach the API through the same-origin /api path, proxied to the API in development.",
+		],
+		expectations: [
+			"A 404 on the detail reaches the screen as a not found state, other failures as a retryable error.",
+			"No token is sent; the service only uses the anonymous public routes.",
+		],
+		data: "Stateless. It holds no cache and no copy of the hotels.",
 	},
 ];
 
@@ -833,6 +911,8 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "hotel-images-controller", to: "hotel-image-service", label: "use case", protocol: "in-process" },
 	{ from: "public-hotels-controller", to: "hotel-service", label: "active hotels", protocol: "in-process" },
 	{ from: "public-hotels-controller", to: "hotel-image-service", label: "active hotel image", protocol: "in-process" },
+	{ from: "public-web-routes", to: "hotel-catalog-service", label: "reads hotels", protocol: "in-process" },
+	{ from: "hotel-catalog-service", to: "public-hotels-controller", label: "GET list, detail and image", protocol: "https" },
 	{ from: "jwt-bearer", to: "ports", label: "session lookup", protocol: "identity" },
 	{ from: "policies", to: "ports", label: "role claim", protocol: "identity" },
 	{ from: "authentication-service", to: "token-issuer", label: "issues the token", protocol: "in-process" },
@@ -864,7 +944,7 @@ export const requestFlow: RequestFlowStep[] = [
 	{
 		title: "The client calls the API",
 		detail:
-			"Every hotel call carries the token in the Authorization header. The body never identifies the account.",
+			"Protected hotel calls carry the token in the Authorization header, while the public catalogue calls are anonymous and send no token. The body never identifies the account.",
 	},
 	{
 		title: "The token is validated",
@@ -879,7 +959,12 @@ export const requestFlow: RequestFlowStep[] = [
 	{
 		title: "A visitor reads the public catalog",
 		detail:
-			"GET /api/public/hotels, /api/public/hotels/{id} and /api/public/hotels/{id}/image need no token and skip the token and policy steps. The controller asks the services for active hotels only, so an inactive hotel is absent from the list and answers 404 elsewhere.",
+			"GET /api/public/hotels, /api/public/hotels/{id}, /api/public/hotels/{id}/image and /api/public/hotels/{id}/images/{position} need no token and skip the token and policy steps. The controller asks the services for active hotels only, so an inactive hotel is absent from the list and answers 404 elsewhere.",
+	},
+	{
+		title: "The Angular client reads the catalog",
+		detail:
+			"The public web routes ask the catalog service for a page or a hotel. The service calls the public routes over same-origin /api, with minRating omitted when unset, and the screen renders loading, empty, error or not found states from the answer. The public layout makes its own request for up to 100 hotels to derive the footer destinations, and shows none when it fails.",
 	},
 	{
 		title: "The controller calls the use case",
@@ -899,12 +984,12 @@ export const requestFlow: RequestFlowStep[] = [
 	{
 		title: "An image is verified before it is kept",
 		detail:
-			"PUT /api/hotels/{id}/image decodes the upload with Magick.NET. An original within 400,000 bytes is kept as is; otherwise only a lossless candidate that decodes to the same pixels, profile and orientation is accepted, and anything else is rejected with no change.",
+			"PUT /api/hotels/{id}/images/{position}, or /image for position 0, decodes the upload with Magick.NET. An original within 400,000 bytes is kept as is; otherwise only a lossless candidate that decodes to the same pixels, profile and orientation is accepted, and anything else is rejected with no change.",
 	},
 	{
 		title: "The file is staged, then the reference swaps",
 		detail:
-			"The new file is written under a generated key, PostgreSQL swaps the reference under a row lock, and only then is the displaced file deleted. If the swap fails the staged file is removed and the current image stays.",
+			"The new file is written under a generated key, PostgreSQL swaps the reference of that position under the hotel row lock, and only then is the displaced file deleted. If the swap fails the staged file is removed and every current image stays. Deleting a hotel deletes the files of all its positions.",
 	},
 	{
 		title: "The answer returns",
