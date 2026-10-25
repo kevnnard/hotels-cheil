@@ -17,6 +17,7 @@ EXPOSE 8080
 ENTRYPOINT ["dotnet", "watch", "run", "--project", "src/HotelManagement.Api/HotelManagement.Api.csproj", "--no-launch-profile", "--urls", "http://0.0.0.0:8080"]
 
 FROM restore AS publish
+COPY apps/api/ThirdPartyNotices ./ThirdPartyNotices
 COPY apps/api/src ./src
 RUN dotnet publish src/HotelManagement.Api/HotelManagement.Api.csproj -c Release --no-restore -o /app/publish /p:UseAppHost=false
 
@@ -30,6 +31,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:${RUNTIME_VERSION} AS runtime
 WORKDIR /app
 COPY --from=publish /app/publish ./
 ENV ASPNETCORE_HTTP_PORTS=8080
+ENV Storage__Images__RootPath=/var/lib/hotel-images
+RUN mkdir -p /var/lib/hotel-images && chown $APP_UID /var/lib/hotel-images
 EXPOSE 8080
 USER $APP_UID
 ENTRYPOINT ["dotnet", "HotelManagement.Api.dll"]

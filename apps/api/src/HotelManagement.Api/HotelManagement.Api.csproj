@@ -5,6 +5,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="..\..\ThirdPartyNotices\*.txt" Link="ThirdPartyNotices\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\HotelManagement.Application\HotelManagement.Application.csproj" />
     <ProjectReference Include="..\HotelManagement.Infrastructure\HotelManagement.Infrastructure.csproj" />
   </ItemGroup>
