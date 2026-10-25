@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+from decimal import Decimal
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,12 +18,21 @@ HOTELS = [
     {"name": "Beta", "description": "Second", "street": "2 Main St", "city": "Cusco", "region": "Cusco", "country": "Peru", "postalCode": "08001", "phone": "+51 84 555 0101", "email": "beta@example.test", "website": "https://beta.example.com", "image": "beta.jpg"},
 ]
 
+PRICED_HOTELS = [
+    dict(HOTELS[0], pricePerNight=240, discountPercent=15),
+    dict(HOTELS[1], pricePerNight=185.5),
+]
+
 
 class FakeApi:
-    def __init__(self, existing=(), unhealthy_checks=0, always_down=False, login_status=200, with_image=(), upload_status=200):
+    def __init__(self, existing=(), unhealthy_checks=0, always_down=False, login_status=200, with_image=(), upload_status=200, priced=(), update_status=200):
         self.calls = []
         self.created = []
+        self.posted = []
+        self.updates = []
         self.uploads = []
+        self.priced = set(priced)
+        self.update_status = update_status
         self.existing = list(existing)
         self.with_image = set(with_image)
         self.upload_status = upload_status
@@ -49,9 +59,22 @@ class FakeApi:
             items = [self.item(n) for n in self.existing if name.lower() in n.lower()]
             return 200, {"items": items, "page": 1, "pageSize": 100, "totalItems": len(items), "totalPages": 1}
         if parsed.path == "/api/hotels" and method == "POST":
+            self.posted.append(body)
+            if body.get("pricePerNight") is not None:
+                self.priced.add(body["name"])
             self.created.append(body["name"])
             self.existing.append(body["name"])
             return 201, self.item(body["name"])
+        if parsed.path.startswith("/api/hotels/id-") and parsed.path.count("/") == 3 and method == "PUT":
+            self.updates.append((parsed.path, body))
+            if self.update_status != 200:
+                return self.update_status, None
+            name = parsed.path.split("/")[3].removeprefix("id-")
+            if body.get("pricePerNight") is not None:
+                self.priced.add(name)
+            else:
+                self.priced.discard(name)
+            return 200, self.item(name)
         if parsed.path.endswith("/image") and method == "PUT":
             field, filename, content_type, content = upload
             self.uploads.append((parsed.path, field, filename, content_type, content))
@@ -63,10 +86,11 @@ class FakeApi:
 
     def item(self, name):
         image = {"contentType": "image/jpeg"} if name in self.with_image else None
-        return {"id": "id-" + name, "name": name, "image": image}
+        pricing = {"currency": "USD", "nightlyRate": 100, "discountPercent": None, "discountedNightlyRate": None} if name in self.priced else None
+        return {"id": "id-" + name, "name": name, "image": image, "pricing": pricing}
 
 
-def run_main(api, env=None):
+def run_main(api, env=None, hotels=HOTELS):
     with tempfile.TemporaryDirectory() as images_dir:
         for name in ("alpha.jpg", "beta.jpg"):
             Path(images_dir, name).write_bytes(b"jpeg-" + name.encode())
@@ -75,7 +99,7 @@ def run_main(api, env=None):
             environment = env
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = seed_hotels.main(environment, api, sleep=lambda _: None, hotels=HOTELS, attempts=3)
+            code = seed_hotels.main(environment, api, sleep=lambda _: None, hotels=hotels, attempts=3)
         return code, out.getvalue() + err.getvalue()
 
 
@@ -218,6 +242,75 @@ class SeedImageTests(unittest.TestCase):
         self.assertNotIn(PASSWORD, output)
 
 
+class SeedPricingTests(unittest.TestCase):
+    def test_creates_hotels_with_their_pricing(self):
+        api = FakeApi()
+
+        code, _ = run_main(api, hotels=PRICED_HOTELS)
+
+        self.assertEqual(0, code)
+        self.assertEqual([(240, 15), (185.5, None)], [(body["pricePerNight"], body.get("discountPercent")) for body in api.posted])
+        self.assertTrue(all("image" not in body for body in api.posted))
+        self.assertEqual([], api.updates)
+
+    def test_updates_an_existing_hotel_without_pricing_with_every_field_of_the_data_file(self):
+        api = FakeApi(existing=["Alpha", "Beta"], with_image=["Alpha", "Beta"], priced=["Beta"])
+
+        code, output = run_main(api, hotels=PRICED_HOTELS)
+
+        self.assertEqual(0, code)
+        expected = {key: value for key, value in PRICED_HOTELS[0].items() if key != "image"}
+        self.assertEqual([("/api/hotels/id-Alpha", expected)], api.updates)
+        self.assertIn("priced Alpha", output)
+        self.assertEqual([], api.created)
+
+    def test_never_touches_an_existing_hotel_that_already_has_pricing(self):
+        api = FakeApi(existing=["Alpha", "Beta"], with_image=["Alpha", "Beta"], priced=["Alpha", "Beta"])
+
+        code, _ = run_main(api, hotels=PRICED_HOTELS)
+
+        self.assertEqual(0, code)
+        self.assertEqual([], api.updates)
+        self.assertEqual([], api.uploads)
+
+    def test_does_not_update_an_existing_hotel_when_the_data_file_has_no_price(self):
+        api = FakeApi(existing=["Alpha", "Beta"], with_image=["Alpha", "Beta"])
+
+        code, _ = run_main(api)
+
+        self.assertEqual(0, code)
+        self.assertEqual([], api.updates)
+
+    def test_a_second_run_changes_nothing(self):
+        api = FakeApi(existing=["Alpha"], with_image=["Alpha"])
+
+        run_main(api, hotels=PRICED_HOTELS)
+        calls_after_first = (list(api.created), list(api.updates), list(api.uploads))
+        run_main(api, hotels=PRICED_HOTELS)
+
+        self.assertEqual(calls_after_first, (api.created, api.updates, api.uploads))
+        self.assertEqual(["Beta"], api.created)
+        self.assertEqual(["/api/hotels/id-Alpha"], [path for path, _ in api.updates])
+
+    def test_authenticates_the_pricing_update_with_the_token(self):
+        api = FakeApi(existing=["Alpha"], with_image=["Alpha"])
+
+        run_main(api, hotels=PRICED_HOTELS[:1])
+
+        update_calls = [call for call in api.calls if call[0] == "PUT" and call[1] == "/api/hotels/id-Alpha"]
+        self.assertEqual([("PUT", "/api/hotels/id-Alpha", TOKEN)], update_calls)
+
+    def test_fails_without_leaking_credentials_when_the_pricing_update_is_rejected(self):
+        api = FakeApi(existing=["Alpha"], with_image=["Alpha"], update_status=400)
+
+        code, output = run_main(api, hotels=PRICED_HOTELS[:1])
+
+        self.assertNotEqual(0, code)
+        self.assertIn("400", output)
+        for secret in (PASSWORD, EMAIL, TOKEN):
+            self.assertNotIn(secret, output)
+
+
 class SeedDataTests(unittest.TestCase):
     def test_the_data_file_holds_thirty_valid_hotels_and_four_images(self):
         path = Path(seed_hotels.__file__).with_name("hotels.json")
@@ -229,16 +322,18 @@ class SeedDataTests(unittest.TestCase):
         self.assertEqual(30, len({hotel["name"] for hotel in hotels}))
         self.assertGreaterEqual(len({hotel["country"] for hotel in hotels}), 15)
         self.assertGreaterEqual(len({hotel["city"] for hotel in hotels}), 25)
-        required = {"name", "description", "street", "city", "region", "country", "postalCode", "phone", "email", "website"}
+        required = {"name", "description", "street", "city", "region", "country", "postalCode", "phone", "email", "website", "pricePerNight"}
         limits = {"name": 200, "description": 2000, "street": 200, "city": 100, "region": 100, "country": 100, "postalCode": 20, "phone": 30, "email": 254, "website": 2048}
         for hotel in hotels:
-            self.assertEqual(required, set(hotel) - {"image"})
+            self.assertEqual(required, set(hotel) - {"image", "discountPercent"})
             self.assertTrue(hotel["name"].startswith("Aurea "))
             self.assertTrue(hotel["email"].endswith("@example.test"))
             website = urlparse(hotel["website"])
             self.assertEqual("https", website.scheme, hotel["name"])
             self.assertTrue(website.hostname == "example.com" or website.hostname.endswith(".example.com"), hotel["name"])
             for key, limit in limits.items():
+                if key not in hotel:
+                    continue
                 self.assertTrue(0 < len(hotel[key]) <= limit, key)
         with_image = [hotel for hotel in hotels if "image" in hotel]
         self.assertEqual(
@@ -248,6 +343,23 @@ class SeedDataTests(unittest.TestCase):
         self.assertEqual([hotel["name"] for hotel in hotels[:4]], [hotel["name"] for hotel in with_image])
         for hotel in with_image:
             self.assertTrue(images.joinpath(hotel["image"]).is_file())
+
+    def test_every_hotel_has_a_valid_price_and_about_a_third_a_discount(self):
+        hotels = json.loads(Path(seed_hotels.__file__).with_name("hotels.json").read_text(encoding="utf-8"), parse_float=Decimal)
+
+        discounted = [hotel for hotel in hotels if "discountPercent" in hotel]
+        self.assertEqual(30, len(hotels))
+        self.assertTrue(8 <= len(discounted) <= 12, len(discounted))
+        for hotel in hotels:
+            price = Decimal(hotel["pricePerNight"])
+            self.assertTrue(Decimal(120) <= price <= Decimal(950), hotel["name"])
+            self.assertIn(price % 1, (Decimal(0), Decimal("0.5")), hotel["name"])
+            self.assertNotIsInstance(hotel["pricePerNight"], bool)
+        for hotel in discounted:
+            self.assertIsInstance(hotel["discountPercent"], int, hotel["name"])
+            self.assertTrue(10 <= hotel["discountPercent"] <= 30, hotel["name"])
+            self.assertTrue(1 <= hotel["discountPercent"] <= 90, hotel["name"])
+            self.assertIn("pricePerNight", hotel)
 
 
 if __name__ == "__main__":

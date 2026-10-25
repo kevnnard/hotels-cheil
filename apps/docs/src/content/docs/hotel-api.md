@@ -34,7 +34,7 @@ A rejected write never changes the stored data: a `401` or a `403` answer leaves
 | `GET` | `/api/public/hotels/{id}/image` | Anonymous | `200` with the bytes of position 0 | `404` unknown or inactive hotel, or no image |
 | `GET` | `/api/public/hotels/{id}/images/{position}` | Anonymous | `200` with the bytes of the position | `404` unknown or inactive hotel, empty position or position outside 0 to 2 |
 
-The public list accepts the same `name`, `minRating`, `page` and `pageSize` parameters as the administrative list, with the same defaults and the same `400` answers. The hotel body has the same fields as the administrative reads. Both image routes answer with the detected content type, an entity tag, `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-cache`.
+The public list accepts the same `name`, `minRating`, `maxPrice`, `page` and `pageSize` parameters as the administrative list, with the same defaults and the same `400` answers. The hotel body has the same fields as the administrative reads. Both image routes answer with the detected content type, an entity tag, `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-cache`.
 
 Hotels with `isActive` set to `false` are hidden from the public catalog: they are absent from the list and answer `404` on the detail and on every image route. The administrative list and reads keep returning them. No endpoint changes the active flag yet.
 
@@ -44,10 +44,11 @@ Hotels with `isActive` set to `false` are hidden from the public catalog: they a
 |---|---|---|---|
 | `name` | string | None | Case-insensitive contains over the hotel name. The wildcard characters of the input are matched literally. |
 | `minRating` | decimal | None | Keeps the hotels whose average rating is at least the value. Hotels without votes never match. |
+| `maxPrice` | decimal | None | Keeps the hotels whose effective nightly price in USD is at most the value: the discounted rate when the hotel has a discount, otherwise the nightly rate. Hotels without a price never match. |
 | `page` | integer | `1` | One-based page number. |
 | `pageSize` | integer | `20` | Between 1 and 100. |
 
-A `pageSize` outside the accepted range, a `page` below one, or a `minRating` outside the inclusive 1 to 5 is answered with `400`.
+A `pageSize` outside the accepted range, a `page` below one, a `minRating` outside the inclusive 1 to 5, or a `maxPrice` that is zero, negative or not a number is answered with `400` and the same validation problem shape. The filters combine with AND semantics, and the price filter runs in the database query before the count, so `totalItems` and `totalPages` describe the filtered set.
 
 The response carries the items, the page, the page size, the total number of matching hotels and the total number of pages. The order is the creation timestamp and then the identifier, so the pages are deterministic.
 
@@ -78,7 +79,8 @@ The response carries the items, the page, the page size, the total number of mat
       "images": [
         { "position": 0, "contentType": "image/webp", "width": 1280, "height": 720, "sizeBytes": 211873 },
         { "position": 2, "contentType": "image/png", "width": 640, "height": 480, "sizeBytes": 98012 }
-      ]
+      ],
+      "pricing": { "currency": "USD", "nightlyRate": 199.99, "discountPercent": 15, "discountedNightlyRate": 169.99 }
     }
   ],
   "page": 1,
@@ -88,7 +90,20 @@ The response carries the items, the page, the page size, the total number of mat
 }
 ```
 
-`image` is the metadata of position 0, or `null` when that position is empty, so clients written for one image keep working. `images` lists every filled position in order and is empty when the hotel has none; removing a position leaves a gap rather than moving the others. The create and update bodies stay the same and never carry images.
+`image` is the metadata of position 0, or `null` when that position is empty, so clients written for one image keep working. `images` lists every filled position in order and is empty when the hotel has none; removing a position leaves a gap rather than moving the others. The create and update bodies never carry images.
+
+## Pricing
+
+`pricing` is `null` when the hotel has no nightly price (ADR-018). Otherwise it carries:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `currency` | string | Always `USD`. The currency is fixed and not stored. |
+| `nightlyRate` | decimal | The stored nightly price. |
+| `discountPercent` | integer or `null` | The stored discount, or `null` when there is none. |
+| `discountedNightlyRate` | decimal or `null` | `nightlyRate * (100 - discountPercent) / 100` rounded to two decimals, with halves rounded away from zero; `null` when there is no discount. It is computed on every read and never stored. |
+
+The same block appears in the single hotel, in both lists and in the public catalog.
 
 ## Writing a hotel
 
@@ -105,11 +120,22 @@ The create and update bodies carry the descriptive values. The name is the only 
   "postalCode": "1000-001",
   "phone": "+351123456789",
   "email": "info@grandplaza.test",
-  "website": "https://grandplaza.test"
+  "website": "https://grandplaza.test",
+  "pricePerNight": 199.99,
+  "discountPercent": 15
 }
 ```
 
 An invalid value is answered with `400` and the failing field, the same way the authentication endpoints answer an invalid registration. The domain rules own the limits: the name is required, the optional texts are trimmed and bounded, the email must be well formed, and the phone and the website must keep their format.
+
+`pricePerNight` and `discountPercent` are optional:
+
+| Field | Rule | Error key |
+|---|---|---|
+| `pricePerNight` | A number greater than 0 and at most 100000, with at most two decimals. | `pricePerNight` |
+| `discountPercent` | An integer from 1 to 90, accepted only together with `pricePerNight`. A discount without a price answers `A discount requires a nightly price.` | `discountPercent` |
+
+The name is checked first, then the price, then the discount. A value that is not a number is rejected by the request binding with `400` before the domain runs. `PUT` replaces the whole details like the other fields, so an update that omits both pricing fields clears the pricing of the hotel.
 
 The hotel keeps its creation timestamp when it is updated, and the update timestamp moves to the moment of the update. Updating the details never changes the images of the hotel.
 

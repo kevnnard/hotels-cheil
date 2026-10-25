@@ -29,6 +29,14 @@ public sealed class PostgresHotelStore(HotelDbContext database) : IHotelStore
             hotels = hotels.Where(hotel => EF.Functions.ILike(hotel.Name, pattern, "\\"));
         }
 
+        if (query.MaximumPrice is { } maximumPrice)
+        {
+            hotels = hotels.Where(hotel => hotel.PricePerNight != null
+                && (hotel.DiscountPercent == null
+                    ? hotel.PricePerNight.Value
+                    : Math.Round(hotel.PricePerNight.Value * (100 - hotel.DiscountPercent.Value) / 100m, 2)) <= maximumPrice);
+        }
+
         var aggregated = hotels.Select(hotel => new
         {
             Hotel = hotel,
@@ -74,7 +82,8 @@ public sealed class PostgresHotelStore(HotelDbContext database) : IHotelStore
                     domain.CreatedAtUtc,
                     domain.UpdatedAtUtc,
                     RatingSummary.From(row.RatingSum, row.RatingCount),
-                    domain.Images);
+                    domain.Images,
+                    domain.Details.Pricing);
             })
             .ToList();
 

@@ -229,6 +229,10 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("description");
 
+                    b.Property<short?>("DiscountPercent")
+                        .HasColumnType("smallint")
+                        .HasColumnName("discount_percent");
+
                     b.Property<string>("Email")
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
@@ -254,6 +258,11 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("postal_code");
 
+                    b.Property<decimal?>("PricePerNight")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("price_per_night");
+
                     b.Property<string>("Region")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -276,7 +285,14 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_hotels");
 
-                    b.ToTable("hotels", (string)null);
+                    b.ToTable("hotels", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_hotels_discount_percent", "discount_percent IS NULL OR discount_percent BETWEEN 1 AND 90");
+
+                            t.HasCheckConstraint("ck_hotels_discount_requires_price", "discount_percent IS NULL OR price_per_night IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_hotels_price_per_night", "price_per_night IS NULL OR (price_per_night > 0 AND price_per_night <= 100000)");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>

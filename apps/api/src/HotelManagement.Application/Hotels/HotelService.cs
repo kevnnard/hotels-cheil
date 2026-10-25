@@ -110,7 +110,8 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
             hotel.CreatedAtUtc,
             hotel.UpdatedAtUtc,
             rating,
-            hotel.Images);
+            hotel.Images,
+            hotel.Details.Pricing);
     }
 
     private static bool TryBuildDetails(
@@ -134,17 +135,57 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
             return false;
         }
 
+        if (!TryBuildPricing(input, out var pricing, out invalidField, out message))
+        {
+            return false;
+        }
+
         try
         {
             details = new HotelDetails(
                 input.Name,
                 input.Description,
                 new HotelAddress(input.Street, input.City, input.Region, input.Country, input.PostalCode),
-                new HotelContact(input.Phone, input.Email, input.Website));
+                new HotelContact(input.Phone, input.Email, input.Website),
+                pricing);
             return true;
         }
         catch (DomainValidationException exception)
         {
+            message = exception.Message;
+            return false;
+        }
+    }
+
+    private static bool TryBuildPricing(
+        HotelDetailsInput input,
+        out HotelPricing? pricing,
+        out string? invalidField,
+        out string message)
+    {
+        pricing = null;
+        invalidField = null;
+        message = string.Empty;
+
+        try
+        {
+            _ = HotelPricing.From(input.PricePerNight, null);
+        }
+        catch (DomainValidationException exception)
+        {
+            invalidField = "pricePerNight";
+            message = exception.Message;
+            return false;
+        }
+
+        try
+        {
+            pricing = HotelPricing.From(input.PricePerNight, input.DiscountPercent);
+            return true;
+        }
+        catch (DomainValidationException exception)
+        {
+            invalidField = "discountPercent";
             message = exception.Message;
             return false;
         }

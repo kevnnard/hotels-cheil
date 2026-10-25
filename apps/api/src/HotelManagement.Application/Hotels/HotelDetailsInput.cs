@@ -10,4 +10,6 @@ public sealed record HotelDetailsInput(
     string? PostalCode,
     string? Phone,
     string? Email,
-    string? Website);
+    string? Website,
+    decimal? PricePerNight = null,
+    int? DiscountPercent = null);

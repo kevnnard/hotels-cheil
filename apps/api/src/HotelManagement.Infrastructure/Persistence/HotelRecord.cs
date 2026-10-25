@@ -15,6 +15,8 @@ internal sealed class HotelRecord
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
+    public decimal? PricePerNight { get; set; }
+    public short? DiscountPercent { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
@@ -40,6 +42,8 @@ internal sealed class HotelRecord
         Phone = details.Contact.Phone;
         Email = details.Contact.Email;
         Website = details.Contact.Website;
+        PricePerNight = details.Pricing?.NightlyRate;
+        DiscountPercent = (short?)details.Pricing?.DiscountPercent;
         IsActive = hotel.IsActive;
         UpdatedAtUtc = hotel.UpdatedAtUtc;
     }
@@ -52,7 +56,8 @@ internal sealed class HotelRecord
             Name,
             Description,
             new HotelAddress(Street, City, Region, Country, PostalCode),
-            new HotelContact(Phone, Email, Website));
+            new HotelContact(Phone, Email, Website),
+            HotelPricing.From(PricePerNight, DiscountPercent));
 
         return Hotel.Restore(
             Id,

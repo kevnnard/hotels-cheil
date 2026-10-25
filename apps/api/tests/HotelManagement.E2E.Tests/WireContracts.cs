@@ -25,6 +25,8 @@ public sealed record RatingSummaryResponse(decimal Sum, int Count, decimal? Aver
 
 public sealed record HotelImageResponse(string ContentType, int Width, int Height, int SizeBytes);
 
+public sealed record HotelPricingResponse(string Currency, decimal NightlyRate, int? DiscountPercent, decimal? DiscountedNightlyRate);
+
 public sealed record HotelImageSlotResponse(int Position, string ContentType, int Width, int Height, int SizeBytes);
 
 public sealed record HotelResponse(
@@ -38,7 +40,8 @@ public sealed record HotelResponse(
     DateTime UpdatedAtUtc,
     RatingSummaryResponse Rating,
     HotelImageResponse? Image = null,
-    IReadOnlyList<HotelImageSlotResponse>? Images = null);
+    IReadOnlyList<HotelImageSlotResponse>? Images = null,
+    HotelPricingResponse? Pricing = null);
 
 public sealed record HotelPageResponse(
     IReadOnlyList<HotelResponse> Items,

@@ -10,6 +10,8 @@
     "phone": "+51 1 555 0101",
     "email": "stay.lima@example.test",
     "website": "https://lima.aurea.example.com",
+    "pricePerNight": 240,
+    "discountPercent": 15,
     "image": "aurea-palace-lima.jpg"
   },
   {
@@ -23,6 +25,7 @@
     "phone": "+51 84 555 0102",
     "email": "stay.valley@example.test",
     "website": "https://valley.aurea.example.com",
+    "pricePerNight": 310,
     "image": "aurea-sacred-valley-lodge.jpg"
   },
   {
@@ -36,6 +39,7 @@
     "phone": "+57 5 555 0103",
     "email": "stay.harbour@example.test",
     "website": "https://harbour.aurea.example.com",
+    "pricePerNight": 185.5,
     "image": "aurea-harbour-house.jpg"
   },
   {
@@ -49,6 +53,8 @@
     "phone": "+54 294 555 0104",
     "email": "stay.lake@example.test",
     "website": "https://lake.aurea.example.com",
+    "pricePerNight": 220,
+    "discountPercent": 10,
     "image": "aurea-lake-retreat.jpg"
   },
   {
@@ -61,7 +67,8 @@
     "postalCode": "84017",
     "phone": "+39 555 0005",
     "email": "stay.positano@example.test",
-    "website": "https://www.example.com/aurea-positano"
+    "website": "https://www.example.com/aurea-positano",
+    "pricePerNight": 680
   },
   {
     "name": "Aurea Kyoto Garden House",
@@ -73,7 +80,9 @@
     "postalCode": "605-0074",
     "phone": "+81 555 0006",
     "email": "stay.kyoto@example.test",
-    "website": "https://www.example.com/aurea-kyoto"
+    "website": "https://www.example.com/aurea-kyoto",
+    "pricePerNight": 420,
+    "discountPercent": 20
   },
   {
     "name": "Aurea Marrakech Riad",
@@ -85,7 +94,8 @@
     "postalCode": "40000",
     "phone": "+212 555 0007",
     "email": "stay.marrakech@example.test",
-    "website": "https://www.example.com/aurea-marrakech"
+    "website": "https://www.example.com/aurea-marrakech",
+    "pricePerNight": 175
   },
   {
     "name": "Aurea Santorini Caldera",
@@ -97,7 +107,9 @@
     "postalCode": "84702",
     "phone": "+30 555 0008",
     "email": "stay.oia@example.test",
-    "website": "https://www.example.com/aurea-oia"
+    "website": "https://www.example.com/aurea-oia",
+    "pricePerNight": 890,
+    "discountPercent": 25
   },
   {
     "name": "Aurea Alpine Chalet",
@@ -109,7 +121,8 @@
     "postalCode": "3920",
     "phone": "+41 555 0009",
     "email": "stay.zermatt@example.test",
-    "website": "https://www.example.com/aurea-zermatt"
+    "website": "https://www.example.com/aurea-zermatt",
+    "pricePerNight": 950
   },
   {
     "name": "Aurea Lisbon Palace",
@@ -121,7 +134,8 @@
     "postalCode": "1200-195",
     "phone": "+351 555 0010",
     "email": "stay.lisbon@example.test",
-    "website": "https://www.example.com/aurea-lisbon"
+    "website": "https://www.example.com/aurea-lisbon",
+    "pricePerNight": 260
   },
   {
     "name": "Aurea Bali Rice Villa",
@@ -133,7 +147,9 @@
     "postalCode": "80571",
     "phone": "+62 555 0011",
     "email": "stay.ubud@example.test",
-    "website": "https://www.example.com/aurea-ubud"
+    "website": "https://www.example.com/aurea-ubud",
+    "pricePerNight": 210,
+    "discountPercent": 30
   },
   {
     "name": "Aurea Cape Winelands",
@@ -145,7 +161,8 @@
     "postalCode": "7600",
     "phone": "+27 555 0012",
     "email": "stay.stellenbosch@example.test",
-    "website": "https://www.example.com/aurea-stellenbosch"
+    "website": "https://www.example.com/aurea-stellenbosch",
+    "pricePerNight": 295
   },
   {
     "name": "Aurea Dolomites Refuge",
@@ -157,7 +174,8 @@
     "postalCode": "32043",
     "phone": "+39 555 0013",
     "email": "stay.cortina-d-ampezzo@example.test",
-    "website": "https://www.example.com/aurea-cortina-d-ampezzo"
+    "website": "https://www.example.com/aurea-cortina-d-ampezzo",
+    "pricePerNight": 345
   },
   {
     "name": "Aurea Reykjavik Lava Lodge",
@@ -169,7 +187,9 @@
     "postalCode": "101",
     "phone": "+354 555 0014",
     "email": "stay.reykjavik@example.test",
-    "website": "https://www.example.com/aurea-reykjavik"
+    "website": "https://www.example.com/aurea-reykjavik",
+    "pricePerNight": 390,
+    "discountPercent": 15
   },
   {
     "name": "Aurea Oaxaca Courtyard",
@@ -181,7 +201,8 @@
     "postalCode": "68000",
     "phone": "+52 555 0015",
     "email": "stay.oaxaca@example.test",
-    "website": "https://www.example.com/aurea-oaxaca"
+    "website": "https://www.example.com/aurea-oaxaca",
+    "pricePerNight": 145
   },
   {
     "name": "Aurea Tulum Cenote Retreat",
@@ -193,7 +214,8 @@
     "postalCode": "77780",
     "phone": "+52 555 0016",
     "email": "stay.tulum@example.test",
-    "website": "https://www.example.com/aurea-tulum"
+    "website": "https://www.example.com/aurea-tulum",
+    "pricePerNight": 330
   },
   {
     "name": "Aurea Sydney Harbour Loft",
@@ -205,7 +227,8 @@
     "postalCode": "2000",
     "phone": "+61 555 0017",
     "email": "stay.sydney@example.test",
-    "website": "https://www.example.com/aurea-sydney"
+    "website": "https://www.example.com/aurea-sydney",
+    "pricePerNight": 365.5
   },
   {
     "name": "Aurea Queenstown Lakeside",
@@ -217,7 +240,9 @@
     "postalCode": "9300",
     "phone": "+64 555 0018",
     "email": "stay.queenstown@example.test",
-    "website": "https://www.example.com/aurea-queenstown"
+    "website": "https://www.example.com/aurea-queenstown",
+    "pricePerNight": 410,
+    "discountPercent": 10
   },
   {
     "name": "Aurea Dubai Dune Retreat",
@@ -229,7 +254,8 @@
     "postalCode": "00000",
     "phone": "+971 555 0019",
     "email": "stay.dubai@example.test",
-    "website": "https://www.example.com/aurea-dubai"
+    "website": "https://www.example.com/aurea-dubai",
+    "pricePerNight": 760
   },
   {
     "name": "Aurea Istanbul Bosphorus",
@@ -241,7 +267,8 @@
     "postalCode": "34340",
     "phone": "+90 555 0020",
     "email": "stay.istanbul@example.test",
-    "website": "https://www.example.com/aurea-istanbul"
+    "website": "https://www.example.com/aurea-istanbul",
+    "pricePerNight": 285
   },
   {
     "name": "Aurea Lofoten Fjord Cabins",
@@ -253,7 +280,8 @@
     "postalCode": "8300",
     "phone": "+47 555 0021",
     "email": "stay.svolvaer@example.test",
-    "website": "https://www.example.com/aurea-svolvaer"
+    "website": "https://www.example.com/aurea-svolvaer",
+    "pricePerNight": 275
   },
   {
     "name": "Aurea Provence Lavender Estate",
@@ -265,7 +293,9 @@
     "postalCode": "84220",
     "phone": "+33 555 0022",
     "email": "stay.gordes@example.test",
-    "website": "https://www.example.com/aurea-gordes"
+    "website": "https://www.example.com/aurea-gordes",
+    "pricePerNight": 470,
+    "discountPercent": 20
   },
   {
     "name": "Aurea Tuscan Villa",
@@ -277,7 +307,8 @@
     "postalCode": "53024",
     "phone": "+39 555 0023",
     "email": "stay.montalcino@example.test",
-    "website": "https://www.example.com/aurea-montalcino"
+    "website": "https://www.example.com/aurea-montalcino",
+    "pricePerNight": 520
   },
   {
     "name": "Aurea Seoul Hanok",
@@ -289,7 +320,8 @@
     "postalCode": "03062",
     "phone": "+82 555 0024",
     "email": "stay.seoul@example.test",
-    "website": "https://www.example.com/aurea-seoul"
+    "website": "https://www.example.com/aurea-seoul",
+    "pricePerNight": 195
   },
   {
     "name": "Aurea Hoi An Riverside",
@@ -301,7 +333,8 @@
     "postalCode": "560000",
     "phone": "+84 555 0025",
     "email": "stay.hoi-an@example.test",
-    "website": "https://www.example.com/aurea-hoi-an"
+    "website": "https://www.example.com/aurea-hoi-an",
+    "pricePerNight": 120
   },
   {
     "name": "Aurea Chiang Mai Teak House",
@@ -313,7 +346,9 @@
     "postalCode": "50200",
     "phone": "+66 555 0026",
     "email": "stay.chiang-mai@example.test",
-    "website": "https://www.example.com/aurea-chiang-mai"
+    "website": "https://www.example.com/aurea-chiang-mai",
+    "pricePerNight": 135.5,
+    "discountPercent": 15
   },
   {
     "name": "Aurea Arenal Cloud Forest",
@@ -325,7 +360,8 @@
     "postalCode": "21007",
     "phone": "+506 555 0027",
     "email": "stay.la-fortuna@example.test",
-    "website": "https://www.example.com/aurea-la-fortuna"
+    "website": "https://www.example.com/aurea-la-fortuna",
+    "pricePerNight": 230
   },
   {
     "name": "Aurea Vienna Secession",
@@ -337,7 +373,8 @@
     "postalCode": "1010",
     "phone": "+43 555 0028",
     "email": "stay.vienna@example.test",
-    "website": "https://www.example.com/aurea-vienna"
+    "website": "https://www.example.com/aurea-vienna",
+    "pricePerNight": 315
   },
   {
     "name": "Aurea Edinburgh Old Town",
@@ -349,7 +386,9 @@
     "postalCode": "EH1 1RE",
     "phone": "+44 555 0029",
     "email": "stay.edinburgh@example.test",
-    "website": "https://www.example.com/aurea-edinburgh"
+    "website": "https://www.example.com/aurea-edinburgh",
+    "pricePerNight": 255,
+    "discountPercent": 10
   },
   {
     "name": "Aurea Banff Mountain Lodge",
@@ -361,6 +400,7 @@
     "postalCode": "T1L 1A1",
     "phone": "+1 555 0030",
     "email": "stay.banff@example.test",
-    "website": "https://www.example.com/aurea-banff"
+    "website": "https://www.example.com/aurea-banff",
+    "pricePerNight": 485
   }
 ]

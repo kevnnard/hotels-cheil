@@ -13,10 +13,12 @@ public sealed record HotelRequest(
     string? PostalCode,
     string? Phone,
     string? Email,
-    string? Website)
+    string? Website,
+    decimal? PricePerNight = null,
+    int? DiscountPercent = null)
 {
     public HotelDetailsInput ToInput() =>
-        new(Name, Description, Street, City, Region, Country, PostalCode, Phone, Email, Website);
+        new(Name, Description, Street, City, Region, Country, PostalCode, Phone, Email, Website, PricePerNight, DiscountPercent);
 }
 
 public sealed record HotelAddressResponse(string? Street, string? City, string? Region, string? Country, string? PostalCode)
@@ -29,6 +31,12 @@ public sealed record HotelContactResponse(string? Phone, string? Email, string? 
 {
     public static HotelContactResponse From(HotelContact contact) =>
         new(contact.Phone, contact.Email, contact.Website);
+}
+
+public sealed record HotelPricingResponse(string Currency, decimal NightlyRate, int? DiscountPercent, decimal? DiscountedNightlyRate)
+{
+    public static HotelPricingResponse From(HotelPricing pricing) =>
+        new(HotelPricing.Currency, pricing.NightlyRate, pricing.DiscountPercent, pricing.DiscountedNightlyRate);
 }
 
 public sealed record HotelImageResponse(string ContentType, int Width, int Height, int SizeBytes)
@@ -54,7 +62,8 @@ public sealed record HotelResponse(
     DateTime UpdatedAtUtc,
     RatingSummaryResponse Rating,
     HotelImageResponse? Image,
-    IReadOnlyList<HotelImageSlotResponse> Images)
+    IReadOnlyList<HotelImageSlotResponse> Images,
+    HotelPricingResponse? Pricing)
 {
     public static HotelResponse From(HotelSummary hotel) =>
         new(
@@ -68,7 +77,8 @@ public sealed record HotelResponse(
             hotel.UpdatedAtUtc,
             RatingSummaryResponse.From(hotel.Rating),
             hotel.Image is null ? null : HotelImageResponse.From(hotel.Image),
-            hotel.Images.Select(HotelImageSlotResponse.From).ToArray());
+            hotel.Images.Select(HotelImageSlotResponse.From).ToArray(),
+            hotel.Pricing is null ? null : HotelPricingResponse.From(hotel.Pricing));
 }
 
 public sealed record HotelPageResponse(

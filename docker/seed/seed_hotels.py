@@ -16,6 +16,7 @@ HOTELS_FILE = Path(__file__).with_name("hotels.json")
 DEFAULT_IMAGES_DIR = "/seed/images"
 IMAGE_FIELD = "image"
 IMAGE_CONTENT_TYPE = "image/jpeg"
+PRICE_FIELD = "pricePerNight"
 
 
 def http_transport(base_url):
@@ -91,17 +92,30 @@ def find_hotel(send, token, name):
         page += 1
 
 
+def hotel_details(hotel):
+    return {key: value for key, value in hotel.items() if key != "image"}
+
+
 def ensure_hotel(send, token, hotel):
     existing = find_hotel(send, token, hotel["name"])
     if existing is not None:
         print("exists  {}".format(hotel["name"]))
-        return existing
-    payload = {key: value for key, value in hotel.items() if key != "image"}
-    status, created = send("POST", "/api/hotels", payload, token=token)
+        return ensure_pricing(send, token, hotel, existing)
+    status, created = send("POST", "/api/hotels", hotel_details(hotel), token=token)
     if status != 201 or not created:
         raise RuntimeError("Creating {} failed with status {}".format(hotel["name"], status))
     print("created {}".format(hotel["name"]))
     return created
+
+
+def ensure_pricing(send, token, hotel, stored):
+    if stored.get("pricing") is not None or hotel.get(PRICE_FIELD) is None:
+        return stored
+    status, updated = send("PUT", "/api/hotels/{}".format(stored["id"]), hotel_details(hotel), token=token)
+    if status != 200 or not updated:
+        raise RuntimeError("Pricing {} failed with status {}".format(hotel["name"], status))
+    print("priced {}".format(hotel["name"]))
+    return updated
 
 
 def ensure_image(send, token, hotel, stored, images_dir):

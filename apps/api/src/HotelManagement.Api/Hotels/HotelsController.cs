@@ -21,11 +21,12 @@ public sealed class HotelsController(IHotelService hotels) : ControllerBase
     public async Task<IActionResult> List(
         [FromQuery] string? name,
         [FromQuery] decimal? minRating,
+        [FromQuery] decimal? maxPrice,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = HotelQuery.DefaultPageSize,
         CancellationToken cancellationToken = default)
     {
-        var query = new HotelQuery { Name = name, MinimumRating = minRating, Page = page, PageSize = pageSize };
+        var query = new HotelQuery { Name = name, MinimumRating = minRating, MaximumPrice = maxPrice, Page = page, PageSize = pageSize };
         var outcome = await hotels.ListAsync(query, cancellationToken);
 
         return outcome.Status == ListHotelsStatus.Listed
