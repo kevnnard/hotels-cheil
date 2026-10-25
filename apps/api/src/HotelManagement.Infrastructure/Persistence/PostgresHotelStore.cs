@@ -18,6 +18,11 @@ public sealed class PostgresHotelStore(HotelDbContext database) : IHotelStore
     public async Task<HotelPage> ListAsync(HotelQuery query, CancellationToken cancellationToken)
     {
         var hotels = database.Hotels.AsNoTracking();
+        if (query.ActiveOnly)
+        {
+            hotels = hotels.Where(hotel => hotel.IsActive);
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Name))
         {
             var pattern = $"%{EscapeLikePattern(query.Name.Trim())}%";

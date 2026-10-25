@@ -79,10 +79,16 @@ public sealed class HotelImageService(
         return RemoveHotelImageStatus.Removed;
     }
 
-    public async Task<OpenHotelImageOutcome> OpenAsync(Guid hotelId, CancellationToken cancellationToken)
+    public Task<OpenHotelImageOutcome> OpenAsync(Guid hotelId, CancellationToken cancellationToken) =>
+        OpenAsync(hotelId, activeOnly: false, cancellationToken);
+
+    public Task<OpenHotelImageOutcome> OpenActiveAsync(Guid hotelId, CancellationToken cancellationToken) =>
+        OpenAsync(hotelId, activeOnly: true, cancellationToken);
+
+    private async Task<OpenHotelImageOutcome> OpenAsync(Guid hotelId, bool activeOnly, CancellationToken cancellationToken)
     {
         var hotel = await hotels.FindAsync(hotelId, cancellationToken);
-        if (hotel is null)
+        if (hotel is null || (activeOnly && !hotel.IsActive))
         {
             return OpenHotelImageOutcome.HotelNotFound();
         }

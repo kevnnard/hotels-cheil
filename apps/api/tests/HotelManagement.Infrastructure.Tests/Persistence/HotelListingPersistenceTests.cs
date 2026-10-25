@@ -257,4 +257,60 @@ public class HotelListingPersistenceTests(PostgresDatabaseFixture database)
         Assert.Equal(CreatedAt, item.CreatedAtUtc);
         Assert.Equal(DateTimeKind.Utc, item.CreatedAtUtc.Kind);
     }
+
+    [Fact]
+    public async Task ActiveOnly_ExcludesInactiveHotelsAndKeepsTheTotalsConsistent()
+    {
+        var token = NewToken();
+        var active = await StoreHotelAsync($"Open {token}");
+        var inactive = await StoreHotelAsync($"Closed {token}");
+        await DeactivateAsync(inactive);
+
+        var page = await database.CreateStore().ListAsync(
+            new HotelQuery { Name = token, ActiveOnly = true },
+            CancellationToken.None);
+
+        Assert.Equal(active, Assert.Single(page.Items).Id);
+        Assert.Equal(1, page.TotalItems);
+        Assert.Equal(1, page.TotalPages);
+    }
+
+    [Fact]
+    public async Task ActiveOnly_CombinesWithTheMinimumRatingFilter()
+    {
+        var token = NewToken();
+        var activeHigh = await StoreHotelAsync($"Active {token}");
+        var inactiveHigh = await StoreHotelAsync($"Inactive {token}");
+        await RateAsync(activeHigh, 5m);
+        await RateAsync(inactiveHigh, 5m);
+        await DeactivateAsync(inactiveHigh);
+
+        var page = await database.CreateStore().ListAsync(
+            new HotelQuery { Name = token, MinimumRating = 4m, ActiveOnly = true },
+            CancellationToken.None);
+
+        Assert.Equal(activeHigh, Assert.Single(page.Items).Id);
+    }
+
+    [Fact]
+    public async Task ByDefault_InactiveHotelsAreStillListed()
+    {
+        var token = NewToken();
+        var inactive = await StoreHotelAsync($"Closed {token}");
+        await DeactivateAsync(inactive);
+
+        var page = await ListAsync(token);
+
+        var item = Assert.Single(page.Items);
+        Assert.Equal(inactive, item.Id);
+        Assert.False(item.IsActive);
+    }
+
+    private async Task DeactivateAsync(Guid hotelId)
+    {
+        var store = database.CreateStore();
+        var hotel = (await store.FindAsync(hotelId, CancellationToken.None))!;
+        hotel.SetActive(false, CreatedAt.AddHours(1));
+        Assert.True(await store.UpdateAsync(hotel, CancellationToken.None));
+    }
 }

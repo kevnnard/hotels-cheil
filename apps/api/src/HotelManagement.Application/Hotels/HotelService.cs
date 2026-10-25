@@ -37,6 +37,12 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
         return hotel is null ? null : await SummarizeAsync(hotel, cancellationToken);
     }
 
+    public async Task<HotelSummary?> FindActiveAsync(Guid hotelId, CancellationToken cancellationToken)
+    {
+        var hotel = await hotels.FindAsync(hotelId, cancellationToken);
+        return hotel is { IsActive: true } ? await SummarizeAsync(hotel, cancellationToken) : null;
+    }
+
     public async Task<UpdateHotelOutcome> UpdateAsync(Guid hotelId, UpdateHotel command, CancellationToken cancellationToken)
     {
         var hotel = await hotels.FindAsync(hotelId, cancellationToken);

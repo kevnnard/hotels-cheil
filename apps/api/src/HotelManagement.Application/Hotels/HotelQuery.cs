@@ -11,6 +11,8 @@ public sealed record HotelQuery
 
     public decimal? MinimumRating { get; init; }
 
+    public bool ActiveOnly { get; init; }
+
     public int Page { get; init; } = 1;
 
     public int PageSize { get; init; } = DefaultPageSize;

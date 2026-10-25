@@ -8,6 +8,8 @@ public interface IHotelService
 
     Task<HotelSummary?> FindAsync(Guid hotelId, CancellationToken cancellationToken);
 
+    Task<HotelSummary?> FindActiveAsync(Guid hotelId, CancellationToken cancellationToken);
+
     Task<UpdateHotelOutcome> UpdateAsync(Guid hotelId, UpdateHotel command, CancellationToken cancellationToken);
 
     Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken);

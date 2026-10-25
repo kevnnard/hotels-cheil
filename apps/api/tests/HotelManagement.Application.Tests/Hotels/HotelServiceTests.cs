@@ -193,6 +193,45 @@ public class HotelServiceTests
     }
 
     [Fact]
+    public async Task FindActive_returns_the_summary_of_an_active_hotel()
+    {
+        var hotel = SeedHotel();
+
+        var summary = await Service.FindActiveAsync(hotel.Id, CancellationToken.None);
+
+        Assert.Equal(hotel.Id, summary?.Id);
+    }
+
+    [Fact]
+    public async Task FindActive_hides_an_inactive_hotel_without_loading_ratings()
+    {
+        var hotel = SeedHotel();
+        hotel.SetActive(false, Now);
+
+        var summary = await Service.FindActiveAsync(hotel.Id, CancellationToken.None);
+
+        Assert.Null(summary);
+        Assert.Equal(0, ratings.SummaryLookups);
+    }
+
+    [Fact]
+    public async Task FindActive_returns_null_for_a_missing_hotel()
+    {
+        Assert.Null(await Service.FindActiveAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Find_still_returns_an_inactive_hotel()
+    {
+        var hotel = SeedHotel();
+        hotel.SetActive(false, Now);
+
+        var summary = await Service.FindAsync(hotel.Id, CancellationToken.None);
+
+        Assert.False(summary?.IsActive);
+    }
+
+    [Fact]
     public async Task Update_existing_hotel_persists_new_details_and_returns_summary()
     {
         var hotel = SeedHotel();

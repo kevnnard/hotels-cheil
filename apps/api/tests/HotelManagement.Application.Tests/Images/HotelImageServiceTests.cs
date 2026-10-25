@@ -280,4 +280,48 @@ public class HotelImageServiceTests
         Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenAsync(withoutImage.Id, CancellationToken.None)).Status);
         Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenAsync(withoutBytes.Id, CancellationToken.None)).Status);
     }
+
+    [Fact]
+    public async Task OpenActive_returns_the_stored_bytes_of_an_active_hotel()
+    {
+        var hotel = SeedHotel(SeedStoredImage("e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5.png"));
+
+        var outcome = await Service.OpenActiveAsync(hotel.Id, CancellationToken.None);
+
+        Assert.Equal(OpenHotelImageStatus.Opened, outcome.Status);
+        await using var content = outcome.Content!;
+        using var copy = new MemoryStream();
+        await content.CopyToAsync(copy);
+        Assert.Equal([7, 7, 7], copy.ToArray());
+    }
+
+    [Fact]
+    public async Task OpenActive_reports_an_inactive_hotel_as_not_found_and_opens_no_bytes()
+    {
+        var hotel = SeedHotel(SeedStoredImage("f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6.png"));
+        hotel.SetActive(false, Now);
+
+        var outcome = await Service.OpenActiveAsync(hotel.Id, CancellationToken.None);
+
+        Assert.Equal(OpenHotelImageStatus.HotelNotFound, outcome.Status);
+        Assert.Null(outcome.Content);
+    }
+
+    [Fact]
+    public async Task OpenActive_distinguishes_unknown_hotels_and_missing_images()
+    {
+        var withoutImage = SeedHotel();
+
+        Assert.Equal(OpenHotelImageStatus.HotelNotFound, (await Service.OpenActiveAsync(Guid.NewGuid(), CancellationToken.None)).Status);
+        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenActiveAsync(withoutImage.Id, CancellationToken.None)).Status);
+    }
+
+    [Fact]
+    public async Task Open_still_serves_an_inactive_hotel()
+    {
+        var hotel = SeedHotel(SeedStoredImage("a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7.png"));
+        hotel.SetActive(false, Now);
+
+        Assert.Equal(OpenHotelImageStatus.Opened, (await Service.OpenAsync(hotel.Id, CancellationToken.None)).Status);
+    }
 }

@@ -7,4 +7,6 @@ public interface IHotelImageService
     Task<RemoveHotelImageStatus> RemoveAsync(Guid hotelId, CancellationToken cancellationToken);
 
     Task<OpenHotelImageOutcome> OpenAsync(Guid hotelId, CancellationToken cancellationToken);
+
+    Task<OpenHotelImageOutcome> OpenActiveAsync(Guid hotelId, CancellationToken cancellationToken);
 }
