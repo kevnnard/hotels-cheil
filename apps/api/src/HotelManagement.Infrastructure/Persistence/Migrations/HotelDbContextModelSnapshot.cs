@@ -132,6 +132,55 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("auth_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("HotelManagement.Infrastructure.Persistence.HotelImageRecord", b =>
+                {
+                    b.Property<Guid>("HotelId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hotel_id");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("content_type");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("HotelId", "Position")
+                        .HasName("pk_hotel_images");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_hotel_images_storage_key");
+
+                    b.ToTable("hotel_images", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_hotel_images_metadata", "width > 0 AND height > 0 AND size_bytes BETWEEN 1 AND 400000");
+
+                            t.HasCheckConstraint("ck_hotel_images_position", "position BETWEEN 0 AND 2");
+                        });
+                });
+
             modelBuilder.Entity("HotelManagement.Infrastructure.Persistence.HotelRatingRecord", b =>
                 {
                     b.Property<Guid>("HotelId")
@@ -185,28 +234,6 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("email");
 
-                    b.Property<string>("ImageContentType")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("image_content_type");
-
-                    b.Property<int?>("ImageHeight")
-                        .HasColumnType("integer")
-                        .HasColumnName("image_height");
-
-                    b.Property<int?>("ImageSizeBytes")
-                        .HasColumnType("integer")
-                        .HasColumnName("image_size_bytes");
-
-                    b.Property<string>("ImageStorageKey")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("image_storage_key");
-
-                    b.Property<int?>("ImageWidth")
-                        .HasColumnType("integer")
-                        .HasColumnName("image_width");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -249,15 +276,7 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_hotels");
 
-                    b.HasIndex("ImageStorageKey")
-                        .IsUnique()
-                        .HasDatabaseName("ux_hotels_image_storage_key")
-                        .HasFilter("image_storage_key IS NOT NULL");
-
-                    b.ToTable("hotels", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_hotels_image_metadata", "(image_storage_key IS NULL AND image_content_type IS NULL AND image_width IS NULL AND image_height IS NULL AND image_size_bytes IS NULL) OR (image_storage_key IS NOT NULL AND image_content_type IS NOT NULL AND image_width > 0 AND image_height > 0 AND image_size_bytes BETWEEN 1 AND 400000)");
-                        });
+                    b.ToTable("hotels", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -422,6 +441,16 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_auth_sessions_users");
                 });
 
+            modelBuilder.Entity("HotelManagement.Infrastructure.Persistence.HotelImageRecord", b =>
+                {
+                    b.HasOne("HotelManagement.Infrastructure.Persistence.HotelRecord", null)
+                        .WithMany("Images")
+                        .HasForeignKey("HotelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_hotel_images_hotels");
+                });
+
             modelBuilder.Entity("HotelManagement.Infrastructure.Persistence.HotelRatingRecord", b =>
                 {
                     b.HasOne("HotelManagement.Infrastructure.Persistence.HotelRecord", null)
@@ -481,6 +510,11 @@ namespace HotelManagement.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("HotelManagement.Infrastructure.Persistence.HotelRecord", b =>
+                {
+                    b.Navigation("Images");
                 });
 #pragma warning restore 612, 618
         }

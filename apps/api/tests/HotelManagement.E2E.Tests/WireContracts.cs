@@ -25,6 +25,8 @@ public sealed record RatingSummaryResponse(decimal Sum, int Count, decimal? Aver
 
 public sealed record HotelImageResponse(string ContentType, int Width, int Height, int SizeBytes);
 
+public sealed record HotelImageSlotResponse(int Position, string ContentType, int Width, int Height, int SizeBytes);
+
 public sealed record HotelResponse(
     Guid Id,
     string Name,
@@ -35,7 +37,8 @@ public sealed record HotelResponse(
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
     RatingSummaryResponse Rating,
-    HotelImageResponse? Image = null);
+    HotelImageResponse? Image = null,
+    IReadOnlyList<HotelImageSlotResponse>? Images = null);
 
 public sealed record HotelPageResponse(
     IReadOnlyList<HotelResponse> Items,

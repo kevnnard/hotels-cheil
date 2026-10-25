@@ -15,14 +15,10 @@ internal sealed class HotelRecord
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
-    public string? ImageStorageKey { get; set; }
-    public string? ImageContentType { get; set; }
-    public int? ImageWidth { get; set; }
-    public int? ImageHeight { get; set; }
-    public int? ImageSizeBytes { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
+    public List<HotelImageRecord> Images { get; set; } = [];
 
     public static HotelRecord From(Hotel hotel)
     {
@@ -48,7 +44,9 @@ internal sealed class HotelRecord
         UpdatedAtUtc = hotel.UpdatedAtUtc;
     }
 
-    public Hotel ToDomain()
+    public Hotel ToDomain() => ToDomain(Images);
+
+    public Hotel ToDomain(IEnumerable<HotelImageRecord> images)
     {
         var details = new HotelDetails(
             Name,
@@ -62,11 +60,6 @@ internal sealed class HotelRecord
             IsActive,
             DateTime.SpecifyKind(CreatedAtUtc, DateTimeKind.Utc),
             DateTime.SpecifyKind(UpdatedAtUtc, DateTimeKind.Utc),
-            ToImage());
+            images.Select(image => image.ToSlot()));
     }
-
-    public HotelImage? ToImage() =>
-        ImageStorageKey is null
-            ? null
-            : new HotelImage(ImageStorageKey, ImageContentType, ImageWidth.GetValueOrDefault(), ImageHeight.GetValueOrDefault(), ImageSizeBytes.GetValueOrDefault());
 }

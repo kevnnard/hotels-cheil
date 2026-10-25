@@ -91,14 +91,14 @@ public class HotelImageTests
         var image = new HotelImage(Key, "image/png", 10, 10, 100);
 
         Assert.Null(Hotel.Create(new HotelDetails("Gran Hotel"), CreatedAt).Image);
-        Assert.Equal(image, Hotel.Restore(Guid.NewGuid(), new HotelDetails("Gran Hotel"), true, CreatedAt, CreatedAt, image).Image);
+        Assert.Equal(image, Hotel.Restore(Guid.NewGuid(), new HotelDetails("Gran Hotel"), true, CreatedAt, CreatedAt, [new HotelImageSlot(HotelImageSlot.Primary, image)]).Image);
     }
 
     [Fact]
     public void Hotel_UpdateAndDeactivationKeepTheImage()
     {
         var image = new HotelImage(Key, "image/png", 10, 10, 100);
-        var hotel = Hotel.Restore(Guid.NewGuid(), new HotelDetails("Gran Hotel"), true, CreatedAt, CreatedAt, image);
+        var hotel = Hotel.Restore(Guid.NewGuid(), new HotelDetails("Gran Hotel"), true, CreatedAt, CreatedAt, [new HotelImageSlot(HotelImageSlot.Primary, image)]);
 
         hotel.Update(new HotelDetails("Renamed"), CreatedAt.AddHours(1));
         hotel.SetActive(false, CreatedAt.AddHours(2));

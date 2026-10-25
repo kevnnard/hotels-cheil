@@ -37,6 +37,12 @@ public sealed record HotelImageResponse(string ContentType, int Width, int Heigh
         new(image.ContentType, image.Width, image.Height, image.SizeBytes);
 }
 
+public sealed record HotelImageSlotResponse(int Position, string ContentType, int Width, int Height, int SizeBytes)
+{
+    public static HotelImageSlotResponse From(HotelImageSlot slot) =>
+        new(slot.Position, slot.Image.ContentType, slot.Image.Width, slot.Image.Height, slot.Image.SizeBytes);
+}
+
 public sealed record HotelResponse(
     Guid Id,
     string Name,
@@ -47,7 +53,8 @@ public sealed record HotelResponse(
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
     RatingSummaryResponse Rating,
-    HotelImageResponse? Image)
+    HotelImageResponse? Image,
+    IReadOnlyList<HotelImageSlotResponse> Images)
 {
     public static HotelResponse From(HotelSummary hotel) =>
         new(
@@ -60,7 +67,8 @@ public sealed record HotelResponse(
             hotel.CreatedAtUtc,
             hotel.UpdatedAtUtc,
             RatingSummaryResponse.From(hotel.Rating),
-            hotel.Image is null ? null : HotelImageResponse.From(hotel.Image));
+            hotel.Image is null ? null : HotelImageResponse.From(hotel.Image),
+            hotel.Images.Select(HotelImageSlotResponse.From).ToArray());
 }
 
 public sealed record HotelPageResponse(

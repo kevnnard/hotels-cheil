@@ -16,7 +16,7 @@ public interface IHotelStore
 
     Task<HotelDeletion> DeleteAsync(Guid hotelId, CancellationToken cancellationToken);
 
-    Task<ImageSlotChange> ReplaceImageAsync(Guid hotelId, HotelImage image, DateTime nowUtc, CancellationToken cancellationToken);
+    Task<ImageSlotChange> ReplaceImageAsync(Guid hotelId, int position, HotelImage image, DateTime nowUtc, CancellationToken cancellationToken);
 
-    Task<ImageSlotChange> ClearImageAsync(Guid hotelId, DateTime nowUtc, CancellationToken cancellationToken);
+    Task<ImageSlotChange> ClearImageAsync(Guid hotelId, int position, DateTime nowUtc, CancellationToken cancellationToken);
 }

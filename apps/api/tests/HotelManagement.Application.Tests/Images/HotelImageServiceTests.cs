@@ -10,6 +10,7 @@ public class HotelImageServiceTests
     private static readonly DateTime Now = new(2026, 10, 23, 12, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime Earlier = new(2026, 10, 1, 8, 0, 0, DateTimeKind.Utc);
     private static readonly byte[] Upload = [9, 9, 9];
+    private const int Primary = HotelImageSlot.Primary;
 
     private readonly FakeHotelStore hotels = new();
     private readonly FakeImageOptimizer optimizer = new();
@@ -17,9 +18,12 @@ public class HotelImageServiceTests
 
     private HotelImageService Service => new(hotels, optimizer, storage, new FixedTimeProvider(Now));
 
-    private Hotel SeedHotel(HotelImage? image = null)
+    private Hotel SeedHotel(HotelImage? image = null) =>
+        SeedGallery(image is null ? [] : [new HotelImageSlot(Primary, image)]);
+
+    private Hotel SeedGallery(params HotelImageSlot[] slots)
     {
-        var seeded = Hotel.Restore(Guid.NewGuid(), new HotelDetails("Grand Plaza"), true, Earlier, Earlier, image);
+        var seeded = Hotel.Restore(Guid.NewGuid(), new HotelDetails("Grand Plaza"), true, Earlier, Earlier, slots);
         hotels.Seed(seeded);
         return seeded;
     }
@@ -33,12 +37,25 @@ public class HotelImageServiceTests
     private async Task<HotelImage?> StoredImageOf(Guid hotelId) =>
         (await hotels.FindAsync(hotelId, CancellationToken.None))!.Image;
 
+    private async Task<IReadOnlyList<HotelImageSlot>> StoredGalleryOf(Guid hotelId) =>
+        (await hotels.FindAsync(hotelId, CancellationToken.None))!.Images;
+
+    private static async Task<byte[]> ReadAllAsync(Stream content)
+    {
+        await using (content)
+        {
+            using var copy = new MemoryStream();
+            await content.CopyToAsync(copy);
+            return copy.ToArray();
+        }
+    }
+
     [Fact]
     public async Task Replace_stores_the_optimized_bytes_and_associates_their_metadata()
     {
         var hotel = SeedHotel();
 
-        var outcome = await Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None);
+        var outcome = await Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None);
 
         Assert.Equal(ReplaceHotelImageStatus.Replaced, outcome.Status);
         var stored = await StoredImageOf(hotel.Id);
@@ -60,7 +77,7 @@ public class HotelImageServiceTests
         optimizer.Outcome = ImageOptimizationOutcome.Accepted(new OptimizedImage([1], contentType, 1, 1));
         var hotel = SeedHotel();
 
-        var outcome = await Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None);
+        var outcome = await Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None);
 
         Assert.Matches(new Regex($"^[0-9a-f]{{32}}{Regex.Escape(extension)}$"), outcome.Image!.StorageKey);
     }
@@ -71,7 +88,7 @@ public class HotelImageServiceTests
         var previous = SeedStoredImage("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.png");
         var hotel = SeedHotel(previous);
 
-        var outcome = await Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None);
+        var outcome = await Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None);
 
         Assert.NotEqual(previous.StorageKey, outcome.Image!.StorageKey);
         Assert.Equal(outcome.Image, await StoredImageOf(hotel.Id));
@@ -86,7 +103,7 @@ public class HotelImageServiceTests
         var hotel = SeedHotel(previous);
         optimizer.Outcome = ImageOptimizationOutcome.Rejected(ImageRejection.ExceedsByteBudget, "Too heavy.");
 
-        var outcome = await Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None);
+        var outcome = await Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None);
 
         Assert.Equal(ReplaceHotelImageStatus.Rejected, outcome.Status);
         Assert.Equal(ImageRejection.ExceedsByteBudget, outcome.Rejection);
@@ -101,7 +118,7 @@ public class HotelImageServiceTests
     [Fact]
     public async Task Replace_for_an_unknown_hotel_stores_nothing_and_never_decodes()
     {
-        var outcome = await Service.ReplaceAsync(Guid.NewGuid(), Upload, CancellationToken.None);
+        var outcome = await Service.ReplaceAsync(Guid.NewGuid(), Primary, Upload, CancellationToken.None);
 
         Assert.Equal(ReplaceHotelImageStatus.HotelNotFound, outcome.Status);
         Assert.Empty(optimizer.Sources);
@@ -113,7 +130,7 @@ public class HotelImageServiceTests
     {
         var hotel = SeedHotel();
 
-        var outcome = await Service.ReplaceAsync(hotel.Id, ReadOnlyMemory<byte>.Empty, CancellationToken.None);
+        var outcome = await Service.ReplaceAsync(hotel.Id, Primary, ReadOnlyMemory<byte>.Empty, CancellationToken.None);
 
         Assert.Equal(ImageRejection.Empty, outcome.Rejection);
         Assert.Empty(optimizer.Sources);
@@ -125,8 +142,8 @@ public class HotelImageServiceTests
     {
         var hotel = SeedHotel();
 
-        var atCeiling = await Service.ReplaceAsync(hotel.Id, new byte[ImageLimits.MaximumInputBytes], CancellationToken.None);
-        var above = await Service.ReplaceAsync(hotel.Id, new byte[ImageLimits.MaximumInputBytes + 1], CancellationToken.None);
+        var atCeiling = await Service.ReplaceAsync(hotel.Id, Primary, new byte[ImageLimits.MaximumInputBytes], CancellationToken.None);
+        var above = await Service.ReplaceAsync(hotel.Id, Primary, new byte[ImageLimits.MaximumInputBytes + 1], CancellationToken.None);
 
         Assert.Equal(ReplaceHotelImageStatus.Replaced, atCeiling.Status);
         Assert.Equal(ImageRejection.TooLarge, above.Rejection);
@@ -140,7 +157,7 @@ public class HotelImageServiceTests
         var hotel = SeedHotel();
         hotels.ReplaceFindsHotel = false;
 
-        var outcome = await Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None);
+        var outcome = await Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None);
 
         Assert.Equal(ReplaceHotelImageStatus.HotelNotFound, outcome.Status);
         Assert.Empty(storage.Keys);
@@ -154,7 +171,7 @@ public class HotelImageServiceTests
         var hotel = SeedHotel(previous);
         hotels.ReplaceFailure = new InvalidOperationException("database unavailable");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None));
 
         Assert.Equal(previous, await StoredImageOf(hotel.Id));
         Assert.Equal([previous.StorageKey], storage.Keys);
@@ -169,7 +186,7 @@ public class HotelImageServiceTests
         hotels.ReplaceFailure = new InvalidOperationException("connection lost after commit");
         hotels.ReplaceFailureAfterApplying = true;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None));
 
         var stored = await StoredImageOf(hotel.Id);
         Assert.NotNull(stored);
@@ -184,7 +201,7 @@ public class HotelImageServiceTests
         var hotel = SeedHotel(previous);
         storage.SaveFailure = new IOException("disk full");
 
-        await Assert.ThrowsAsync<IOException>(() => Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None));
+        await Assert.ThrowsAsync<IOException>(() => Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None));
 
         Assert.Equal(previous, await StoredImageOf(hotel.Id));
         Assert.Empty(hotels.ReplacedImages);
@@ -198,7 +215,7 @@ public class HotelImageServiceTests
         var hotel = SeedHotel(previous);
         storage.UndeletableKeys.Add(previous.StorageKey);
 
-        var outcome = await Service.ReplaceAsync(hotel.Id, Upload, CancellationToken.None);
+        var outcome = await Service.ReplaceAsync(hotel.Id, Primary, Upload, CancellationToken.None);
 
         Assert.Equal(ReplaceHotelImageStatus.Replaced, outcome.Status);
         Assert.Equal(outcome.Image, await StoredImageOf(hotel.Id));
@@ -212,7 +229,7 @@ public class HotelImageServiceTests
         var image = SeedStoredImage("b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2.png");
         var hotel = SeedHotel(image);
 
-        var status = await Service.RemoveAsync(hotel.Id, CancellationToken.None);
+        var status = await Service.RemoveAsync(hotel.Id, Primary, CancellationToken.None);
 
         Assert.Equal(RemoveHotelImageStatus.Removed, status);
         Assert.Null(await StoredImageOf(hotel.Id));
@@ -226,7 +243,7 @@ public class HotelImageServiceTests
     {
         var hotel = SeedHotel();
 
-        var status = await Service.RemoveAsync(hotel.Id, CancellationToken.None);
+        var status = await Service.RemoveAsync(hotel.Id, Primary, CancellationToken.None);
 
         Assert.Equal(RemoveHotelImageStatus.ImageNotFound, status);
         Assert.Empty(storage.DeleteRequests);
@@ -236,7 +253,7 @@ public class HotelImageServiceTests
     [Fact]
     public async Task Remove_for_an_unknown_hotel_reports_it()
     {
-        Assert.Equal(RemoveHotelImageStatus.HotelNotFound, await Service.RemoveAsync(Guid.NewGuid(), CancellationToken.None));
+        Assert.Equal(RemoveHotelImageStatus.HotelNotFound, await Service.RemoveAsync(Guid.NewGuid(), Primary, CancellationToken.None));
         Assert.Empty(storage.DeleteRequests);
     }
 
@@ -247,7 +264,7 @@ public class HotelImageServiceTests
         var hotel = SeedHotel(image);
         storage.UndeletableKeys.Add(image.StorageKey);
 
-        var status = await Service.RemoveAsync(hotel.Id, CancellationToken.None);
+        var status = await Service.RemoveAsync(hotel.Id, Primary, CancellationToken.None);
 
         Assert.Equal(RemoveHotelImageStatus.Removed, status);
         Assert.Null(await StoredImageOf(hotel.Id));
@@ -260,7 +277,7 @@ public class HotelImageServiceTests
         var image = SeedStoredImage("c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3.png");
         var hotel = SeedHotel(image);
 
-        var outcome = await Service.OpenAsync(hotel.Id, CancellationToken.None);
+        var outcome = await Service.OpenAsync(hotel.Id, Primary, CancellationToken.None);
 
         Assert.Equal(OpenHotelImageStatus.Opened, outcome.Status);
         Assert.Equal(image, outcome.Image);
@@ -276,9 +293,9 @@ public class HotelImageServiceTests
         var withoutImage = SeedHotel();
         var withoutBytes = SeedHotel(new HotelImage("d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.png", HotelImage.Png, 1, 1, 1));
 
-        Assert.Equal(OpenHotelImageStatus.HotelNotFound, (await Service.OpenAsync(Guid.NewGuid(), CancellationToken.None)).Status);
-        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenAsync(withoutImage.Id, CancellationToken.None)).Status);
-        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenAsync(withoutBytes.Id, CancellationToken.None)).Status);
+        Assert.Equal(OpenHotelImageStatus.HotelNotFound, (await Service.OpenAsync(Guid.NewGuid(), Primary, CancellationToken.None)).Status);
+        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenAsync(withoutImage.Id, Primary, CancellationToken.None)).Status);
+        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenAsync(withoutBytes.Id, Primary, CancellationToken.None)).Status);
     }
 
     [Fact]
@@ -286,7 +303,7 @@ public class HotelImageServiceTests
     {
         var hotel = SeedHotel(SeedStoredImage("e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5.png"));
 
-        var outcome = await Service.OpenActiveAsync(hotel.Id, CancellationToken.None);
+        var outcome = await Service.OpenActiveAsync(hotel.Id, Primary, CancellationToken.None);
 
         Assert.Equal(OpenHotelImageStatus.Opened, outcome.Status);
         await using var content = outcome.Content!;
@@ -301,7 +318,7 @@ public class HotelImageServiceTests
         var hotel = SeedHotel(SeedStoredImage("f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6.png"));
         hotel.SetActive(false, Now);
 
-        var outcome = await Service.OpenActiveAsync(hotel.Id, CancellationToken.None);
+        var outcome = await Service.OpenActiveAsync(hotel.Id, Primary, CancellationToken.None);
 
         Assert.Equal(OpenHotelImageStatus.HotelNotFound, outcome.Status);
         Assert.Null(outcome.Content);
@@ -312,8 +329,8 @@ public class HotelImageServiceTests
     {
         var withoutImage = SeedHotel();
 
-        Assert.Equal(OpenHotelImageStatus.HotelNotFound, (await Service.OpenActiveAsync(Guid.NewGuid(), CancellationToken.None)).Status);
-        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenActiveAsync(withoutImage.Id, CancellationToken.None)).Status);
+        Assert.Equal(OpenHotelImageStatus.HotelNotFound, (await Service.OpenActiveAsync(Guid.NewGuid(), Primary, CancellationToken.None)).Status);
+        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenActiveAsync(withoutImage.Id, Primary, CancellationToken.None)).Status);
     }
 
     [Fact]
@@ -322,6 +339,165 @@ public class HotelImageServiceTests
         var hotel = SeedHotel(SeedStoredImage("a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7.png"));
         hotel.SetActive(false, Now);
 
-        Assert.Equal(OpenHotelImageStatus.Opened, (await Service.OpenAsync(hotel.Id, CancellationToken.None)).Status);
+        Assert.Equal(OpenHotelImageStatus.Opened, (await Service.OpenAsync(hotel.Id, Primary, CancellationToken.None)).Status);
+    }
+
+    [Fact]
+    public async Task Replace_fills_each_position_independently()
+    {
+        var hotel = SeedHotel();
+        var outcomes = new List<ReplaceHotelImageOutcome>();
+
+        foreach (var position in new[] { 2, 0, 1 })
+        {
+            outcomes.Add(await Service.ReplaceAsync(hotel.Id, position, Upload, CancellationToken.None));
+        }
+
+        Assert.All(outcomes, outcome => Assert.Equal(ReplaceHotelImageStatus.Replaced, outcome.Status));
+        var gallery = await StoredGalleryOf(hotel.Id);
+        Assert.Equal([0, 1, 2], gallery.Select(slot => slot.Position));
+        Assert.Equal(outcomes.Select(outcome => outcome.Image!.StorageKey).Order(), storage.Keys.Order());
+        Assert.Empty(storage.DeleteRequests);
+    }
+
+    [Fact]
+    public async Task Replace_of_one_position_deletes_only_the_file_it_displaced()
+    {
+        var first = SeedStoredImage("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.png");
+        var second = SeedStoredImage("b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2.png");
+        var third = SeedStoredImage("c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3.png");
+        var hotel = SeedGallery(new HotelImageSlot(0, first), new HotelImageSlot(1, second), new HotelImageSlot(2, third));
+
+        var outcome = await Service.ReplaceAsync(hotel.Id, 1, Upload, CancellationToken.None);
+
+        Assert.Equal(ReplaceHotelImageStatus.Replaced, outcome.Status);
+        Assert.Equal([second.StorageKey], storage.DeleteRequests);
+        Assert.Equal([first, outcome.Image!, third], (await StoredGalleryOf(hotel.Id)).Select(slot => slot.Image));
+        Assert.Equal(3, storage.Keys.Count);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(3)]
+    [InlineData(int.MaxValue)]
+    public async Task Every_operation_reports_a_position_outside_the_gallery_without_touching_anything(int position)
+    {
+        var image = SeedStoredImage("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.png");
+        var hotel = SeedHotel(image);
+
+        var replaced = await Service.ReplaceAsync(hotel.Id, position, Upload, CancellationToken.None);
+        var removed = await Service.RemoveAsync(hotel.Id, position, CancellationToken.None);
+        var opened = await Service.OpenAsync(hotel.Id, position, CancellationToken.None);
+        var openedActive = await Service.OpenActiveAsync(hotel.Id, position, CancellationToken.None);
+
+        Assert.Equal(ReplaceHotelImageStatus.PositionNotFound, replaced.Status);
+        Assert.Equal(RemoveHotelImageStatus.PositionNotFound, removed);
+        Assert.Equal(OpenHotelImageStatus.PositionNotFound, opened.Status);
+        Assert.Equal(OpenHotelImageStatus.PositionNotFound, openedActive.Status);
+        Assert.Empty(optimizer.Sources);
+        Assert.Empty(hotels.ReplacedImages);
+        Assert.Empty(storage.DeleteRequests);
+        Assert.Equal([image.StorageKey], storage.Keys);
+        Assert.Equal(image, await StoredImageOf(hotel.Id));
+    }
+
+    [Fact]
+    public async Task Replace_reports_a_position_outside_the_gallery_before_rejecting_the_content()
+    {
+        var hotel = SeedHotel();
+
+        var outcome = await Service.ReplaceAsync(hotel.Id, 3, ReadOnlyMemory<byte>.Empty, CancellationToken.None);
+
+        Assert.Equal(ReplaceHotelImageStatus.PositionNotFound, outcome.Status);
+    }
+
+    [Fact]
+    public async Task Remove_of_one_position_keeps_the_other_positions_where_they_are()
+    {
+        var first = SeedStoredImage("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.png");
+        var third = SeedStoredImage("c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3.png");
+        var hotel = SeedGallery(new HotelImageSlot(0, first), new HotelImageSlot(2, third));
+
+        var status = await Service.RemoveAsync(hotel.Id, 0, CancellationToken.None);
+
+        Assert.Equal(RemoveHotelImageStatus.Removed, status);
+        Assert.Equal([first.StorageKey], storage.DeleteRequests);
+        var gallery = await StoredGalleryOf(hotel.Id);
+        Assert.Equal(third, Assert.Single(gallery).Image);
+        Assert.Equal(2, gallery[0].Position);
+        Assert.Null(await StoredImageOf(hotel.Id));
+        Assert.Equal(RemoveHotelImageStatus.ImageNotFound, await Service.RemoveAsync(hotel.Id, 1, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Replace_compensates_only_its_staged_file_when_the_swap_of_another_position_fails()
+    {
+        var first = SeedStoredImage("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.png");
+        var second = SeedStoredImage("b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2.png");
+        var hotel = SeedGallery(new HotelImageSlot(0, first), new HotelImageSlot(1, second));
+        hotels.ReplaceFailure = new InvalidOperationException("database unavailable");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Service.ReplaceAsync(hotel.Id, 2, Upload, CancellationToken.None));
+
+        var staged = Assert.Single(storage.DeleteRequests);
+        Assert.DoesNotContain(staged, new[] { first.StorageKey, second.StorageKey });
+        Assert.Equal(new[] { first.StorageKey, second.StorageKey }.Order(), storage.Keys.Order());
+        Assert.Equal([first, second], (await StoredGalleryOf(hotel.Id)).Select(slot => slot.Image));
+    }
+
+    [Fact]
+    public async Task Replace_keeps_the_staged_file_of_a_secondary_position_when_the_swap_failed_after_it_was_applied()
+    {
+        var hotel = SeedHotel();
+        hotels.ReplaceFailure = new InvalidOperationException("connection lost after commit");
+        hotels.ReplaceFailureAfterApplying = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Service.ReplaceAsync(hotel.Id, 2, Upload, CancellationToken.None));
+
+        var stored = Assert.Single(await StoredGalleryOf(hotel.Id));
+        Assert.Equal(2, stored.Position);
+        Assert.Equal([stored.Image.StorageKey], storage.Keys);
+        Assert.Empty(storage.DeleteRequests);
+    }
+
+    [Fact]
+    public async Task Open_returns_the_bytes_of_the_requested_position()
+    {
+        var first = SeedStoredImage("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.png");
+        storage.Seed("c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3.png", [3, 3, 3]);
+        var third = new HotelImage("c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3.png", HotelImage.Png, 10, 10, 3);
+        var hotel = SeedGallery(new HotelImageSlot(0, first), new HotelImageSlot(2, third));
+
+        var outcome = await Service.OpenAsync(hotel.Id, 2, CancellationToken.None);
+
+        Assert.Equal(OpenHotelImageStatus.Opened, outcome.Status);
+        Assert.Equal(third, outcome.Image);
+        Assert.Equal([3, 3, 3], await ReadAllAsync(outcome.Content!));
+        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenAsync(hotel.Id, 1, CancellationToken.None)).Status);
+    }
+
+    [Fact]
+    public async Task OpenActive_serves_every_filled_position_of_an_active_hotel_only()
+    {
+        var first = SeedStoredImage("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.png");
+        var second = SeedStoredImage("b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2.png");
+        var hotel = SeedGallery(new HotelImageSlot(1, first), new HotelImageSlot(2, second));
+
+        var opened = await Service.OpenActiveAsync(hotel.Id, 2, CancellationToken.None);
+        Assert.Equal(OpenHotelImageStatus.Opened, opened.Status);
+        Assert.Equal(second, opened.Image);
+        await ReadAllAsync(opened.Content!);
+        Assert.Equal(OpenHotelImageStatus.ImageNotFound, (await Service.OpenActiveAsync(hotel.Id, 0, CancellationToken.None)).Status);
+
+        hotel.SetActive(false, Now);
+
+        foreach (var position in new[] { 0, 1, 2 })
+        {
+            var hidden = await Service.OpenActiveAsync(hotel.Id, position, CancellationToken.None);
+            Assert.Equal(OpenHotelImageStatus.HotelNotFound, hidden.Status);
+            Assert.Null(hidden.Content);
+        }
+
+        Assert.Equal(OpenHotelImageStatus.Opened, (await Service.OpenAsync(hotel.Id, 1, CancellationToken.None)).Status);
     }
 }

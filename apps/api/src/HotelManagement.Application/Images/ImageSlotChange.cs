@@ -4,4 +4,4 @@ namespace HotelManagement.Application.Images;
 
 public sealed record ImageSlotChange(bool HotelFound, HotelImage? Previous);
 
-public sealed record HotelDeletion(bool Deleted, HotelImage? ReleasedImage);
+public sealed record HotelDeletion(bool Deleted, IReadOnlyList<HotelImage> ReleasedImages);

@@ -9,8 +9,13 @@ public sealed class HotelImageService(
     IFileStorageService storage,
     TimeProvider clock) : IHotelImageService
 {
-    public async Task<ReplaceHotelImageOutcome> ReplaceAsync(Guid hotelId, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+    public async Task<ReplaceHotelImageOutcome> ReplaceAsync(Guid hotelId, int position, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
     {
+        if (!HotelImageSlot.IsValidPosition(position))
+        {
+            return ReplaceHotelImageOutcome.PositionNotFound();
+        }
+
         if (content.IsEmpty)
         {
             return ReplaceHotelImageOutcome.Rejected(ImageRejection.Empty, "The image is empty.");
@@ -40,11 +45,11 @@ public sealed class HotelImageService(
         ImageSlotChange change;
         try
         {
-            change = await hotels.ReplaceImageAsync(hotelId, image, clock.GetUtcNow().UtcDateTime, cancellationToken);
+            change = await hotels.ReplaceImageAsync(hotelId, position, image, clock.GetUtcNow().UtcDateTime, cancellationToken);
         }
         catch
         {
-            await DiscardUnlessAssociatedAsync(hotelId, image.StorageKey);
+            await DiscardUnlessAssociatedAsync(hotelId, position, image.StorageKey);
             throw;
         }
 
@@ -62,9 +67,14 @@ public sealed class HotelImageService(
         return ReplaceHotelImageOutcome.Replaced(image);
     }
 
-    public async Task<RemoveHotelImageStatus> RemoveAsync(Guid hotelId, CancellationToken cancellationToken)
+    public async Task<RemoveHotelImageStatus> RemoveAsync(Guid hotelId, int position, CancellationToken cancellationToken)
     {
-        var change = await hotels.ClearImageAsync(hotelId, clock.GetUtcNow().UtcDateTime, cancellationToken);
+        if (!HotelImageSlot.IsValidPosition(position))
+        {
+            return RemoveHotelImageStatus.PositionNotFound;
+        }
+
+        var change = await hotels.ClearImageAsync(hotelId, position, clock.GetUtcNow().UtcDateTime, cancellationToken);
         if (!change.HotelFound)
         {
             return RemoveHotelImageStatus.HotelNotFound;
@@ -79,21 +89,26 @@ public sealed class HotelImageService(
         return RemoveHotelImageStatus.Removed;
     }
 
-    public Task<OpenHotelImageOutcome> OpenAsync(Guid hotelId, CancellationToken cancellationToken) =>
-        OpenAsync(hotelId, activeOnly: false, cancellationToken);
+    public Task<OpenHotelImageOutcome> OpenAsync(Guid hotelId, int position, CancellationToken cancellationToken) =>
+        OpenAsync(hotelId, position, activeOnly: false, cancellationToken);
 
-    public Task<OpenHotelImageOutcome> OpenActiveAsync(Guid hotelId, CancellationToken cancellationToken) =>
-        OpenAsync(hotelId, activeOnly: true, cancellationToken);
+    public Task<OpenHotelImageOutcome> OpenActiveAsync(Guid hotelId, int position, CancellationToken cancellationToken) =>
+        OpenAsync(hotelId, position, activeOnly: true, cancellationToken);
 
-    private async Task<OpenHotelImageOutcome> OpenAsync(Guid hotelId, bool activeOnly, CancellationToken cancellationToken)
+    private async Task<OpenHotelImageOutcome> OpenAsync(Guid hotelId, int position, bool activeOnly, CancellationToken cancellationToken)
     {
+        if (!HotelImageSlot.IsValidPosition(position))
+        {
+            return OpenHotelImageOutcome.PositionNotFound();
+        }
+
         var hotel = await hotels.FindAsync(hotelId, cancellationToken);
         if (hotel is null || (activeOnly && !hotel.IsActive))
         {
             return OpenHotelImageOutcome.HotelNotFound();
         }
 
-        if (hotel.Image is not { } image)
+        if (hotel.ImageAt(position) is not { } image)
         {
             return OpenHotelImageOutcome.ImageNotFound();
         }
@@ -102,12 +117,12 @@ public sealed class HotelImageService(
         return content is null ? OpenHotelImageOutcome.ImageNotFound() : OpenHotelImageOutcome.Opened(image, content);
     }
 
-    private async Task DiscardUnlessAssociatedAsync(Guid hotelId, string storageKey)
+    private async Task DiscardUnlessAssociatedAsync(Guid hotelId, int position, string storageKey)
     {
         try
         {
             var current = await hotels.FindAsync(hotelId, CancellationToken.None);
-            if (current?.Image?.StorageKey != storageKey)
+            if (current?.ImageAt(position)?.StorageKey != storageKey)
             {
                 await storage.DeleteAsync(storageKey);
             }

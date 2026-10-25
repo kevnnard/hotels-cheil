@@ -18,7 +18,7 @@ The exercise asks for full hotel CRUD including one image, "Maximizar el tamaño
 | Quality | Strict lossless, selected explicitly by the project owner: "Sin pérdida estricta". Decoded pixels and dimensions are preserved exactly. Images that cannot fit through lossless compression are rejected. |
 | Budget | 400 KB is read conservatively as 400,000 bytes. |
 | Inputs | Static JPEG, PNG and WebP. At most 10 MiB, 4096 pixels per axis and 16,777,216 pixels. Animation, other formats, empty, corrupt and spoofed content are rejected. |
-| Slot | One nullable image per hotel, stored as metadata columns on `hotels`. No gallery, no database blobs. |
+| Slot | One nullable image per hotel, stored as metadata columns on `hotels`. No gallery, no database blobs. Superseded by [ADR-017](adr-017-up-to-three-images-per-hotel.md), which allows up to three images per hotel in a `hotel_images` table. |
 | Library | `Magick.NET-Q16-AnyCPU` 15.0.0, wrapper Apache-2.0, published for `net10.0`; the bundled native components carry other licenses (see Native runtime and deployment). |
 | Storage | `IFileStorageService` implemented on a configured local directory outside the webroot and the sources. R2 stays Considered (ADR-006). |
 | Contracts | `PUT`, `GET` and `DELETE /api/hotels/{id}/image`, multipart field `image`. Existing `hotels.read` and `hotels.update` policies apply. |

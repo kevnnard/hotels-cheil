@@ -1,4 +1,5 @@
 using HotelManagement.Application.Images;
+using HotelManagement.Domain.Hotels;
 using HotelManagement.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,13 +9,16 @@ using Microsoft.Net.Http.Headers;
 namespace HotelManagement.Api.Hotels;
 
 [ApiController]
-[Route("api/hotels/{id:guid}/image")]
+[Route("api/hotels/{id:guid}")]
 public sealed class HotelImagesController(IHotelImageService images) : ControllerBase
 {
     private const long MaximumRequestBytes = ImageLimits.MaximumInputBytes + 1024 * 1024;
     private const string ImageField = "image";
+    private const string PrimaryImageRoute = "image";
+    private const string PositionedImageRoute = "images/{position:int}";
 
-    [HttpPut]
+    [HttpPut(PrimaryImageRoute)]
+    [HttpPut(PositionedImageRoute)]
     [Authorize(Policy = HotelPermissions.Update)]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaximumRequestBytes)]
@@ -27,31 +31,40 @@ public sealed class HotelImagesController(IHotelImageService images) : Controlle
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status415UnsupportedMediaType)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Put(Guid id, IFormFile? image, CancellationToken cancellationToken)
+    public async Task<IActionResult> Put(
+        Guid id,
+        IFormFile? image,
+        [FromRoute] int position = HotelImageSlot.Primary,
+        CancellationToken cancellationToken = default)
     {
         if (image is null)
         {
             return InvalidImage("The multipart field 'image' is required.");
         }
 
-        var outcome = await images.ReplaceAsync(id, await ReadBoundedAsync(image, cancellationToken), cancellationToken);
+        var outcome = await images.ReplaceAsync(id, position, await ReadBoundedAsync(image, cancellationToken), cancellationToken);
         return outcome.Status switch
         {
             ReplaceHotelImageStatus.Replaced => Ok(HotelImageResponse.From(outcome.Image!)),
             ReplaceHotelImageStatus.HotelNotFound => HotelNotFound(),
+            ReplaceHotelImageStatus.PositionNotFound => PositionNotFound(),
             _ => Rejected(outcome.Rejection, outcome.Message)
         };
     }
 
-    [HttpGet]
+    [HttpGet(PrimaryImageRoute)]
+    [HttpGet(PositionedImageRoute)]
     [Authorize(Policy = HotelPermissions.Read)]
     [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Get(
+        Guid id,
+        [FromRoute] int position = HotelImageSlot.Primary,
+        CancellationToken cancellationToken = default)
     {
-        var outcome = await images.OpenAsync(id, cancellationToken);
+        var outcome = await images.OpenAsync(id, position, cancellationToken);
         switch (outcome.Status)
         {
             case OpenHotelImageStatus.Opened:
@@ -60,22 +73,29 @@ public sealed class HotelImagesController(IHotelImageService images) : Controlle
                 return File(outcome.Content!, outcome.Image!.ContentType, null, new EntityTagHeaderValue($"\"{outcome.Image.StorageKey}\""));
             case OpenHotelImageStatus.HotelNotFound:
                 return HotelNotFound();
+            case OpenHotelImageStatus.PositionNotFound:
+                return PositionNotFound();
             default:
                 return ImageNotFound();
         }
     }
 
-    [HttpDelete]
+    [HttpDelete(PrimaryImageRoute)]
+    [HttpDelete(PositionedImageRoute)]
     [Authorize(Policy = HotelPermissions.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        await images.RemoveAsync(id, cancellationToken) switch
+    public async Task<IActionResult> Delete(
+        Guid id,
+        [FromRoute] int position = HotelImageSlot.Primary,
+        CancellationToken cancellationToken = default) =>
+        await images.RemoveAsync(id, position, cancellationToken) switch
         {
             RemoveHotelImageStatus.Removed => NoContent(),
             RemoveHotelImageStatus.HotelNotFound => HotelNotFound(),
+            RemoveHotelImageStatus.PositionNotFound => PositionNotFound(),
             _ => ImageNotFound()
         };
 
@@ -117,6 +137,13 @@ public sealed class HotelImagesController(IHotelImageService images) : Controlle
         NotFound(new ProblemDetails
         {
             Title = "The hotel has no image.",
+            Status = StatusCodes.Status404NotFound
+        });
+
+    private IActionResult PositionNotFound() =>
+        NotFound(new ProblemDetails
+        {
+            Title = "The image position does not exist.",
             Status = StatusCodes.Status404NotFound
         });
 }

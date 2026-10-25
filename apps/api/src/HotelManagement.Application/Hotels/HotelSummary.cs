@@ -13,4 +13,7 @@ public sealed record HotelSummary(
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
     RatingSummary Rating,
-    HotelImage? Image = null);
+    IReadOnlyList<HotelImageSlot> Images)
+{
+    public HotelImage? Image => Images.FirstOrDefault(slot => slot.Position == HotelImageSlot.Primary)?.Image;
+}

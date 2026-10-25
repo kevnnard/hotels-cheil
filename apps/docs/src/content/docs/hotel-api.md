@@ -18,8 +18,11 @@ The hotel management API exposes the administrative CRUD of the hotels and the r
 | `PUT` | `/api/hotels/{id}/image` | `hotels.update` | `200` with the image metadata | `400`, `413`, `415`, `422` rejected image, `404` unknown hotel, `403`, `401` |
 | `GET` | `/api/hotels/{id}/image` | `hotels.read` | `200` with the image bytes | `404` unknown hotel or no image, `401` |
 | `DELETE` | `/api/hotels/{id}/image` | `hotels.update` | `204` | `404` unknown hotel or no image, `403`, `401` |
+| `PUT` | `/api/hotels/{id}/images/{position}` | `hotels.update` | `200` with the image metadata | `400`, `413`, `415`, `422` rejected image, `404` unknown hotel or position outside 0 to 2 (a request without the `image` field answers `400` first), `403`, `401` |
+| `GET` | `/api/hotels/{id}/images/{position}` | `hotels.read` | `200` with the image bytes | `404` unknown hotel, empty position or position outside 0 to 2, `401` |
+| `DELETE` | `/api/hotels/{id}/images/{position}` | `hotels.update` | `204` | `404` unknown hotel, empty position or position outside 0 to 2, `403`, `401` |
 
-The three image routes are described in [Hotel images](hotel-images.md).
+A hotel holds up to three images in positions 0, 1 and 2 (ADR-017). The `/image` routes act on position 0 and answer exactly as before. Every image route is described in [Hotel images](hotel-images.md).
 A rejected write never changes the stored data: a `401` or a `403` answer leaves the hotel exactly as it was.
 
 ## Public catalog
@@ -28,11 +31,12 @@ A rejected write never changes the stored data: a `401` or a `403` answer leaves
 |---|---|---|---|---|
 | `GET` | `/api/public/hotels` | Anonymous | `200` with a page of active hotels | `400` invalid query |
 | `GET` | `/api/public/hotels/{id}` | Anonymous | `200` with the hotel | `404` unknown or inactive hotel |
-| `GET` | `/api/public/hotels/{id}/image` | Anonymous | `200` with the image bytes | `404` unknown or inactive hotel, or no image |
+| `GET` | `/api/public/hotels/{id}/image` | Anonymous | `200` with the bytes of position 0 | `404` unknown or inactive hotel, or no image |
+| `GET` | `/api/public/hotels/{id}/images/{position}` | Anonymous | `200` with the bytes of the position | `404` unknown or inactive hotel, empty position or position outside 0 to 2 |
 
-The public list accepts the same `name`, `minRating`, `page` and `pageSize` parameters as the administrative list, with the same defaults and the same `400` answers. The hotel body has the same fields as the administrative reads. The image answers with the detected content type, an entity tag, `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-cache`.
+The public list accepts the same `name`, `minRating`, `page` and `pageSize` parameters as the administrative list, with the same defaults and the same `400` answers. The hotel body has the same fields as the administrative reads. Both image routes answer with the detected content type, an entity tag, `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-cache`.
 
-Hotels with `isActive` set to `false` are hidden from the public catalog: they are absent from the list and answer `404` on the detail and the image. The administrative list and reads keep returning them. No endpoint changes the active flag yet.
+Hotels with `isActive` set to `false` are hidden from the public catalog: they are absent from the list and answer `404` on the detail and on every image route. The administrative list and reads keep returning them. No endpoint changes the active flag yet.
 
 ## Listing
 
@@ -70,7 +74,11 @@ The response carries the items, the page, the page size, the total number of mat
       "createdAtUtc": "2026-10-23T12:00:00Z",
       "updatedAtUtc": "2026-10-23T12:00:00Z",
       "rating": { "sum": 9.0, "count": 2, "average": 4.5 },
-      "image": { "contentType": "image/webp", "width": 1280, "height": 720, "sizeBytes": 211873 }
+      "image": { "contentType": "image/webp", "width": 1280, "height": 720, "sizeBytes": 211873 },
+      "images": [
+        { "position": 0, "contentType": "image/webp", "width": 1280, "height": 720, "sizeBytes": 211873 },
+        { "position": 2, "contentType": "image/png", "width": 640, "height": 480, "sizeBytes": 98012 }
+      ]
     }
   ],
   "page": 1,
@@ -80,7 +88,7 @@ The response carries the items, the page, the page size, the total number of mat
 }
 ```
 
-A hotel without an image reports `"image": null`. The `image` property is the only addition to the hotel response; the create and update bodies stay the same.
+`image` is the metadata of position 0, or `null` when that position is empty, so clients written for one image keep working. `images` lists every filled position in order and is empty when the hotel has none; removing a position leaves a gap rather than moving the others. The create and update bodies stay the same and never carry images.
 
 ## Writing a hotel
 
@@ -103,7 +111,7 @@ The create and update bodies carry the descriptive values. The name is the only 
 
 An invalid value is answered with `400` and the failing field, the same way the authentication endpoints answer an invalid registration. The domain rules own the limits: the name is required, the optional texts are trimmed and bounded, the email must be well formed, and the phone and the website must keep their format.
 
-The hotel keeps its creation timestamp when it is updated, and the update timestamp moves to the moment of the update. Updating the details never changes the image of the hotel.
+The hotel keeps its creation timestamp when it is updated, and the update timestamp moves to the moment of the update. Updating the details never changes the images of the hotel.
 
 ## Rating
 

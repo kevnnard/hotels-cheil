@@ -6,6 +6,7 @@ public enum ReplaceHotelImageStatus
 {
     Replaced,
     HotelNotFound,
+    PositionNotFound,
     Rejected
 }
 
@@ -19,6 +20,8 @@ public sealed record ReplaceHotelImageOutcome(
 
     public static ReplaceHotelImageOutcome HotelNotFound() => new(ReplaceHotelImageStatus.HotelNotFound);
 
+    public static ReplaceHotelImageOutcome PositionNotFound() => new(ReplaceHotelImageStatus.PositionNotFound);
+
     public static ReplaceHotelImageOutcome Rejected(ImageRejection rejection, string message) =>
         new(ReplaceHotelImageStatus.Rejected, null, rejection, message);
 }
@@ -27,6 +30,7 @@ public enum RemoveHotelImageStatus
 {
     Removed,
     HotelNotFound,
+    PositionNotFound,
     ImageNotFound
 }
 
@@ -34,6 +38,7 @@ public enum OpenHotelImageStatus
 {
     Opened,
     HotelNotFound,
+    PositionNotFound,
     ImageNotFound
 }
 
@@ -43,6 +48,8 @@ public sealed record OpenHotelImageOutcome(OpenHotelImageStatus Status, HotelIma
         new(OpenHotelImageStatus.Opened, image, content);
 
     public static OpenHotelImageOutcome HotelNotFound() => new(OpenHotelImageStatus.HotelNotFound);
+
+    public static OpenHotelImageOutcome PositionNotFound() => new(OpenHotelImageStatus.PositionNotFound);
 
     public static OpenHotelImageOutcome ImageNotFound() => new(OpenHotelImageStatus.ImageNotFound);
 }

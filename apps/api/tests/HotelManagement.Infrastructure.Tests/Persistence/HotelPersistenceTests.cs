@@ -109,7 +109,7 @@ public class HotelPersistenceTests(PostgresDatabaseFixture database)
         var deletion = await database.CreateStore().DeleteAsync(doomed.Id, CancellationToken.None);
 
         Assert.True(deletion.Deleted);
-        Assert.Null(deletion.ReleasedImage);
+        Assert.Empty(deletion.ReleasedImages);
         Assert.Null(await database.CreateStore().FindAsync(doomed.Id, CancellationToken.None));
         Assert.Null(await database.CreateRatingStore().GetSummaryAsync(doomed.Id, CancellationToken.None));
         Assert.Equal(1, (await database.CreateRatingStore().GetSummaryAsync(survivor.Id, CancellationToken.None))!.Count);

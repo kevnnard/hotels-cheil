@@ -174,6 +174,61 @@ public sealed class HotelImageJourneyTests(HotelApiServerFixture server)
         Assert.Equal(HttpStatusCode.NotFound, (await administrator.GetAsync(ImageUrl(hotel.Id))).StatusCode);
     }
 
+    [Fact]
+    public async Task An_administrator_fills_three_positions_replaces_one_removes_one_and_deleting_the_hotel_leaves_no_files()
+    {
+        using var client = await AdministratorClientAsync();
+        using var anonymous = server.CreateClient();
+        var hotel = await CreateHotelAsync(client);
+        var filesBefore = server.StoredImageFiles();
+        var uploads = Enumerable.Range(0, 3).Select(seed => TestImages.Png(RgbaImage.Noise(32, 24, 40 + seed))).ToArray();
+
+        for (var position = 0; position < uploads.Length; position++)
+        {
+            using var upload = await client.PutAsync(PositionUrl(hotel.Id, position), Upload(uploads[position]));
+            Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
+        }
+
+        Assert.Equal(filesBefore.Length + 3, server.StoredImageFiles().Length);
+        var filled = await ReadHotelAsync(client, hotel.Id);
+        Assert.Equal([0, 1, 2], filled.Images!.Select(image => image.Position));
+        Assert.Equal(new HotelImageResponse("image/png", 32, 24, uploads[0].Length), filled.Image);
+        Assert.Equal(uploads[2], await (await anonymous.GetAsync($"/api/public/hotels/{hotel.Id}/images/2")).Content.ReadAsByteArrayAsync());
+        Assert.Equal(uploads[0], await (await anonymous.GetAsync($"/api/public/hotels/{hotel.Id}/image")).Content.ReadAsByteArrayAsync());
+
+        var replacement = TestImages.Png(RgbaImage.Noise(20, 20, 50));
+        using (var replaced = await client.PutAsync(PositionUrl(hotel.Id, 1), Upload(replacement)))
+        {
+            Assert.Equal(HttpStatusCode.OK, replaced.StatusCode);
+        }
+
+        Assert.Equal(replacement, await (await client.GetAsync(PositionUrl(hotel.Id, 1))).Content.ReadAsByteArrayAsync());
+        Assert.Equal(filesBefore.Length + 3, server.StoredImageFiles().Length);
+
+        using (var removal = await client.DeleteAsync(PositionUrl(hotel.Id, 2)))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, removal.StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(PositionUrl(hotel.Id, 2))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(PositionUrl(hotel.Id, 3))).StatusCode);
+        Assert.Equal([0, 1], (await ReadHotelAsync(client, hotel.Id)).Images!.Select(image => image.Position));
+        Assert.Equal(filesBefore.Length + 2, server.StoredImageFiles().Length);
+
+        using var deletion = await client.DeleteAsync($"/api/hotels/{hotel.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deletion.StatusCode);
+        Assert.Equal(filesBefore, server.StoredImageFiles());
+    }
+
+    private static async Task<HotelResponse> ReadHotelAsync(HttpClient client, Guid hotelId)
+    {
+        using var response = await client.GetAsync($"/api/hotels/{hotelId}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<HotelResponse>())!;
+    }
+
+    private static string PositionUrl(Guid hotelId, int position) => $"/api/hotels/{hotelId}/images/{position}";
+
     private static string ImageUrl(Guid hotelId) => $"/api/hotels/{hotelId}/image";
 
     private static MultipartFormDataContent Upload(byte[] content)

@@ -81,6 +81,14 @@ public sealed class PostgresDatabaseFixture : IAsyncLifetime
 
     public PostgresHotelStore CreateStore() => new(CreateContext());
 
+    public async Task<ScratchDatabase> CreateScratchDatabaseAsync()
+    {
+        var name = $"{AdministrativeDatabase}_scratch_{Guid.NewGuid():N}";
+        await ExecuteAdministrativeAsync($"CREATE DATABASE \"{name}\"");
+        var connectionString = new NpgsqlConnectionStringBuilder(administrativeConnectionString) { Database = name }.ConnectionString;
+        return new ScratchDatabase(connectionString, () => ExecuteAdministrativeAsync($"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)"));
+    }
+
     public PostgresHotelRatingStore CreateRatingStore() => new(CreateContext());
 
     public async Task<PostgresException?> TryExecuteAsync(string sql)

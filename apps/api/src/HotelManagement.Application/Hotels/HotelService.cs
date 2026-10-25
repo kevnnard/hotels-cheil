@@ -68,7 +68,7 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
     public async Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)
     {
         var deletion = await hotels.DeleteAsync(hotelId, cancellationToken);
-        if (deletion.ReleasedImage is { } image)
+        foreach (var image in deletion.ReleasedImages)
         {
             await storage.DeleteAsync(image.StorageKey);
         }
@@ -110,7 +110,7 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
             hotel.CreatedAtUtc,
             hotel.UpdatedAtUtc,
             rating,
-            hotel.Image);
+            hotel.Images);
     }
 
     private static bool TryBuildDetails(

@@ -10,6 +10,7 @@ public sealed class HotelDbContext(DbContextOptions<HotelDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     internal DbSet<HotelRecord> Hotels => Set<HotelRecord>();
+    internal DbSet<HotelImageRecord> HotelImages => Set<HotelImageRecord>();
     internal DbSet<HotelRatingRecord> HotelRatings => Set<HotelRatingRecord>();
     internal DbSet<AuthSession> AuthSessions => Set<AuthSession>();
 

@@ -1,5 +1,6 @@
 using HotelManagement.Application.Hotels;
 using HotelManagement.Application.Images;
+using HotelManagement.Domain.Hotels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -42,11 +43,15 @@ public sealed class PublicHotelsController(IHotelService hotels, IHotelImageServ
     }
 
     [HttpGet("{id:guid}/image")]
+    [HttpGet("{id:guid}/images/{position:int}")]
     [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetImage(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetImage(
+        Guid id,
+        [FromRoute] int position = HotelImageSlot.Primary,
+        CancellationToken cancellationToken = default)
     {
-        var outcome = await images.OpenActiveAsync(id, cancellationToken);
+        var outcome = await images.OpenActiveAsync(id, position, cancellationToken);
         switch (outcome.Status)
         {
             case OpenHotelImageStatus.Opened:
@@ -55,6 +60,8 @@ public sealed class PublicHotelsController(IHotelService hotels, IHotelImageServ
                 return File(outcome.Content!, outcome.Image!.ContentType, null, new EntityTagHeaderValue($"\"{outcome.Image.StorageKey}\""));
             case OpenHotelImageStatus.HotelNotFound:
                 return HotelNotFound();
+            case OpenHotelImageStatus.PositionNotFound:
+                return PositionNotFound();
             default:
                 return ImageNotFound();
         }
@@ -71,6 +78,13 @@ public sealed class PublicHotelsController(IHotelService hotels, IHotelImageServ
         NotFound(new ProblemDetails
         {
             Title = "The hotel has no image.",
+            Status = StatusCodes.Status404NotFound
+        });
+
+    private IActionResult PositionNotFound() =>
+        NotFound(new ProblemDetails
+        {
+            Title = "The image position does not exist.",
             Status = StatusCodes.Status404NotFound
         });
 
