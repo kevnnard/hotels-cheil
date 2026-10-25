@@ -3,7 +3,7 @@ title: Development
 description: Requirements, setup, configuration, testing, build and deployment, with the status of each item.
 ---
 
-The API skeleton, its PostgreSQL persistence layer, the authentication endpoints and the hotel management endpoints exist. The API uses the database and requires the connection string to start. Status per item is given below; anything not marked Implemented is Planned.
+The API skeleton, its PostgreSQL persistence layer, the authentication endpoints, the hotel management endpoints and the hotel image lifecycle exist. The API uses the database and requires the connection string to start. Status per item is given below; anything not marked Implemented is Planned.
 
 ## Requirements
 
@@ -39,6 +39,8 @@ export Authentication__Jwt__Audience=hotels-api-clients
 
 The development launch profile already provides the issuer and the audience. The connection string has no default and must come from the environment. Apply the migrations before the first run, as described in Migrations.
 
+In development the image files go to a per-user directory outside the repository unless `Storage__Images__RootPath` names another absolute directory. Outside development the setting is required, and the API refuses to start when the directory is relative, inside the application folder or not writable.
+
 ## Documentation site
 
 The site in `apps/docs` is independent of the API and needs no database. From the repository root:
@@ -73,6 +75,8 @@ Two variants share `compose.yaml`. Each has its own project name and therefore i
 
 Both variants share the base file, which declares a `migrator` service next to the database and the API. It applies the pending migrations once and exits, and the API starts only after it succeeds. The runtime image never changes the schema by itself.
 
+The API service mounts the named volume `hotel-images` at `/var/lib/hotel-images`, owned by the non-root runtime user, and receives `Storage__Images__RootPath` pointing there. The volume belongs to the Compose project like the database volume, so removing the project volumes removes the images. The image directory is never part of a source bind mount.
+
 Build the production image with `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml build`. The API waits for the database health check and for the migration. Missing secrets stop Compose with an error.
 
 ## Manual execution with PostgreSQL
@@ -90,7 +94,7 @@ The connection string is used by the migration tool, by the API composition root
 
 ## Configuration
 
-Implemented: `appsettings.json`, `appsettings.Development.json`, the development launch profile, the environment samples `.env.dev.example` and `.env.prod.example` and the authentication settings described in [Authentication](authentication.md). The Options Pattern is used for the JWT and the administrator bootstrap. Environment variables override ASP.NET Core configuration, using `__` for nesting (`ConnectionStrings__Hotels`, `Authentication__Jwt__SigningKey`). Secrets never enter Git.
+Implemented: `appsettings.json`, `appsettings.Development.json`, the development launch profile, the environment samples `.env.dev.example` and `.env.prod.example`, the authentication settings described in [Authentication](authentication.md) and the image directory described in [Hotel images](hotel-images.md). The Options Pattern is used for the JWT and the administrator bootstrap. Environment variables override ASP.NET Core configuration, using `__` for nesting (`ConnectionStrings__Hotels`, `Authentication__Jwt__SigningKey`). Secrets never enter Git.
 
 The environment samples list the database credentials and the ports. The authentication variables are documented in [Authentication](authentication.md): the issuer, the audience, the token lifetime, the signing key and the first administrator. The samples do not carry them, because a file with the shape of a secret is a file that gets copied and shipped. The signing key and the administrator password have no default anywhere in the repository.
 
@@ -112,12 +116,15 @@ Source the environment and export `ConnectionStrings__Hotels` as shown above bef
 | Layer | Plan | Status |
 |---|---|---|
 | Backend domain | xUnit unit tests: `dotnet test apps/api/tests/HotelManagement.Domain.Tests` | Implemented |
-| Backend persistence | xUnit against a real PostgreSQL 17 database (rows, constraints, concurrent ratings) | Implemented |
+| Backend persistence | xUnit against a real PostgreSQL 17 database (rows, constraints, concurrent ratings, concurrent image changes, upgrade of an existing schema) | Implemented |
+| Backend image processing and storage | xUnit over real JPEG, PNG and WebP content: exact decoded equality, the 400,000 byte boundary, rejections and filesystem failures | Implemented |
 | Backend application services | xUnit unit tests over the authentication use cases with in-memory doubles | Implemented |
 | Backend HTTP and authorization | xUnit over the real server against a real PostgreSQL 17 database (endpoints, tokens, revocation, policies) | Implemented |
 | Backend end-to-end | xUnit over the API started as a separate process and reached over a real socket, against an isolated PostgreSQL 17 database (ADR-014) | Implemented |
 | Frontend | Component, form, service, interceptor, guard and filter tests, plus end-to-end tests for critical flows | Planned |
 | Instructions | `node .pi/scripts/verify-instructions.mjs` structural check | Implemented |
+
+The image tests create their own images and use unique temporary directories that they delete, so they need no fixture files and never touch the configured image directory. They do not assert exact compressed bytes, which vary across codec versions.
 
 Persistence and HTTP tests need `HOTEL_TEST_CONNECTION` to point to a database named `hotels_test` on a disposable PostgreSQL 17 server. The suite creates and drops its own uniquely named database and fails, never skips, when the variable or server is missing:
 
@@ -133,7 +140,7 @@ The instruction validator checks structure only: required files, frontmatter, se
 
 ## Build and deployment
 
-Implemented and verified: building with `dotnet build apps/api/HotelManagement.slnx`; the multi-stage API image builds, runs as a non-root user and serves `/health`; development Compose starts PostgreSQL and the API successfully. Deployment and the deployment target remain Planned.
+Implemented and verified: building with `dotnet build apps/api/HotelManagement.slnx`; the multi-stage API image builds, runs as a non-root user and serves `/health`; development Compose starts PostgreSQL and the API successfully. The runtime image was also exercised on `linux-arm64` with a fresh volume: the non-root user wrote, replaced and deleted images, and an image survived a restart. `linux-x64` is bundled by the package but was not exercised here. `dotnet publish` and the runtime image include `ThirdPartyNotices` next to the API with the unmodified third-party notices of Magick.NET. Deployment and the deployment target remain Planned.
 
 ## Working method
 

@@ -74,6 +74,7 @@ export const workspaceLinks: WorkspaceLink[] = [
 	{ label: "Architecture", href: "/architecture/", description: "Layers, rules and boundaries" },
 	{ label: "Security and authentication", href: "/authentication/", description: "Identity, tokens and sessions" },
 	{ label: "Hotel API", href: "/hotel-api/", description: "HTTP contract of the hotel resources" },
+	{ label: "Hotel images", href: "/hotel-images/", description: "Strict lossless image lifecycle and its limits" },
 	{ label: "Hotel domain", href: "/hotel-domain/", description: "Rules of hotels and ratings" },
 	{ label: "Development", href: "/development/", description: "Run, build and test" },
 	{ label: "Agents", href: "/agents/", description: "How instructions and skills are loaded" },
@@ -104,9 +105,11 @@ export const layers: LayerDescriptor[] = [
 		badges: ["ASP.NET Core", "JWT bearer"],
 		docs: [
 			{ label: "Hotel API", href: "/hotel-api/" },
+			{ label: "Hotel images", href: "/hotel-images/" },
 			{ label: "Authentication", href: "/authentication/" },
 			{ label: "ADR-004 RBAC through policies", href: "/decisions/adr-004-rbac-through-policies/" },
 			{ label: "ADR-013 Hotel HTTP contract", href: "/decisions/adr-013-hotel-http-contract/" },
+			{ label: "ADR-015 Strict lossless hotel images", href: "/decisions/adr-015-strict-lossless-hotel-images/" },
 		],
 	},
 	{
@@ -119,6 +122,7 @@ export const layers: LayerDescriptor[] = [
 			{ label: "ADR-001 Clean Architecture", href: "/decisions/adr-001-clean-architecture/" },
 			{ label: "ADR-003 Application services over CQRS", href: "/decisions/adr-003-application-services-over-cqrs/" },
 			{ label: "ADR-012 Identity, JWT and sessions", href: "/decisions/adr-012-identity-jwt-and-revocable-sessions/" },
+			{ label: "ADR-015 Strict lossless hotel images", href: "/decisions/adr-015-strict-lossless-hotel-images/" },
 		],
 	},
 	{
@@ -135,12 +139,14 @@ export const layers: LayerDescriptor[] = [
 	{
 		id: "infrastructure",
 		title: "Infrastructure",
-		responsibility: "Implements the ports with PostgreSQL and ASP.NET Core Identity.",
+		responsibility: "Implements the ports with PostgreSQL, ASP.NET Core Identity, Magick.NET and the local filesystem.",
 		accent: "cyan",
-		badges: ["EF Core", "Npgsql", "Identity"],
+		badges: ["EF Core", "Npgsql", "Identity", "Magick.NET"],
 		docs: [
 			{ label: "ADR-011 PostgreSQL persistence", href: "/decisions/adr-011-postgresql-persistence/" },
 			{ label: "ADR-012 Identity, JWT and sessions", href: "/decisions/adr-012-identity-jwt-and-revocable-sessions/" },
+			{ label: "ADR-015 Strict lossless hotel images", href: "/decisions/adr-015-strict-lossless-hotel-images/" },
+			{ label: "ADR-006 Local storage over Cloudflare R2", href: "/decisions/adr-006-local-storage-over-cloudflare-r2/" },
 		],
 	},
 	{
@@ -148,10 +154,11 @@ export const layers: LayerDescriptor[] = [
 		title: "Data",
 		responsibility: "Stores the state the system owns, with the constraints the domain requires.",
 		accent: "emerald",
-		badges: ["PostgreSQL 17"],
+		badges: ["PostgreSQL 17", "Image volume"],
 		docs: [
 			{ label: "ADR-002 PostgreSQL", href: "/decisions/adr-002-postgresql-over-sql-server-and-sqlite/" },
 			{ label: "ADR-011 PostgreSQL persistence", href: "/decisions/adr-011-postgresql-persistence/" },
+			{ label: "ADR-006 Local storage over Cloudflare R2", href: "/decisions/adr-006-local-storage-over-cloudflare-r2/" },
 		],
 	},
 	{
@@ -178,6 +185,7 @@ export const nodes: ArchitectureNode[] = [
 			"Starts the API and PostgreSQL 17 from one definition, with a development overlay and a production overlay.",
 		responsibilities: [
 			"Builds the API image and runs it as a non-root user.",
+			"Mounts a persistent volume for the hotel images, writable by that user.",
 			"Applies the migrations with a one-shot migrator before the API starts.",
 			"Keeps the PostgreSQL port unpublished in production.",
 		],
@@ -185,7 +193,7 @@ export const nodes: ArchitectureNode[] = [
 			"Development binds the database to loopback; production publishes only the API.",
 			"Secrets arrive from the environment; no credential is written in the repository.",
 		],
-		data: "Volumes and environment variables only. It stores no domain state.",
+		data: "Volumes (database and hotel images) and environment variables only. It stores no domain state.",
 	},
 	{
 		id: "composition-root",
@@ -197,14 +205,16 @@ export const nodes: ArchitectureNode[] = [
 			"The single place where the layers are wired: persistence, Identity, authentication, policies and the controllers.",
 		responsibilities: [
 			"Registers the DbContext, the Identity stores and the session store.",
+			"Registers the image optimizer, the file storage and the startup check of the image directory.",
 			"Configures the JWT bearer authentication and the five authorization policies.",
 			"Publishes the controllers and the health endpoint.",
 		],
 		expectations: [
 			"The API refuses to start in production without a signing key of at least 32 characters.",
 			"The first administrator is provisioned from the environment, never from a request.",
+			"The API refuses to start in production without an absolute, writable image directory outside the application folder.",
 		],
-		data: "Reads the connection string, the signing key and the administrator pair from the environment.",
+		data: "Reads the connection string, the signing key, the administrator pair and the image directory from the environment.",
 	},
 	{
 		id: "auth-controller",
@@ -267,10 +277,12 @@ export const nodes: ArchitectureNode[] = [
 			"Reads the hotels for both roles.",
 			"Creates, updates and deletes a hotel for the Administrator role only.",
 			"Answers the listing with the items, the page and the totals.",
+			"Includes the image metadata, or null, in every hotel it returns.",
 		],
 		expectations: [
 			"A rejected write leaves the stored hotel exactly as it was.",
 			"The listing order is the creation timestamp and then the identifier.",
+			"Updating the descriptive details never changes the image of the hotel.",
 		],
 		data: "Reads and writes the hotels table through the hotel service.",
 		endpoints: [
@@ -339,6 +351,49 @@ export const nodes: ArchitectureNode[] = [
 		],
 	},
 	{
+		id: "hotel-images-controller",
+		label: "HotelImagesController",
+		kind: "HTTP endpoints",
+		layer: "api",
+		status: "implemented",
+		summary:
+			"Uploads, replaces, serves and removes the single image of a hotel behind the existing read and update policies.",
+		responsibilities: [
+			"Reads the multipart field image with a bounded buffer and hands the bytes to the image service.",
+			"Maps each rejection to 400, 413, 415 or 422 and a missing hotel or image to 404.",
+			"Serves the stored bytes with the detected content type, an entity tag and nosniff.",
+		],
+		expectations: [
+			"The image is never served from a static directory; every read goes through the read policy.",
+			"A rejected request leaves the stored image, its file and the hotel row exactly as they were.",
+		],
+		data: "Reads and writes the image metadata of the hotels table and the image files through the image service.",
+		endpoints: [
+			{
+				method: "PUT",
+				path: "/api/hotels/{id}/image",
+				policy: "hotels.update",
+				success: "200 with the image metadata",
+				failures:
+					"400 empty or damaged image, 413 above 10 MiB, 415 unsupported or animated, 422 too large in pixels, in color space or not losslessly reducible to 400,000 bytes, 404 unknown hotel, 403 forbidden role, 401 missing or invalid token",
+			},
+			{
+				method: "GET",
+				path: "/api/hotels/{id}/image",
+				policy: "hotels.read",
+				success: "200 with the image bytes",
+				failures: "404 unknown hotel or no image, 401 missing or invalid token",
+			},
+			{
+				method: "DELETE",
+				path: "/api/hotels/{id}/image",
+				policy: "hotels.update",
+				success: "204 with no body",
+				failures: "404 unknown hotel or no image, 403 forbidden role, 401 missing or invalid token",
+			},
+		],
+	},
+	{
 		id: "jwt-bearer",
 		label: "JWT bearer validation",
 		kind: "Authentication",
@@ -368,6 +423,7 @@ export const nodes: ArchitectureNode[] = [
 		responsibilities: [
 			"hotels.read and hotels.rate admit both roles.",
 			"hotels.create, hotels.update and hotels.delete admit the Administrator only.",
+			"The image endpoints reuse hotels.read for the download and hotels.update for the upload and the removal.",
 		],
 		expectations: [
 			"Without a valid token the answer is 401; with a valid token and no policy it is 403.",
@@ -423,12 +479,33 @@ export const nodes: ArchitectureNode[] = [
 			"Translates the query into the filters the store understands.",
 			"Computes the rating summary from the stored votes.",
 			"Refuses an invalid input before it reaches the database.",
+			"Releases the image file of a deleted hotel after the row is gone.",
 		],
 		expectations: [
 			"The minimum rating filter keeps the hotels whose average is at least the value.",
 			"Hotels without votes never match a minimum rating filter.",
+			"A failed file cleanup never turns a deleted hotel into an error.",
 		],
 		data: "Hotels and ratings through the hotel and rating ports.",
+	},
+	{
+		id: "hotel-image-service",
+		label: "HotelImageService",
+		kind: "Application service",
+		layer: "application",
+		status: "implemented",
+		summary:
+			"Orchestrates the image lifecycle across PostgreSQL and the filesystem, which cannot share a transaction.",
+		responsibilities: [
+			"Rejects empty and oversized input, then asks the optimizer for a verified lossless result.",
+			"Stages the new file under a generated key, swaps the database reference, then deletes the replaced file.",
+			"Removes the staged file if the swap fails or the hotel is gone, unless the reference already points at it.",
+		],
+		expectations: [
+			"The previous file is deleted only after the new reference is stored, and only the key that was displaced.",
+			"A cleanup failure leaves an orphan file and a successful answer; it is never claimed as a transaction.",
+		],
+		data: "Image metadata through the hotel port and image bytes through the file storage port.",
 	},
 	{
 		id: "token-issuer",
@@ -455,7 +532,7 @@ export const nodes: ArchitectureNode[] = [
 		layer: "application",
 		status: "implemented",
 		summary:
-			"The interfaces the infrastructure must satisfy: hotel store, rating store, session store, account store and token issuer.",
+			"The interfaces the infrastructure must satisfy: hotel store, rating store, session store, account store, token issuer, image optimizer and file storage.",
 		responsibilities: [
 			"Keep the use cases free of any persistence technology.",
 			"Give the infrastructure a single place to change.",
@@ -484,6 +561,24 @@ export const nodes: ArchitectureNode[] = [
 			"The details are bounded; an oversized text is rejected, not truncated.",
 		],
 		data: "Mapped to the hotels table.",
+	},
+	{
+		id: "hotel-image-domain",
+		label: "HotelImage",
+		kind: "Domain model",
+		layer: "domain",
+		status: "implemented",
+		summary:
+			"The descriptive record of the single image of a hotel: storage key, content type, dimensions and size.",
+		responsibilities: [
+			"Accepts only image/png, image/jpeg and image/webp.",
+			"Requires positive dimensions and a size between 1 and 400,000 bytes.",
+		],
+		expectations: [
+			"The record describes the stored bytes; it never contains them.",
+			"A hotel without an image is valid; existing hotels need no migration of data.",
+		],
+		data: "Mapped to five nullable columns of the hotels table.",
 	},
 	{
 		id: "rating-domain",
@@ -531,12 +626,13 @@ export const nodes: ArchitectureNode[] = [
 		summary:
 			"The mapping of the domain to PostgreSQL, with the migrations that create and evolve the schema.",
 		responsibilities: [
-			"Maps the hotels and the hotel_ratings tables with their constraints.",
+			"Maps the hotels and the hotel_ratings tables with their constraints, including the image columns.",
 			"Owns the migrations and the model snapshot.",
 		],
 		expectations: [
 			"The schema is created by the migrations, never by an ad hoc script.",
 			"The database enforces the rating range and the one vote per account.",
+			"The database requires the key and the content type together, caps a present size at 400,000 bytes and allows one hotel per stored file; the application writes all five values together.",
 		],
 		data: "The hotels, hotel_ratings and auth_sessions tables.",
 	},
@@ -552,12 +648,52 @@ export const nodes: ArchitectureNode[] = [
 			"Escape the wildcard characters of the name filter.",
 			"Compute the average and the count of votes in one aggregate query.",
 			"Write a rating with an atomic upsert on the account and hotel pair.",
+			"Swap, clear and delete the image reference under a row lock and report the displaced image.",
 		],
 		expectations: [
 			"The listing never issues one query per hotel.",
 			"The page offset is computed in 64 bits and bounded before it reaches the driver.",
+			"A descriptive update never writes the image columns, so it cannot erase a concurrent replacement.",
 		],
 		data: "The hotels and hotel_ratings tables.",
+	},
+	{
+		id: "image-optimizer",
+		label: "MagickImageOptimizationService",
+		kind: "Image processing",
+		layer: "infrastructure",
+		status: "implemented",
+		summary:
+			"Decodes untrusted JPEG, PNG and WebP with Magick.NET and returns only a result that reproduces the exact decoded pixels within 400,000 bytes.",
+		responsibilities: [
+			"Detects the real format from the content and checks dimensions from the header before decoding.",
+			"Rejects animation, damaged files (a PNG needs valid chunk checksums), other color spaces and anything outside the coder policy.",
+			"Keeps an original that already fits, or verifies lossless PNG and WebP candidates by decoded comparison.",
+		],
+		expectations: [
+			"Sixteen-bit samples, alpha, the hidden color under transparency, the color profile, the orientation and the PNG color declarations are never silently degraded.",
+			"At most two images are processed at a time; limits are installed once at startup.",
+		],
+		data: "None. Bytes live in memory only while a request is processed.",
+	},
+	{
+		id: "file-storage",
+		label: "LocalFileStorageService",
+		kind: "File storage",
+		layer: "infrastructure",
+		status: "implemented",
+		summary:
+			"Stores image files under generated keys in a configured directory outside the application folder.",
+		responsibilities: [
+			"Accepts only generated keys, so no request value becomes a path.",
+			"Writes to a staging name, flushes and moves the file into place without overwriting.",
+			"Deletes best effort and logs a failure by key without the path.",
+		],
+		expectations: [
+			"A reader never sees a partial file.",
+			"The directory is created and probed for writing at startup; the API refuses to start otherwise.",
+		],
+		data: "Files in the image directory, a Docker volume in Compose.",
 	},
 	{
 		id: "identity-store",
@@ -597,6 +733,24 @@ export const nodes: ArchitectureNode[] = [
 		data: "The Identity tables.",
 	},
 	{
+		id: "image-volume",
+		label: "Image volume",
+		kind: "Filesystem volume",
+		layer: "data",
+		status: "implemented",
+		summary:
+			"The persistent directory that holds the optimized hotel images. PostgreSQL holds only their metadata.",
+		responsibilities: [
+			"Keep the image files across restarts of the API.",
+			"Stay writable by the non-root runtime user and outside any served directory.",
+		],
+		expectations: [
+			"A file is either referenced by one hotel row or an orphan left by a failed cleanup.",
+			"It suits a single API instance; a shared store would need a different implementation of the port.",
+		],
+		data: "Files named by generated keys, plus a staging folder.",
+	},
+	{
 		id: "postgres",
 		label: "PostgreSQL 17",
 		kind: "Database",
@@ -607,13 +761,14 @@ export const nodes: ArchitectureNode[] = [
 		responsibilities: [
 			"Enforce the composite key of the ratings, the score range and the foreign keys.",
 			"Apply the atomic upsert of a replaced rating.",
+			"Serialize image changes of one hotel with a row lock.",
 			"Survive the restart of the API with all the state intact.",
 		],
 		expectations: [
 			"The rating range and the uniqueness of the vote are constraints, not application checks.",
 			"The database port is not published in production.",
 		],
-		data: "hotels, hotel_ratings, auth_sessions and the Identity tables.",
+		data: "hotels (with the nullable image metadata), hotel_ratings, auth_sessions and the Identity tables.",
 	},
 ];
 
@@ -622,12 +777,14 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "composition-root", to: "auth-controller", label: "maps routes", protocol: "in-process" },
 	{ from: "composition-root", to: "hotels-controller", label: "maps routes", protocol: "in-process" },
 	{ from: "composition-root", to: "ratings-controller", label: "maps routes", protocol: "in-process" },
+	{ from: "composition-root", to: "hotel-images-controller", label: "maps routes", protocol: "in-process" },
 	{ from: "composition-root", to: "jwt-bearer", label: "adds the middleware", protocol: "in-process" },
 	{ from: "composition-root", to: "policies", label: "declares the policies", protocol: "in-process" },
 	{ from: "composition-root", to: "health", label: "maps the endpoint", protocol: "in-process" },
 	{ from: "auth-controller", to: "authentication-service", label: "use case", protocol: "in-process" },
 	{ from: "hotels-controller", to: "hotel-service", label: "use case", protocol: "in-process" },
 	{ from: "ratings-controller", to: "hotel-service", label: "use case", protocol: "in-process" },
+	{ from: "hotel-images-controller", to: "hotel-image-service", label: "use case", protocol: "in-process" },
 	{ from: "jwt-bearer", to: "ports", label: "session lookup", protocol: "identity" },
 	{ from: "policies", to: "ports", label: "role claim", protocol: "identity" },
 	{ from: "authentication-service", to: "token-issuer", label: "issues the token", protocol: "in-process" },
@@ -635,12 +792,18 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "authentication-service", to: "ports", label: "accounts and sessions", protocol: "in-process" },
 	{ from: "hotel-service", to: "hotel-domain", label: "hotel rules", protocol: "in-process" },
 	{ from: "hotel-service", to: "rating-domain", label: "rating rules", protocol: "in-process" },
-	{ from: "hotel-service", to: "ports", label: "hotels and ratings", protocol: "in-process" },
+	{ from: "hotel-service", to: "ports", label: "hotels, ratings and file cleanup", protocol: "in-process" },
+	{ from: "hotel-image-service", to: "hotel-image-domain", label: "image rules", protocol: "in-process" },
+	{ from: "hotel-image-service", to: "ports", label: "optimizer, storage and hotels", protocol: "in-process" },
 	{ from: "ports", to: "stores", label: "implements", protocol: "in-process" },
 	{ from: "ports", to: "identity-store", label: "implements", protocol: "in-process" },
+	{ from: "ports", to: "image-optimizer", label: "implements", protocol: "in-process" },
+	{ from: "ports", to: "file-storage", label: "implements", protocol: "in-process" },
 	{ from: "stores", to: "db-context", label: "EF Core", protocol: "in-process" },
 	{ from: "identity-store", to: "db-context", label: "EF Core", protocol: "in-process" },
 	{ from: "bootstrap", to: "db-context", label: "EF Core", protocol: "in-process" },
+	{ from: "file-storage", to: "image-volume", label: "reads and writes files", protocol: "in-process" },
+	{ from: "compose", to: "image-volume", label: "mounts the volume", protocol: "container" },
 	{ from: "db-context", to: "postgres", label: "SQL over Npgsql", protocol: "sql" },
 ];
 
@@ -679,6 +842,16 @@ export const requestFlow: RequestFlowStep[] = [
 		title: "The store writes",
 		detail:
 			"The store applies the change in PostgreSQL. A replaced rating is one atomic upsert on the account and hotel pair.",
+	},
+	{
+		title: "An image is verified before it is kept",
+		detail:
+			"PUT /api/hotels/{id}/image decodes the upload with Magick.NET. An original within 400,000 bytes is kept as is; otherwise only a lossless candidate that decodes to the same pixels, profile and orientation is accepted, and anything else is rejected with no change.",
+	},
+	{
+		title: "The file is staged, then the reference swaps",
+		detail:
+			"The new file is written under a generated key, PostgreSQL swaps the reference under a row lock, and only then is the displaced file deleted. If the swap fails the staged file is removed and the current image stays.",
 	},
 	{
 		title: "The answer returns",

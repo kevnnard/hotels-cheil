@@ -3,16 +3,16 @@ title: Architecture
 description: Layers, security model, image handling and implementation status.
 ---
 
-The backend domain rules, PostgreSQL persistence layer, authentication and the hotel management endpoints are implemented; the frontend remains planned. The status column states what is Implemented, Planned, Considered or Discarded.
+The backend domain rules, PostgreSQL persistence layer, authentication, the hotel management endpoints and the hotel image lifecycle are implemented; the frontend remains planned. The status column states what is Implemented, Planned, Considered or Discarded.
 
 ## Monorepo
 
 | Path | Purpose | Status |
 |---|---|---|
-| `apps/api` | ASP.NET Core modular monolith | Domain, persistence, authentication and hotel endpoints Implemented |
+| `apps/api` | ASP.NET Core modular monolith | Domain, persistence, authentication, hotel endpoints and hotel images Implemented |
 | `apps/web` | Angular application | Planned |
 | `apps/docs` | Astro Starlight documentation with the interactive architecture canvas | Implemented |
-| `compose.yaml` | Container orchestration | API/PostgreSQL Implemented; web/docs Planned |
+| `compose.yaml` | Container orchestration | API/PostgreSQL and the image volume Implemented; web/docs Planned |
 
 Applications stay independent. Documentation must not block the frontend or backend from running alone.
 
@@ -57,12 +57,14 @@ Frontend guards are navigation only. The backend enforces authorization (ADR-004
 
 | Item | Status |
 |---|---|
-| `IImageOptimizationService` and `IFileStorageService` as separate contracts | Planned |
-| Content validation, resize, optimization, WebP when appropriate, result at most 400 KB | Planned |
-| Local storage on a Docker volume | Planned |
+| `IImageOptimizationService` and `IFileStorageService` as separate contracts | Implemented |
+| Content validation, strict lossless verification, result at most 400,000 bytes | Implemented (ADR-015) |
+| One image per hotel with upload, read, replace and remove endpoints | Implemented |
+| Local storage on a Docker volume with generated keys and staged writes | Implemented |
+| Resize, lossy conversion, galleries | Discarded for this scope (ADR-015) |
 | Cloudflare R2 | Considered for the future (ADR-006) |
 
-Pending: allowed formats, input limits, maximum dimensions, the unit of 400 KB (400,000 or 409,600 bytes) and the image library.
+Rules, limits, failure behavior and operation are in [Hotel images](hotel-images.md).
 
 ## Other considered options
 

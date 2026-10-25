@@ -10,7 +10,7 @@ Mandatory requirements come first. Extras must not put functionality or delivery
 
 ## Current status
 
-The agent instruction system, documentation skeleton, .NET 10 API skeleton, hotel/rating domain rules, PostgreSQL persistence layer, authentication and the hotel management endpoints exist. The API exposes `/health`, the authentication endpoints and the hotel CRUD, listing and rating endpoints. The documentation site, with its interactive architecture canvas, is Implemented; the frontend remains Planned; Docker Compose definitions and the API image are Implemented.
+The agent instruction system, documentation skeleton, .NET 10 API skeleton, hotel/rating domain rules, PostgreSQL persistence layer, authentication and the hotel management endpoints and the hotel image lifecycle exist. The API exposes `/health`, the authentication endpoints and the hotel CRUD, listing, rating and image endpoints. The documentation site, with its interactive architecture canvas, is Implemented; the frontend remains Planned; Docker Compose definitions and the API image are Implemented.
 
 | Area | Scope | Status |
 |---|---|---|
@@ -18,7 +18,7 @@ The agent instruction system, documentation skeleton, .NET 10 API skeleton, hote
 | Backend | Domain rules and PostgreSQL persistence for hotels/ratings | Implemented |
 | Backend | Identity, signed access tokens, revocable sessions and hotel policies | Implemented |
 | Backend | Hotel CRUD over HTTP, filters, pagination and rating replacement | Implemented |
-| Backend | Images optimized to at most 400 KB | Planned |
+| Backend | One lossless image per hotel within 400,000 bytes | Implemented |
 | Frontend | Landing page, public catalog, search and filters, admin panel, hotel CRUD, responsive design | Planned |
 | Documentation | Astro Starlight site with the interactive architecture canvas | Implemented |
 | Orchestration | Docker Compose plus manual execution | Backend API/PostgreSQL Implemented; web/docs Planned |
@@ -30,5 +30,6 @@ The agent instruction system, documentation skeleton, .NET 10 API skeleton, hote
 - Development: requirements, installation, configuration, testing, build and deployment.
 - Authentication: endpoints, configuration, sessions and policies.
 - Hotel API: endpoints, filters, pagination, rating behavior and policies.
+- Hotel images: the lossless image of a hotel, its limits, rejections and storage.
 - Agents: how instructions and skills are loaded and verified.
-- Decisions: ADR-001 to ADR-014.
+- Decisions: ADR-001 to ADR-015.

@@ -15,7 +15,11 @@ The hotel management API exposes the administrative CRUD of the hotels and the r
 | `PUT` | `/api/hotels/{id}` | `hotels.update` | `200` with the updated hotel | `400` invalid input, `404` unknown hotel, `403` the role cannot write, `401` missing or invalid token |
 | `DELETE` | `/api/hotels/{id}` | `hotels.delete` | `204` | `404` unknown hotel, `403` the role cannot write, `401` missing or invalid token |
 | `POST` | `/api/hotels/{id}/ratings` | `hotels.rate` | `200` with the rating summary | `400` score outside 1 to 5, `404` unknown hotel, `401` missing or invalid token |
+| `PUT` | `/api/hotels/{id}/image` | `hotels.update` | `200` with the image metadata | `400`, `413`, `415`, `422` rejected image, `404` unknown hotel, `403`, `401` |
+| `GET` | `/api/hotels/{id}/image` | `hotels.read` | `200` with the image bytes | `404` unknown hotel or no image, `401` |
+| `DELETE` | `/api/hotels/{id}/image` | `hotels.update` | `204` | `404` unknown hotel or no image, `403`, `401` |
 
+The three image routes are described in [Hotel images](hotel-images.md).
 A rejected write never changes the stored data: a `401` or a `403` answer leaves the hotel exactly as it was.
 
 ## Listing
@@ -53,7 +57,8 @@ The response carries the items, the page, the page size, the total number of mat
       "isActive": true,
       "createdAtUtc": "2026-10-23T12:00:00Z",
       "updatedAtUtc": "2026-10-23T12:00:00Z",
-      "rating": { "sum": 9.0, "count": 2, "average": 4.5 }
+      "rating": { "sum": 9.0, "count": 2, "average": 4.5 },
+      "image": { "contentType": "image/webp", "width": 1280, "height": 720, "sizeBytes": 211873 }
     }
   ],
   "page": 1,
@@ -62,6 +67,8 @@ The response carries the items, the page, the page size, the total number of mat
   "totalPages": 1
 }
 ```
+
+A hotel without an image reports `"image": null`. The `image` property is the only addition to the hotel response; the create and update bodies stay the same.
 
 ## Writing a hotel
 
@@ -84,7 +91,7 @@ The create and update bodies carry the descriptive values. The name is the only 
 
 An invalid value is answered with `400` and the failing field, the same way the authentication endpoints answer an invalid registration. The domain rules own the limits: the name is required, the optional texts are trimmed and bounded, the email must be well formed, and the phone and the website must keep their format.
 
-The hotel keeps its creation timestamp when it is updated, and the update timestamp moves to the moment of the update.
+The hotel keeps its creation timestamp when it is updated, and the update timestamp moves to the moment of the update. Updating the details never changes the image of the hotel.
 
 ## Rating
 

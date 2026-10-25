@@ -54,6 +54,10 @@ Named routes and query parameters make the contract readable from a browser and 
 - The rating permission is a fifth policy, documented next to the four from the API skill.
 - The hotel listing is ordered by creation time, which is stable only while the creation timestamps are distinct enough to break the ties.
 
+## Addendum: the image routes and the response field
+
+ADR-015 extends this contract without changing any decision above. The hotel response gains a nullable `image` property with the content type, the dimensions and the size. Three routes are added under `/api/hotels/{id}/image`: `PUT` and `DELETE` use `hotels.update`, `GET` uses `hotels.read`. The create and update JSON bodies, the filters, the pagination, the status codes and the policies of the other routes are unchanged, and an update of the descriptive details never writes the image. The image contract is documented in [Hotel images](../hotel-images.md).
+
 ## Future improvements
 
 - Cursor pagination, if the catalog grows enough for the offset cost to matter.

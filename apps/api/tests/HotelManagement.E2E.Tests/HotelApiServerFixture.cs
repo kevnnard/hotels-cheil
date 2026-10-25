@@ -10,6 +10,13 @@ public sealed class HotelApiServerFixture : IAsyncLifetime
 
     public Uri BaseAddress => harness.BaseAddress;
 
+    public string ImageRoot => harness.ImageRoot;
+
+    public bool IsProcessRunning => harness.IsProcessRunning;
+
+    public string[] StoredImageFiles() =>
+        Directory.Exists(ImageRoot) ? Directory.GetFiles(ImageRoot).Order().ToArray() : [];
+
     public HttpClient CreateClient() => new()
     {
         BaseAddress = harness.BaseAddress,

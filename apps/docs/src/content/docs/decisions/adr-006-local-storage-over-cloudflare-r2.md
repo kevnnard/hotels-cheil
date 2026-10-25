@@ -5,7 +5,7 @@ description: Decision to store images locally first and keep an abstraction for 
 
 ## Status
 
-Planned for local storage. Cloudflare R2 is Considered.
+Local storage is Implemented (ADR-015). Cloudflare R2 is Considered.
 
 ## Problem
 
@@ -45,4 +45,4 @@ Consider an R2 implementation of the same contract only if deployment needs it. 
 
 ## Considerations
 
-No image storage exists in the API today, and the architecture canvas does not show it. Reconsider storage when the image requirement is taken on, and reconsider R2 only if the API runs on more than one instance or the volume backup becomes a burden. This is a consideration, not a commitment.
+Local storage is implemented behind `IFileStorageService` as `LocalFileStorageService`: generated keys, staged writes moved into place without overwriting, best-effort deletion and a Docker volume at `/var/lib/hotel-images` owned by the non-root runtime user. The lifecycle and its failure behavior are in [Hotel images](../hotel-images.md) and ADR-015. Reconsider R2 only if the API runs on more than one instance or the volume backup becomes a burden. R2 is a consideration, not a commitment, and no credential or implementation of it exists.
