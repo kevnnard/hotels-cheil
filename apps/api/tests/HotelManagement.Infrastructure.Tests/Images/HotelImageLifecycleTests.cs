@@ -253,6 +253,9 @@ public sealed class HotelImageLifecycleTests(PostgresDatabaseFixture database) :
 
         public Task<bool> UpdateAsync(Hotel hotel, CancellationToken cancellationToken) => inner.UpdateAsync(hotel, cancellationToken);
 
+        public Task<bool> SetActiveAsync(Guid hotelId, bool isActive, DateTime nowUtc, CancellationToken cancellationToken) =>
+            inner.SetActiveAsync(hotelId, isActive, nowUtc, cancellationToken);
+
         public Task<HotelDeletion> DeleteAsync(Guid hotelId, CancellationToken cancellationToken) => inner.DeleteAsync(hotelId, cancellationToken);
 
         public Task<ImageSlotChange> ReplaceImageAsync(Guid hotelId, int position, HotelImage image, DateTime nowUtc, CancellationToken cancellationToken) =>

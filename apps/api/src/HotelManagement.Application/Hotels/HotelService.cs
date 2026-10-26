@@ -65,6 +65,26 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
         return UpdateHotelOutcome.Updated(await SummarizeAsync(hotel, cancellationToken));
     }
 
+    public async Task<HotelSummary?> SetActiveAsync(Guid hotelId, bool isActive, CancellationToken cancellationToken)
+    {
+        var hotel = await hotels.FindAsync(hotelId, cancellationToken);
+        if (hotel is null)
+        {
+            return null;
+        }
+
+        if (hotel.IsActive != isActive)
+        {
+            hotel.SetActive(isActive, clock.GetUtcNow().UtcDateTime);
+            if (!await hotels.SetActiveAsync(hotel.Id, hotel.IsActive, hotel.UpdatedAtUtc, cancellationToken))
+            {
+                return null;
+            }
+        }
+
+        return await SummarizeAsync(hotel, cancellationToken);
+    }
+
     public async Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)
     {
         var deletion = await hotels.DeleteAsync(hotelId, cancellationToken);

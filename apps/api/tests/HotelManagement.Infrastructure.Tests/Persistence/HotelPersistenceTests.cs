@@ -72,7 +72,6 @@ public class HotelPersistenceTests(PostgresDatabaseFixture database)
         var hotel = await StoreNewHotelAsync();
         var untouched = await StoreNewHotelAsync(new HotelDetails("Untouched"));
         hotel.Update(new HotelDetails("Renamed Hotel"), LaterAt);
-        hotel.SetActive(false, LaterAt);
 
         var updated = await database.CreateStore().UpdateAsync(hotel, CancellationToken.None);
 
@@ -81,10 +80,27 @@ public class HotelPersistenceTests(PostgresDatabaseFixture database)
         Assert.True(updated);
         Assert.NotNull(restored);
         Assert.Equal(new HotelDetails("Renamed Hotel"), restored.Details);
-        Assert.False(restored.IsActive);
+        Assert.True(restored.IsActive);
         Assert.Equal(CreatedAt, restored.CreatedAtUtc);
         Assert.Equal(LaterAt, restored.UpdatedAtUtc);
         Assert.Equal("Untouched", (await store.FindAsync(untouched.Id, CancellationToken.None))!.Details.Name);
+    }
+
+    [Fact]
+    public async Task SavingDetailsReadBeforeAStateChange_KeepsTheStoredState()
+    {
+        var staleCopy = await StoreNewHotelAsync();
+        var changed = await database.CreateStore().SetActiveAsync(staleCopy.Id, false, LaterAt, CancellationToken.None);
+        staleCopy.Update(new HotelDetails("Renamed While Inactive"), LaterAt.AddHours(1));
+
+        var updated = await database.CreateStore().UpdateAsync(staleCopy, CancellationToken.None);
+
+        var restored = await database.CreateStore().FindAsync(staleCopy.Id, CancellationToken.None);
+        Assert.True(changed);
+        Assert.True(updated);
+        Assert.NotNull(restored);
+        Assert.False(restored.IsActive);
+        Assert.Equal(new HotelDetails("Renamed While Inactive"), restored.Details);
     }
 
     [Fact]
@@ -96,6 +112,54 @@ public class HotelPersistenceTests(PostgresDatabaseFixture database)
 
         Assert.False(updated);
         Assert.Null(await database.CreateStore().FindAsync(ghost.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SettingTheActiveState_ChangesOnlyTheStateAndTheUpdateTime()
+    {
+        var details = FullDetails();
+        var hotel = await StoreNewHotelAsync(new HotelDetails(
+            details.Name,
+            details.Description,
+            details.Address,
+            details.Contact,
+            HotelPricing.From(199.99m, 15)));
+        var untouched = await StoreNewHotelAsync(new HotelDetails("Untouched"));
+
+        var changed = await database.CreateStore().SetActiveAsync(hotel.Id, false, LaterAt, CancellationToken.None);
+
+        var store = database.CreateStore();
+        var restored = (await store.FindAsync(hotel.Id, CancellationToken.None))!;
+        Assert.True(changed);
+        Assert.False(restored.IsActive);
+        Assert.Equal(LaterAt, restored.UpdatedAtUtc);
+        Assert.Equal(CreatedAt, restored.CreatedAtUtc);
+        Assert.Equal(hotel.Details, restored.Details);
+        var other = (await store.FindAsync(untouched.Id, CancellationToken.None))!;
+        Assert.True(other.IsActive);
+        Assert.Equal(CreatedAt, other.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public async Task SettingTheActiveStateBackToActive_ReactivatesTheHotel()
+    {
+        var hotel = await StoreNewHotelAsync();
+        await database.CreateStore().SetActiveAsync(hotel.Id, false, LaterAt, CancellationToken.None);
+
+        var changed = await database.CreateStore().SetActiveAsync(hotel.Id, true, LaterAt.AddHours(1), CancellationToken.None);
+
+        var restored = (await database.CreateStore().FindAsync(hotel.Id, CancellationToken.None))!;
+        Assert.True(changed);
+        Assert.True(restored.IsActive);
+        Assert.Equal(LaterAt.AddHours(1), restored.UpdatedAtUtc);
+    }
+
+    [Fact]
+    public async Task SettingTheActiveStateOfAnUnknownHotel_ReportsMissing()
+    {
+        var changed = await database.CreateStore().SetActiveAsync(Guid.NewGuid(), false, LaterAt, CancellationToken.None);
+
+        Assert.False(changed);
     }
 
     [Fact]

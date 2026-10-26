@@ -233,6 +233,71 @@ public class HotelServiceTests
     }
 
     [Fact]
+    public async Task SetActive_false_persists_the_state_with_a_new_timestamp_and_returns_the_summary()
+    {
+        var hotel = SeedHotel();
+        ratings.Seed(hotel.Id, RatingSummary.From(8m, 2));
+
+        var summary = await Service.SetActiveAsync(hotel.Id, false, CancellationToken.None);
+
+        Assert.NotNull(summary);
+        Assert.Equal(hotel.Id, summary.Id);
+        Assert.False(summary.IsActive);
+        Assert.Equal("Old Name", summary.Name);
+        Assert.Equal(Earlier, summary.CreatedAtUtc);
+        Assert.Equal(Now, summary.UpdatedAtUtc);
+        Assert.Equal(4m, summary.Rating.Average);
+        Assert.Equal((hotel.Id, false, Now), Assert.Single(hotels.ActiveStateChanges));
+        Assert.Empty(hotels.Updated);
+    }
+
+    [Fact]
+    public async Task SetActive_true_reactivates_an_inactive_hotel()
+    {
+        var hotel = SeedHotel();
+        hotel.SetActive(false, Earlier);
+
+        var summary = await Service.SetActiveAsync(hotel.Id, true, CancellationToken.None);
+
+        Assert.True(summary?.IsActive);
+        Assert.Equal((hotel.Id, true, Now), Assert.Single(hotels.ActiveStateChanges));
+    }
+
+    [Fact]
+    public async Task SetActive_to_the_current_state_is_idempotent_and_writes_nothing()
+    {
+        var hotel = SeedHotel();
+
+        var summary = await Service.SetActiveAsync(hotel.Id, true, CancellationToken.None);
+
+        Assert.NotNull(summary);
+        Assert.True(summary.IsActive);
+        Assert.Equal(Earlier, summary.UpdatedAtUtc);
+        Assert.Empty(hotels.ActiveStateChanges);
+    }
+
+    [Fact]
+    public async Task SetActive_of_a_missing_hotel_returns_null_and_writes_nothing()
+    {
+        var summary = await Service.SetActiveAsync(Guid.NewGuid(), false, CancellationToken.None);
+
+        Assert.Null(summary);
+        Assert.Empty(hotels.ActiveStateChanges);
+        Assert.Equal(0, ratings.SummaryLookups);
+    }
+
+    [Fact]
+    public async Task SetActive_when_the_hotel_disappears_before_the_write_returns_null()
+    {
+        var hotel = SeedHotel();
+        hotels.SetActiveResult = false;
+
+        var summary = await Service.SetActiveAsync(hotel.Id, false, CancellationToken.None);
+
+        Assert.Null(summary);
+    }
+
+    [Fact]
     public async Task Update_existing_hotel_persists_new_details_and_returns_summary()
     {
         var hotel = SeedHotel();

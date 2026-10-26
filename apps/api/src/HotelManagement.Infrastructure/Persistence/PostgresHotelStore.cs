@@ -110,7 +110,9 @@ public sealed class PostgresHotelStore(HotelDbContext database) : IHotelStore
             return false;
         }
 
+        var storedIsActive = record.IsActive;
         record.CopyFrom(hotel);
+        record.IsActive = storedIsActive;
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -120,6 +122,18 @@ public sealed class PostgresHotelStore(HotelDbContext database) : IHotelStore
         {
             return false;
         }
+    }
+
+    public async Task<bool> SetActiveAsync(Guid hotelId, bool isActive, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        var changed = await database.Hotels
+            .Where(hotel => hotel.Id == hotelId)
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(hotel => hotel.IsActive, isActive)
+                    .SetProperty(hotel => hotel.UpdatedAtUtc, nowUtc),
+                cancellationToken);
+        return changed > 0;
     }
 
     public async Task<HotelDeletion> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)

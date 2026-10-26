@@ -308,9 +308,6 @@ public class HotelListingPersistenceTests(PostgresDatabaseFixture database)
 
     private async Task DeactivateAsync(Guid hotelId)
     {
-        var store = database.CreateStore();
-        var hotel = (await store.FindAsync(hotelId, CancellationToken.None))!;
-        hotel.SetActive(false, CreatedAt.AddHours(1));
-        Assert.True(await store.UpdateAsync(hotel, CancellationToken.None));
+        Assert.True(await database.CreateStore().SetActiveAsync(hotelId, false, CreatedAt.AddHours(1), CancellationToken.None));
     }
 }

@@ -12,6 +12,8 @@ public interface IHotelService
 
     Task<UpdateHotelOutcome> UpdateAsync(Guid hotelId, UpdateHotel command, CancellationToken cancellationToken);
 
+    Task<HotelSummary?> SetActiveAsync(Guid hotelId, bool isActive, CancellationToken cancellationToken);
+
     Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken);
 
     Task<RateHotelOutcome> RateAsync(Guid hotelId, Guid userId, decimal score, CancellationToken cancellationToken);

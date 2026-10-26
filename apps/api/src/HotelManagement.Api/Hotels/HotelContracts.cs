@@ -21,6 +21,8 @@ public sealed record HotelRequest(
         new(Name, Description, Street, City, Region, Country, PostalCode, Phone, Email, Website, PricePerNight, DiscountPercent);
 }
 
+public sealed record HotelStatusRequest(bool? IsActive);
+
 public sealed record HotelAddressResponse(string? Street, string? City, string? Region, string? Country, string? PostalCode)
 {
     public static HotelAddressResponse From(HotelAddress address) =>

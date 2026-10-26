@@ -228,6 +228,48 @@ public class PublicHotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AHotelDeactivatedThroughTheStatusEndpoint_IsHiddenFromEveryPublicRead_AndKeptInTheAdministrativeReads()
+    {
+        var visible = await CreateHotelAsync($"Lit {Marker}", 150m);
+        var hidden = await CreateHotelAsync($"Dark {Marker}", 150m);
+        await RateAsync(visible.Id, 5m);
+        await RateAsync(hidden.Id, 5m);
+
+        var status = await administrator.PutAsJsonAsync($"/api/hotels/{hidden.Id}/status", new { isActive = false });
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync($"/api/public/hotels/{hidden.Id}")).StatusCode);
+        foreach (var filter in new[] { "", "&maxPrice=200", "&minRating=4", "&maxPrice=200&minRating=4" })
+        {
+            var publicPage = await ReadPageAsync(await anonymous.GetAsync($"/api/public/hotels?name={Marker}{filter}"));
+            Assert.Equal(visible.Id, Assert.Single(publicPage.Items).Id);
+            Assert.Equal(1, publicPage.TotalItems);
+
+            var adminPage = await ReadPageAsync(await administrator.GetAsync($"/api/hotels?name={Marker}{filter}"));
+            Assert.Equal(2, adminPage.TotalItems);
+            Assert.Contains(adminPage.Items, item => item.Id == hidden.Id && !item.IsActive);
+        }
+
+        var adminDetail = await administrator.GetAsync($"/api/hotels/{hidden.Id}");
+        Assert.Equal(HttpStatusCode.OK, adminDetail.StatusCode);
+        Assert.False((await adminDetail.Content.ReadFromJsonAsync<HotelView>(Json))!.IsActive);
+    }
+
+    [Fact]
+    public async Task AHotelReactivatedThroughTheStatusEndpoint_IsPublicAgain()
+    {
+        var hotel = await CreateHotelAsync($"Back {Marker}");
+        await administrator.PutAsJsonAsync($"/api/hotels/{hotel.Id}/status", new { isActive = false });
+
+        var status = await administrator.PutAsJsonAsync($"/api/hotels/{hotel.Id}/status", new { isActive = true });
+
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await anonymous.GetAsync($"/api/public/hotels/{hotel.Id}")).StatusCode);
+        var page = await ReadPageAsync(await anonymous.GetAsync($"/api/public/hotels?name={Marker}"));
+        Assert.Equal(hotel.Id, Assert.Single(page.Items).Id);
+    }
+
+    [Fact]
     public async Task TheAdministrativeReads_StillRequireAuthentication()
     {
         var hotel = await CreateHotelAsync($"Guarded {Marker}");
@@ -263,9 +305,9 @@ public class PublicHotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     private static string[] PropertyNames(string json) =>
         JsonDocument.Parse(json).RootElement.EnumerateObject().Select(property => property.Name).Order().ToArray();
 
-    private async Task<HotelView> CreateHotelAsync(string name)
+    private async Task<HotelView> CreateHotelAsync(string name, decimal? pricePerNight = null)
     {
-        var response = await administrator.PostAsJsonAsync("/api/hotels", Body(name));
+        var response = await administrator.PostAsJsonAsync("/api/hotels", Body(name, pricePerNight));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<HotelView>(Json))!;
     }
@@ -280,9 +322,7 @@ public class PublicHotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     {
         using var scope = factory.Services.CreateScope();
         var store = scope.ServiceProvider.GetRequiredService<IHotelStore>();
-        var hotel = (await store.FindAsync(hotelId, CancellationToken.None))!;
-        hotel.SetActive(false, DateTime.UtcNow);
-        Assert.True(await store.UpdateAsync(hotel, CancellationToken.None));
+        Assert.True(await store.SetActiveAsync(hotelId, false, DateTime.UtcNow, CancellationToken.None));
     }
 
     private static async Task<HotelPageView> ReadPageAsync(HttpResponseMessage response)
@@ -298,9 +338,10 @@ public class PublicHotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<SignInView>(Json))!;
     }
 
-    private static object Body(string name) => new
+    private static object Body(string name, decimal? pricePerNight = null) => new
     {
         name,
+        pricePerNight,
         description = "A quiet hotel",
         street = "1 Main Street",
         city = "Lisbon",

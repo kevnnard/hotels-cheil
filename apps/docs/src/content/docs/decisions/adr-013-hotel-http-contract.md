@@ -62,6 +62,12 @@ ADR-015 extends this contract without changing any decision above. The hotel res
 
 `GET /api/hotels/{id}/ratings/me` returns the score of the signed-in account for one hotel as `{ "score": <decimal or null> }`. It uses `hotels.rate`, the same policy as the rating write, and reads the account from the validated `sub` claim the same way. An unknown hotel is answered with `404`, a request without a token with `401`, and a principal without the policy with `403`. The answer never carries another account or a user identifier. The rating write, the summaries and the one rating per account rule are unchanged.
 
+## Addendum: the visibility route
+
+`PUT /api/hotels/{id}/status` with the body `{ "isActive": <boolean> }` sets the active state of a hotel. It uses `hotels.update`, so only the `Administrator` role can call it; a principal without the policy is answered with `403` and a request without a token with `401`. A missing or non-boolean `isActive` is answered with `400` and a validation problem, and an unknown hotel with `404` and the title `The hotel does not exist.`. The answer is the administrative hotel body. Setting the current state again is idempotent and answers `200`.
+
+A dedicated route was chosen over adding `isActive` to the update body so that the full replacement keeps its meaning: `POST` and `PUT /api/hotels/{id}` stay unchanged, new hotels start active, and saving the details never reverts a visibility change made meanwhile. The store writes only the active flag and the update timestamp in a single `UPDATE`. The public routes keep hiding inactive hotels from the list, every filter, the detail and the images.
+
 ## Future improvements
 
 - Cursor pagination, if the catalog grows enough for the offset cost to matter.

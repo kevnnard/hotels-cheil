@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using HotelManagement.Api.Tests.Authentication;
 using HotelManagement.Application.Persistence;
@@ -370,6 +371,112 @@ public class HotelEndpointsTests(HotelApiFixture api) : IAsyncLifetime
         var response = await administrator.DeleteAsync($"/api/hotels/{Guid.CreateVersion7()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SetStatus_WithAnAdministrator_DeactivatesAndThenReactivatesTheHotel()
+    {
+        var created = await CreateHotelAsync($"Switch {Marker}");
+
+        var deactivated = await administrator.PutAsJsonAsync($"/api/hotels/{created.Id}/status", new { isActive = false });
+
+        Assert.Equal(HttpStatusCode.OK, deactivated.StatusCode);
+        var hidden = await ReadHotelAsync(deactivated);
+        Assert.Equal(created.Id, hidden.Id);
+        Assert.False(hidden.IsActive);
+        Assert.Equal(created.Name, hidden.Name);
+        Assert.Equal(created.CreatedAtUtc, hidden.CreatedAtUtc);
+        Assert.True(hidden.UpdatedAtUtc > created.UpdatedAtUtc);
+        Assert.Equal(hidden, await ReadHotelAsync(await administrator.GetAsync($"/api/hotels/{created.Id}")));
+
+        var reactivated = await administrator.PutAsJsonAsync($"/api/hotels/{created.Id}/status", new { isActive = true });
+
+        Assert.Equal(HttpStatusCode.OK, reactivated.StatusCode);
+        var visible = await ReadHotelAsync(reactivated);
+        Assert.True(visible.IsActive);
+        Assert.True(visible.UpdatedAtUtc > hidden.UpdatedAtUtc);
+        Assert.True((await ReadHotelAsync(await administrator.GetAsync($"/api/hotels/{created.Id}"))).IsActive);
+    }
+
+    [Fact]
+    public async Task SetStatus_ToTheStateTheHotelAlreadyHas_ReturnsTheUnchangedHotel()
+    {
+        var created = await CreateHotelAsync($"Already {Marker}");
+
+        var response = await administrator.PutAsJsonAsync($"/api/hotels/{created.Id}/status", new { isActive = true });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(created, await ReadHotelAsync(response));
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"isActive\":null}")]
+    [InlineData("{\"isActive\":\"false\"}")]
+    [InlineData("{\"isActive\":0}")]
+    [InlineData("{\"active\":false}")]
+    public async Task SetStatus_WithoutABooleanIsActive_ReturnsAValidationProblemAndKeepsTheHotel(string body)
+    {
+        var created = await CreateHotelAsync($"Strict {Marker}");
+        var before = await SnapshotAsync(created.Id);
+
+        var response = await administrator.PutAsync(
+            $"/api/hotels/{created.Id}/status",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await ReadProblemAsync(response);
+        Assert.Contains(problem.Errors.Keys, key => key.Contains("isActive", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(before, await SnapshotAsync(created.Id));
+    }
+
+    [Fact]
+    public async Task SetStatus_OfAHotelThatDoesNotExist_ReturnsNotFoundWithTheHotelTitle()
+    {
+        var response = await administrator.PutAsJsonAsync($"/api/hotels/{Guid.CreateVersion7()}/status", new { isActive = false });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("The hotel does not exist.", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task SetStatus_WithAUser_ReturnsForbiddenWithoutABodyAndKeepsTheHotel()
+    {
+        var created = await CreateHotelAsync($"Guarded {Marker}");
+        var before = await SnapshotAsync(created.Id);
+
+        var response = await user.PutAsJsonAsync($"/api/hotels/{created.Id}/status", new { isActive = false });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync());
+        Assert.Equal(before, await SnapshotAsync(created.Id));
+    }
+
+    [Fact]
+    public async Task SetStatus_WithoutAToken_ReturnsUnauthorizedAndKeepsTheHotel()
+    {
+        var created = await CreateHotelAsync($"Locked {Marker}");
+        var before = await SnapshotAsync(created.Id);
+
+        var response = await anonymous.PutAsJsonAsync($"/api/hotels/{created.Id}/status", new { isActive = false });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(before, await SnapshotAsync(created.Id));
+    }
+
+    [Fact]
+    public async Task Update_OfAnInactiveHotel_KeepsItInactive()
+    {
+        var created = await CreateHotelAsync($"Dormant {Marker}");
+        await administrator.PutAsJsonAsync($"/api/hotels/{created.Id}/status", new { isActive = false });
+
+        var response = await administrator.PutAsJsonAsync($"/api/hotels/{created.Id}", Body($"Dormant {Marker}", "Porto"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False((await ReadHotelAsync(response)).IsActive);
+        Assert.False((await ReadHotelAsync(await administrator.GetAsync($"/api/hotels/{created.Id}"))).IsActive);
     }
 
     private static HotelBody Body(string? name, string city = "Lisbon") => new(

@@ -13,6 +13,7 @@ The hotel management API exposes the administrative CRUD of the hotels and the r
 | `GET` | `/api/hotels/{id}` | `hotels.read` | `200` with the hotel | `404` unknown hotel, `401` missing or invalid token |
 | `POST` | `/api/hotels` | `hotels.create` | `201` with the created hotel | `400` invalid input, `403` the role cannot write, `401` missing or invalid token |
 | `PUT` | `/api/hotels/{id}` | `hotels.update` | `200` with the updated hotel | `400` invalid input, `404` unknown hotel, `403` the role cannot write, `401` missing or invalid token |
+| `PUT` | `/api/hotels/{id}/status` | `hotels.update` | `200` with the hotel and its new `isActive` | `400` missing or non-boolean `isActive`, `404` unknown hotel, `403` the role cannot write, `401` missing or invalid token |
 | `DELETE` | `/api/hotels/{id}` | `hotels.delete` | `204` | `404` unknown hotel, `403` the role cannot write, `401` missing or invalid token |
 | `POST` | `/api/hotels/{id}/ratings` | `hotels.rate` | `200` with the rating summary | `400` score outside 1 to 5, `404` unknown hotel, `401` missing or invalid token |
 | `GET` | `/api/hotels/{id}/ratings/me` | `hotels.rate` | `200` with the score of the caller, or a null score | `404` unknown hotel, `403` the role cannot rate, `401` missing or invalid token |
@@ -37,7 +38,7 @@ A rejected write never changes the stored data: a `401` or a `403` answer leaves
 
 The public list accepts the same `name`, `minRating`, `maxPrice`, `page` and `pageSize` parameters as the administrative list, with the same defaults and the same `400` answers. The hotel body has the same fields as the administrative reads. Both image routes answer with the detected content type, an entity tag, `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-cache`.
 
-Hotels with `isActive` set to `false` are hidden from the public catalog: they are absent from the list and answer `404` on the detail and on every image route. The administrative list and reads keep returning them. No endpoint changes the active flag yet.
+Hotels with `isActive` set to `false` are hidden from the public catalog: they are absent from the list and answer `404` on the detail and on every image route. The administrative list and reads keep returning them, with `isActive` set to `false`.
 
 ## Listing
 
@@ -139,6 +140,18 @@ An invalid value is answered with `400` and the failing field, the same way the 
 The name is checked first, then the price, then the discount. A value that is not a number is rejected by the request binding with `400` before the domain runs. `PUT` replaces the whole details like the other fields, so an update that omits both pricing fields clears the pricing of the hotel.
 
 The hotel keeps its creation timestamp when it is updated, and the update timestamp moves to the moment of the update. Updating the details never changes the images of the hotel.
+
+## Visibility
+
+`PUT /api/hotels/{id}/status` shows or hides a hotel on the public catalog. The body carries only the active state:
+
+```json
+{ "isActive": false }
+```
+
+`isActive` is required and must be a JSON boolean; a missing value, `null`, a string or a number is answered with `400` and a validation problem whose key names `isActive`. The answer is the same hotel body as `GET /api/hotels/{id}`. A change moves `updatedAtUtc`; sending the state the hotel already has answers `200` with the hotel unchanged. The write updates only the active state and the update timestamp, so the details, the pricing, the images and the ratings are kept.
+
+New hotels start active. `POST /api/hotels` and `PUT /api/hotels/{id}` never read or change the active state, so a full replacement of an inactive hotel keeps it inactive.
 
 ## Rating
 

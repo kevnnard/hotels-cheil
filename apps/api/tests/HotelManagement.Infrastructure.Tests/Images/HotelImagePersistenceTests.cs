@@ -255,13 +255,13 @@ public class HotelImagePersistenceTests(PostgresDatabaseFixture database)
         await database.CreateStore().ReplaceImageAsync(hotel.Id, Primary, Image("a1"), FirstChange, CancellationToken.None);
         var staleSnapshot = await ReloadAsync(hotel.Id);
         await database.CreateStore().ClearImageAsync(hotel.Id, Primary, SecondChange, CancellationToken.None);
-        staleSnapshot.SetActive(false, SecondChange.AddMinutes(1));
+        staleSnapshot.Update(new HotelDetails("Renamed From A Stale Snapshot"), SecondChange.AddMinutes(1));
 
         await database.CreateStore().UpdateAsync(staleSnapshot, CancellationToken.None);
 
         var restored = await ReloadAsync(hotel.Id);
         Assert.Empty(restored.Images);
-        Assert.False(restored.IsActive);
+        Assert.Equal("Renamed From A Stale Snapshot", restored.Details.Name);
         Assert.Empty(await ImageRowsAsync(hotel.Id));
     }
 

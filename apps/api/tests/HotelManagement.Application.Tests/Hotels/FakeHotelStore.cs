@@ -23,6 +23,10 @@ internal sealed class FakeHotelStore : IHotelStore
 
     public bool UpdateResult { get; set; } = true;
 
+    public List<(Guid HotelId, bool IsActive, DateTime NowUtc)> ActiveStateChanges { get; } = [];
+
+    public bool SetActiveResult { get; set; } = true;
+
     public IReadOnlyList<HotelImage> ReleasedImagesOnDelete { get; set; } = [];
 
     public bool ReplaceFindsHotel { get; set; } = true;
@@ -55,6 +59,12 @@ internal sealed class FakeHotelStore : IHotelStore
     {
         Updated.Add(hotel);
         return Task.FromResult(UpdateResult);
+    }
+
+    public Task<bool> SetActiveAsync(Guid hotelId, bool isActive, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        ActiveStateChanges.Add((hotelId, isActive, nowUtc));
+        return Task.FromResult(SetActiveResult);
     }
 
     public Task<HotelDeletion> DeleteAsync(Guid hotelId, CancellationToken cancellationToken)

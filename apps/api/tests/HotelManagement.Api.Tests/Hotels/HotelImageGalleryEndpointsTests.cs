@@ -345,9 +345,7 @@ public class HotelImageGalleryEndpointsTests(HotelApiFixture api) : IAsyncLifeti
     {
         using var scope = factory.Services.CreateScope();
         var store = scope.ServiceProvider.GetRequiredService<IHotelStore>();
-        var hotel = (await store.FindAsync(hotelId, CancellationToken.None))!;
-        hotel.SetActive(false, DateTime.UtcNow);
-        Assert.True(await store.UpdateAsync(hotel, CancellationToken.None));
+        Assert.True(await store.SetActiveAsync(hotelId, false, DateTime.UtcNow, CancellationToken.None));
     }
 
     private static string ImageUrl(Guid hotelId, int position) => $"/api/hotels/{hotelId}/images/{position}";

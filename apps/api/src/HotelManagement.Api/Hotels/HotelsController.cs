@@ -83,6 +83,24 @@ public sealed class HotelsController(IHotelService hotels) : ControllerBase
         };
     }
 
+    [HttpPut("{id:guid}/status")]
+    [Authorize(Policy = HotelPermissions.Update)]
+    [ProducesResponseType(typeof(HotelResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetStatus(Guid id, [FromBody] HotelStatusRequest request, CancellationToken cancellationToken)
+    {
+        if (request.IsActive is not { } isActive)
+        {
+            return InvalidInput("isActive", "The active state is required and must be true or false.");
+        }
+
+        var hotel = await hotels.SetActiveAsync(id, isActive, cancellationToken);
+        return hotel is null ? HotelNotFound() : Ok(HotelResponse.From(hotel));
+    }
+
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = HotelPermissions.Delete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

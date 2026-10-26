@@ -167,6 +167,30 @@ public class HotelTests
     }
 
     [Fact]
+    public void SetActive_ReactivatesAnInactiveHotelAndKeepsItsDetails()
+    {
+        var hotel = Hotel.Restore(Guid.NewGuid(), Details(), false, CreatedAt, CreatedAt);
+
+        hotel.SetActive(true, LaterAt);
+
+        Assert.True(hotel.IsActive);
+        Assert.Equal(LaterAt, hotel.UpdatedAtUtc);
+        Assert.Equal(CreatedAt, hotel.CreatedAtUtc);
+        Assert.Equal(Details(), hotel.Details);
+    }
+
+    [Fact]
+    public void SetActive_WithALocalTimestamp_IsRejectedAndKeepsTheState()
+    {
+        var hotel = Hotel.Create(Details(), CreatedAt);
+
+        Assert.Throws<DomainValidationException>(() => hotel.SetActive(false, DateTime.SpecifyKind(LaterAt, DateTimeKind.Local)));
+
+        Assert.True(hotel.IsActive);
+        Assert.Equal(CreatedAt, hotel.UpdatedAtUtc);
+    }
+
+    [Fact]
     public void Restore_RebuildsStoredHotelWithoutChangingValues()
     {
         var id = Guid.NewGuid();

@@ -14,6 +14,8 @@ public interface IHotelStore
 
     Task<bool> UpdateAsync(Hotel hotel, CancellationToken cancellationToken);
 
+    Task<bool> SetActiveAsync(Guid hotelId, bool isActive, DateTime nowUtc, CancellationToken cancellationToken);
+
     Task<HotelDeletion> DeleteAsync(Guid hotelId, CancellationToken cancellationToken);
 
     Task<ImageSlotChange> ReplaceImageAsync(Guid hotelId, int position, HotelImage image, DateTime nowUtc, CancellationToken cancellationToken);
