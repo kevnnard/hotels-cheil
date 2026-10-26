@@ -51,6 +51,15 @@
         (dirtyChange)="formDirty.set($event)"
       >
         @if (hotel) {
+          @let state = visibility();
+          <app-admin-visibility-switch
+            [active]="state.active"
+            [saving]="state.saving"
+            [message]="state.message"
+            [failure]="state.failure"
+            [disabled]="saving()"
+            (toggled)="toggleVisibility()"
+          />
           <section
             data-testid="hotel-ratings"
             aria-labelledby="hotel-section-ratings"

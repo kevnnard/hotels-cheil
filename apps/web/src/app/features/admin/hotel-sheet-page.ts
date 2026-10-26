@@ -14,16 +14,18 @@ import {
   HotelRequest,
   ImagePosition,
   ImageSlotState,
+  VisibilityState,
   emptyImageSlots,
   imageSlotName,
   imageSlotsOf,
 } from './data/admin-hotel.models';
 import { AdminHotelsService } from './data/admin-hotels.service';
 import { checkImageFile } from './data/hotel-form-rules';
-import { describeHotelFailure, describeImageFailure } from './data/hotel-failure';
+import { describeHotelFailure, describeImageFailure, describeVisibilityFailure } from './data/hotel-failure';
 import { AdminHotelForm } from './ui/admin-hotel-form';
 import { AdminImageSlots, ImageChoice } from './ui/admin-image-slots';
 import { AdminSheet } from './ui/admin-sheet';
+import { AdminVisibilitySwitch } from './ui/admin-visibility-switch';
 
 type SheetView = 'form' | 'loading' | 'not-found' | 'error';
 
@@ -34,6 +36,7 @@ interface PendingUpload {
 
 const createdMessage = 'Hotel created.';
 const savedMessage = 'Hotel saved.';
+const visibilitySavedMessage = 'Visibility saved.';
 const noticeKey = 'notice';
 
 function httpFailureOf(error: unknown): HttpErrorResponse | null {
@@ -50,7 +53,7 @@ function failedUploadsNotice(positions: readonly ImagePosition[]): string {
 
 @Component({
   selector: 'app-hotel-sheet-page',
-  imports: [AdminHotelForm, AdminImageSlots, AdminSheet, OwnRatingField, RatingSummary, RouterLink, StatePanel],
+  imports: [AdminHotelForm, AdminImageSlots, AdminSheet, AdminVisibilitySwitch, OwnRatingField, RatingSummary, RouterLink, StatePanel],
   templateUrl: './hotel-sheet-page.html',
 })
 export class HotelSheetPage {
@@ -100,6 +103,11 @@ export class HotelSheetPage {
   protected readonly slots = linkedSignal<Hotel | null, readonly ImageSlotState[]>({
     source: this.loadedHotel,
     computation: (hotel) => (hotel === null ? emptyImageSlots() : imageSlotsOf(hotel)),
+  });
+
+  protected readonly visibility = linkedSignal<Hotel | null, VisibilityState>({
+    source: this.loadedHotel,
+    computation: (hotel) => ({ active: hotel?.isActive ?? true, saving: false, message: null, failure: null }),
   });
 
   protected readonly saving = signal(false);
@@ -182,6 +190,24 @@ export class HotelSheetPage {
 
   protected clearPending(position: ImagePosition): void {
     this.patchSlot(position, () => ({ pendingFile: null, error: null, message: null }));
+  }
+
+  protected toggleVisibility(): void {
+    const id = this.hotelId();
+    const current = this.visibility();
+    if (id === null || current.saving) {
+      return;
+    }
+    const requested = !current.active;
+    this.visibility.set({ active: requested, saving: true, message: null, failure: null });
+    this.hotelsApi.setActive(id, requested).subscribe({
+      next: (hotel) => {
+        this.visibility.set({ active: hotel.isActive, saving: false, message: visibilitySavedMessage, failure: null });
+        this.directoryRefresh.announce();
+      },
+      error: (error: unknown) =>
+        this.visibility.set({ active: !requested, saving: false, message: null, failure: describeVisibilityFailure(error) }),
+    });
   }
 
   private create(request: HotelRequest): void {

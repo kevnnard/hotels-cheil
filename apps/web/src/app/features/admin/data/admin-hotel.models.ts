@@ -33,6 +33,18 @@ export interface FormAlert {
   readonly retryable: boolean;
 }
 
+export interface VisibilityFailure {
+  readonly message: string;
+  readonly retryable: boolean;
+}
+
+export interface VisibilityState {
+  readonly active: boolean;
+  readonly saving: boolean;
+  readonly message: string | null;
+  readonly failure: VisibilityFailure | null;
+}
+
 export interface HotelFailure extends FormAlert {
   readonly fieldErrors: HotelFieldErrors;
 }

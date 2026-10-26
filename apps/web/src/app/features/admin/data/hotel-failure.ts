@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { HotelFailure, HotelField, HotelFieldErrors, hotelFields } from './admin-hotel.models';
+import { HotelFailure, HotelField, HotelFieldErrors, VisibilityFailure, hotelFields } from './admin-hotel.models';
 
 export const permissionMessage = 'You do not have permission to do this.';
 export const networkMessage = 'We could not reach the server. Check your connection and try again.';
@@ -7,6 +7,7 @@ const missingHotelMessage = 'This hotel no longer exists.';
 const invalidFieldsMessage = 'Check the highlighted fields and try again.';
 const rejectedMessage = 'The hotel could not be saved.';
 const unexpectedMessage = 'Something went wrong while saving. Try again.';
+const visibilityFallback = 'We could not change the visibility. Try again.';
 
 const imageFallbacks: Readonly<Record<number, string>> = {
   400: 'The image is not valid.',
@@ -92,5 +93,23 @@ export function describeImageFailure(error: unknown): string {
       return titleOf(error.error) ?? imageFallbacks[error.status];
     default:
       return 'We could not update this image. Try again.';
+  }
+}
+
+export function describeVisibilityFailure(error: unknown): VisibilityFailure {
+  if (!(error instanceof HttpErrorResponse)) {
+    return { message: visibilityFallback, retryable: true };
+  }
+  switch (error.status) {
+    case 0:
+      return { message: networkMessage, retryable: true };
+    case 400:
+      return { message: Object.values(errorsOf(error.error)).flatMap(messagesOf)[0] ?? visibilityFallback, retryable: false };
+    case 403:
+      return { message: permissionMessage, retryable: false };
+    case 404:
+      return { message: missingHotelMessage, retryable: false };
+    default:
+      return { message: visibilityFallback, retryable: true };
   }
 }

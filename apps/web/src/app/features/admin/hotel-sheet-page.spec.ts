@@ -403,6 +403,178 @@ describe('HotelSheetPage', () => {
     });
   });
 
+  describe('visibility in edit', () => {
+    const toggle = () => find<HTMLButtonElement>('hotel-visibility-switch') as HTMLButtonElement;
+    const checkedState = () => toggle().getAttribute('aria-checked');
+    const text = (id: string) => find(id)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+
+    async function flip(): Promise<TestRequest> {
+      toggle().click();
+      await settle();
+      return http.expectOne((r) => r.method === 'PUT' && r.url === '/api/hotels/h1/status');
+    }
+
+    it('shows an accessible switch with the label, the help and the stored state', async () => {
+      await openEdit({ ...stored, isActive: false });
+
+      const section = find('hotel-visibility') as HTMLElement;
+      expect(section.querySelector('h3')?.textContent?.trim()).toBe('Visibility');
+      expect(toggle().getAttribute('role')).toBe('switch');
+      expect(toggle().getAttribute('type')).toBe('button');
+      expect(checkedState()).toBe('false');
+      const label = document.getElementById(toggle().getAttribute('aria-labelledby') ?? '');
+      expect(label?.textContent?.trim()).toBe('Visible on the public site');
+      const help = document.getElementById(toggle().getAttribute('aria-describedby') ?? '');
+      expect(help?.textContent?.trim()).toBe('Inactive hotels are hidden from the public catalogue. Their data and ratings are kept.');
+      expect(text('hotel-visibility-state')).toBe('Hidden');
+    });
+
+    it('reflects an active hotel as checked', async () => {
+      await openEdit();
+
+      expect(checkedState()).toBe('true');
+      expect(text('hotel-visibility-state')).toBe('Visible');
+    });
+
+    it('saves at once with only isActive, shows the saving state, confirms and refreshes the directory quietly', async () => {
+      await openEdit();
+
+      const request = await flip();
+      expect(request.request.body).toEqual({ isActive: false });
+      expect(checkedState()).toBe('false');
+      expect(toggle().getAttribute('aria-busy')).toBe('true');
+      expect(text('hotel-visibility-state')).toBe('Saving…');
+      request.flush({ ...stored, isActive: false, updatedAtUtc: '2026-10-02T00:00:00Z' });
+      await settle();
+
+      expect(checkedState()).toBe('false');
+      expect(toggle().getAttribute('aria-busy')).toBe('false');
+      expect(text('hotel-visibility-state')).toBe('Hidden');
+      expect(text('hotel-visibility-status')).toBe('Visibility saved.');
+      expect(find('hotel-visibility-status')?.getAttribute('role')).toBe('status');
+      expect(text('hotel-visibility-error')).toBe('');
+      expect(refresh.change()).toEqual({ message: null, sequence: 1 });
+      http.expectNone((r) => r.method === 'GET' && r.url === '/api/hotels/h1');
+      expect(field('city').value).toBe('Positano');
+      find('sheet-close')?.click();
+      await settle();
+      expect(find('sheet-discard-confirmation')).toBeNull();
+      expect(router.url).toBe('/admin?name=sea');
+    });
+
+    it('reactivates an inactive hotel', async () => {
+      await openEdit({ ...stored, isActive: false });
+
+      const request = await flip();
+      expect(request.request.body).toEqual({ isActive: true });
+      request.flush(stored);
+      await settle();
+
+      expect(checkedState()).toBe('true');
+      expect(text('hotel-visibility-status')).toBe('Visibility saved.');
+    });
+
+    it('ignores a second toggle while the first one is saving', async () => {
+      await openEdit();
+
+      const request = await flip();
+      toggle().click();
+      await settle();
+      http.expectNone((r) => r.url === '/api/hotels/h1/status');
+      expect(checkedState()).toBe('false');
+      request.flush({ ...stored, isActive: false });
+      await settle();
+
+      expect(checkedState()).toBe('false');
+    });
+
+    it('reverts the switch and alerts when the change is refused', async () => {
+      await openEdit();
+
+      (await flip()).flush(null, { status: 403, statusText: 'Forbidden' });
+      await settle();
+
+      expect(checkedState()).toBe('true');
+      expect(text('hotel-visibility-state')).toBe('Visible');
+      expect(find('hotel-visibility-error')?.getAttribute('role')).toBe('alert');
+      expect(text('hotel-visibility-error')).toContain('You do not have permission to do this.');
+      expect(find('hotel-visibility-retry')).toBeNull();
+      expect(text('hotel-visibility-status')).toBe('');
+      expect(refresh.change()).toBeNull();
+    });
+
+    it('explains a hotel deleted meanwhile', async () => {
+      await openEdit();
+
+      (await flip()).flush({ title: 'The hotel does not exist.' }, { status: 404, statusText: 'Not Found' });
+      await settle();
+
+      expect(checkedState()).toBe('true');
+      expect(text('hotel-visibility-error')).toContain('This hotel no longer exists.');
+    });
+
+    it('offers a retry after a network failure that sends the same change again', async () => {
+      await openEdit();
+
+      (await flip()).error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+      await settle();
+      expect(checkedState()).toBe('true');
+      expect(text('hotel-visibility-error')).toContain('We could not reach the server.');
+
+      find('hotel-visibility-retry')?.click();
+      await settle();
+      const retry = http.expectOne((r) => r.method === 'PUT' && r.url === '/api/hotels/h1/status');
+      expect(retry.request.body).toEqual({ isActive: false });
+      expect(text('hotel-visibility-error')).toBe('');
+      retry.flush({ ...stored, isActive: false });
+      await settle();
+
+      expect(checkedState()).toBe('false');
+      expect(text('hotel-visibility-status')).toBe('Visibility saved.');
+    });
+
+    it('never sends isActive with the form and keeps the shown state when the save fails', async () => {
+      await openEdit();
+      (await flip()).flush({ ...stored, isActive: false });
+      await settle();
+      await type('city', 'Amalfi');
+
+      await submit();
+      const save = http.expectOne((r) => r.method === 'PUT' && r.url === '/api/hotels/h1');
+      expect(save.request.body).toEqual({ ...emptyBody, city: 'Amalfi', country: 'Italy', pricePerNight: 400, discountPercent: 25 });
+      expect(Object.keys(save.request.body as object)).not.toContain('isActive');
+      expect(checkedState()).toBe('false');
+      save.flush(null, { status: 500, statusText: 'Server Error' });
+      await settle();
+
+      expect(checkedState()).toBe('false');
+      expect(text('hotel-visibility-status')).toBe('Visibility saved.');
+    });
+
+    it('lets the form be saved while the visibility is saving and still refreshes the directory', async () => {
+      await openEdit();
+      const visibility = await flip();
+
+      await submit();
+      http.expectOne((r) => r.method === 'PUT' && r.url === '/api/hotels/h1').flush(stored);
+      await settle();
+      expect(router.url).toBe('/admin?name=sea');
+      expect(visibility.cancelled).toBe(false);
+
+      visibility.flush({ ...stored, isActive: false });
+      await settle();
+
+      expect(refresh.change()).toEqual({ message: null, sequence: 2 });
+    });
+
+    it('shows no switch on the create sheet', async () => {
+      await open('/admin/hotels/new');
+
+      expect(find('hotel-visibility')).toBeNull();
+      expect(root().querySelector('[role="switch"]')).toBeNull();
+    });
+  });
+
   describe('images in edit', () => {
     it('shows the three slots with the stored image', async () => {
       await openEdit();

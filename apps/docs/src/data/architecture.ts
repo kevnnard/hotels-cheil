@@ -286,6 +286,7 @@ export const nodes: ArchitectureNode[] = [
 		responsibilities: [
 			"Reads the hotels for both roles.",
 			"Creates, updates and deletes a hotel for the Administrator role only.",
+			"Shows or hides a hotel on the public catalog with PUT /api/hotels/{id}/status and a required boolean isActive, for the Administrator role only.",
 			"Answers the listing with the items, the page and the totals, filtered by name, minimum rating and maximum nightly price.",
 			"Includes the primary image metadata, or null, and the images of every position in every hotel it returns.",
 			"Accepts the optional pricePerNight and discountPercent on create and update, and returns a pricing block in USD, or null, in every hotel.",
@@ -295,6 +296,7 @@ export const nodes: ArchitectureNode[] = [
 			"The listing order is the creation timestamp and then the identifier.",
 			"Updating the descriptive details never changes the images of the hotel.",
 			"An update replaces the whole details, so an update without the pricing fields clears the pricing.",
+			"Create and update never change isActive; new hotels start active and only the status route changes the state, idempotently.",
 			"An invalid price or discount is answered with 400 and the field pricePerNight or discountPercent; a maxPrice that is not a positive number is answered with 400.",
 		],
 		data: "Reads and writes the hotels table through the hotel service.",
@@ -326,6 +328,13 @@ export const nodes: ArchitectureNode[] = [
 				policy: "hotels.update",
 				success: "200 with the updated hotel",
 				failures: "400 invalid input, 404 unknown hotel, 403 forbidden role, 401 missing or invalid token",
+			},
+			{
+				method: "PUT",
+				path: "/api/hotels/{id}/status",
+				policy: "hotels.update",
+				success: "200 with the hotel and its new isActive",
+				failures: "400 missing or non-boolean isActive, 404 unknown hotel, 403 forbidden role, 401 missing or invalid token",
 			},
 			{
 				method: "DELETE",
@@ -576,6 +585,7 @@ export const nodes: ArchitectureNode[] = [
 			"Refuses an invalid input before it reaches the database.",
 			"Releases the image file of every position of a deleted hotel after the row is gone.",
 			"Restricts the public reads to active hotels through the active-only query flag and the active lookups.",
+			"Changes the active state through the hotel rule, writing only when the state differs, and reports an unknown hotel as missing.",
 		],
 		expectations: [
 			"The minimum rating filter keeps the hotels whose average is at least the value.",
@@ -757,6 +767,7 @@ export const nodes: ArchitectureNode[] = [
 			"Read the score of one account for one hotel by its key, without tracking.",
 			"Swap and clear the image of one position, and delete a hotel with every image, under the hotel row lock, reporting what was displaced.",
 			"Filter the listing by the effective nightly price (the discounted rate when there is a discount) inside the SQL query, before the count and the page.",
+			"Set the active state with one UPDATE of is_active and updated_at_utc, without loading the hotel or its images.",
 		],
 		expectations: [
 			"The listing never issues one query per hotel; the images of a page load with the page.",
@@ -887,7 +898,7 @@ export const nodes: ArchitectureNode[] = [
 		summary:
 			"The public screens of apps/web: the catalog at /, the hotel detail at /hotels/:id and the visitor account pages under /account, lazy loaded inside the public layout.",
 		responsibilities: [
-			"Show the catalog with a hero for the first hotel that has an image, a sticky name search, the minimum rating thresholds All, 4.90+, 4.95+ and 5.0 (decimals kept exactly) and the pagination, all reflected in the query string.",
+			"Show the catalog with a hero for the first hotel that has an image, a sticky name search, the minimum rating thresholds All, 3.0+, 3.5+, 4.0+, 4.5+ and 4.9+ (a valid minRating from the address outside that list is kept exactly and shown as an extra selected threshold) and the pagination, all reflected in the query string.",
 			"Show the nightly price in USD on every card that has pricing: the rate and per night, or the struck-through original rate, the discounted rate and a percentage badge when the hotel has a discount. The hero shows no price.",
 			"Offer a maximum price per night slider (50 to 1000 in steps of 50, debounced 300 ms) in the advanced filters; 1000 means any price and sends no maxPrice. Destination, property type, categories and amenities stay inert and marked Not available yet.",
 			"Show the detail of one hotel with a back link and a breadcrumb to its country, its city and region, the rating summary when it has ratings, a three-tile photo mosaic, the real facts, address and description, and a column that is sticky from lg with the stay estimate, the contact card limited to the contact values the API returned and a sample manager card.",
@@ -1007,6 +1018,8 @@ export const nodes: ArchitectureNode[] = [
 			"Edit a hotel at /admin/hotels/:id/edit: show a loading state, pre-fill the form from GET /api/hotels/{id}, send the full replacement with PUT /api/hotels/{id} with empty optional fields as null, show a not found state with a link back on 404 and a retryable error otherwise, and show the rating summary with the own vote of the administrator.",
 			"In the Guest ratings section of the edit sheet, read the own vote of the administrator from GET /api/hotels/{id}/ratings/me and save a selection with POST /api/hotels/{id}/ratings through the shared own rating state; the summary of the answer replaces the one in the sheet without reloading the hotel, touching the form values or marking the form dirty, a failed own vote load offers Try again without blocking the form, and the create sheet shows no rating control.",
 			"After a create or a save, close the sheet without the discard question and announce Hotel created. or Hotel saved. in the directory, which reloads the current page through AdminDirectoryRefresh without a full page reload; after a rating, announce a quiet change that reloads the page with the new average and leaves the status message as it was.",
+			"In the Visibility section of the edit sheet, show a Visible on the public site switch with role switch and the loaded state, save a toggle at once with PUT /api/hotels/{id}/status independent of Save and without marking the form dirty, show Saving… and then Visibility saved., ignore a second toggle while saving, revert the switch with an alert on failure (Try again for network and server failures), and announce a quiet AdminDirectoryRefresh change; the create sheet shows no switch.",
+			"Mark an inactive hotel in the directory with a muted Inactive badge titled Hidden from the public site.",
 			"Upload, replace and remove the image of each of the three positions at once from the edit sheet with PUT and DELETE /api/hotels/{id}/images/{position}, independent of Save and without marking the form dirty; each slot shows its own progress, the API message of a 400, 413, 415 or 422 in an alert, and the new image through a versioned public address.",
 		],
 		expectations: [
@@ -1029,6 +1042,7 @@ export const nodes: ArchitectureNode[] = [
 			"List hotels from GET /api/hotels with name, minRating, maxPrice, page and pageSize, omitting the name, the rating and the price limit when unset, with the same parameter builder as the catalog service.",
 			"Read one hotel from GET /api/hotels/{id}, create one with POST /api/hotels, replace one with PUT /api/hotels/{id} and delete one with DELETE /api/hotels/{id}, always sending the full request body.",
 			"Upload an image as the multipart field image with PUT /api/hotels/{id}/images/{position} and remove it with DELETE /api/hotels/{id}/images/{position}.",
+			"Set the visibility with PUT /api/hotels/{id}/status and the body { isActive }.",
 		],
 		expectations: [
 			"Every request carries the bearer token added by the interceptor; a 401 ends the session there.",
@@ -1056,16 +1070,17 @@ export const nodes: ArchitectureNode[] = [
 	},
 	{
 		id: "admin-hotel-form",
-		label: "AdminHotelForm and AdminImageSlots",
+		label: "AdminHotelForm, AdminImageSlots and AdminVisibilitySwitch",
 		kind: "Angular components",
 		layer: "delivery",
 		status: "implemented",
 		summary:
-			"The typed reactive hotel form used for create and edit inside the sheet, and the three image slots projected into it.",
+			"The typed reactive hotel form used for create and edit inside the sheet, with the three image slots and the visibility switch projected into it.",
 		responsibilities: [
 			"Build the Identity, Location, Contact and Pricing sections from the hotel request contract, with the maximum lengths, the required name, the email rule and the http or https website rule of the domain, character counters for the name and the description, errors on blur or submit linked by aria-describedby, and focus on the first invalid field.",
 			"Disable and clear the discount while the price is empty, accept a price above 0 up to 100000 with two decimals and a whole discount from 1 to 90, and preview Guests pay $X per night in USD with the effective price helper shared with the public pages.",
 			"Place the API field errors of a 400 on their controls, show the other messages in an alert region with a retry for network failures, block double submits while saving and report the dirty state to the sheet.",
+			"Render the visibility switch as a button with role switch, aria-checked, a label and a help text, and emit a toggle only when it is not saving.",
 			"Show the main image and images 2 and 3 with Upload or Replace and Remove behind an inline confirmation, or let a new hotel pick files that are uploaded after it is created; accept JPEG, PNG and WebP up to 10 MB as client hints.",
 		],
 		expectations: [
@@ -1162,7 +1177,7 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "account-web-routes", to: "web-auth-session", label: "register and sign in", protocol: "in-process" },
 	{ from: "admin-web-routes", to: "web-auth-guards", label: "guards navigation", protocol: "in-process" },
 	{ from: "admin-web-routes", to: "web-auth-session", label: "sign in and sign out", protocol: "in-process" },
-	{ from: "admin-web-routes", to: "admin-hotels-service", label: "lists, reads, writes and deletes hotels and images", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "admin-hotels-service", label: "lists, reads, writes, shows or hides and deletes hotels and images", protocol: "in-process" },
 	{ from: "admin-web-routes", to: "admin-sheet", label: "opens create and edit", protocol: "in-process" },
 	{ from: "admin-web-routes", to: "hotel-detail-components", label: "reuses OwnRatingField and RatingControl", protocol: "in-process" },
 	{ from: "admin-web-routes", to: "hotel-rating-service", label: "own vote of the administrator", protocol: "in-process" },
@@ -1170,7 +1185,7 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "admin-hotel-form", to: "hotel-catalog-service", label: "image addresses by position", protocol: "in-process" },
 	{ from: "admin-web-routes", to: "hotel-catalog-service", label: "thumbnail image addresses", protocol: "in-process" },
 	{ from: "admin-hotels-service", to: "web-auth-interceptor", label: "requests through HttpClient", protocol: "in-process" },
-	{ from: "web-auth-interceptor", to: "hotels-controller", label: "GET list, GET by id, POST, PUT, DELETE with the bearer token", protocol: "https" },
+	{ from: "web-auth-interceptor", to: "hotels-controller", label: "GET list, GET by id, POST, PUT, PUT status, DELETE with the bearer token", protocol: "https" },
 	{ from: "web-auth-interceptor", to: "hotel-images-controller", label: "PUT and DELETE images by position with the bearer token", protocol: "https" },
 	{ from: "web-auth-guards", to: "web-auth-session", label: "waits for the restore", protocol: "in-process" },
 	{ from: "web-auth-session", to: "web-auth-interceptor", label: "requests through HttpClient", protocol: "in-process" },
@@ -1246,7 +1261,7 @@ export const requestFlow: RequestFlowStep[] = [
 	{
 		title: "The administrator creates or edits a hotel in the sheet",
 		detail:
-			"The new sheet posts the full request to POST /api/hotels and then uploads each chosen image to PUT /api/hotels/{id}/images/{position} as the multipart field image, in position order; a failed upload opens the edit sheet of the created hotel instead of posting again. The edit sheet reads GET /api/hotels/{id}, sends the full replacement to PUT /api/hotels/{id} and changes images at once with PUT and DELETE /api/hotels/{id}/images/{position}. A 400 maps the field errors to the form. After a create or a save the sheet closes and the directory reloads its current page and announces the result. In the edit sheet the administrator also reads GET /api/hotels/{id}/ratings/me and rates with POST /api/hotels/{id}/ratings; the answer updates the summary in the sheet and a quiet AdminDirectoryRefresh change reloads the directory behind it without a message, while PUT /api/hotels/{id} never changes ratings.",
+			"The new sheet posts the full request to POST /api/hotels and then uploads each chosen image to PUT /api/hotels/{id}/images/{position} as the multipart field image, in position order; a failed upload opens the edit sheet of the created hotel instead of posting again. The edit sheet reads GET /api/hotels/{id}, sends the full replacement to PUT /api/hotels/{id} and changes images at once with PUT and DELETE /api/hotels/{id}/images/{position}. A 400 maps the field errors to the form. After a create or a save the sheet closes and the directory reloads its current page and announces the result. In the edit sheet the administrator also reads GET /api/hotels/{id}/ratings/me and rates with POST /api/hotels/{id}/ratings; the answer updates the summary in the sheet and a quiet AdminDirectoryRefresh change reloads the directory behind it without a message, while PUT /api/hotels/{id} never changes ratings. The Visibility switch sends PUT /api/hotels/{id}/status with only isActive and announces the same quiet change; PUT /api/hotels/{id} never changes the active state.",
 	},
 	{
 		title: "The controller calls the use case",

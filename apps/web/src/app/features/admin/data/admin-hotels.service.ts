@@ -36,6 +36,10 @@ export class AdminHotelsService {
     return this.http.put<Hotel>(hotelUrl(id), request);
   }
 
+  setActive(id: string, isActive: boolean): Observable<Hotel> {
+    return this.http.put<Hotel>(`${hotelUrl(id)}/status`, { isActive });
+  }
+
   delete(id: string): Observable<void> {
     return this.http.delete<void>(hotelUrl(id));
   }

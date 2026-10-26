@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { describeHotelFailure, describeImageFailure, networkMessage, permissionMessage } from './hotel-failure';
+import { describeHotelFailure, describeImageFailure, describeVisibilityFailure, networkMessage, permissionMessage } from './hotel-failure';
 
 function failure(status: number, error: unknown = null): HttpErrorResponse {
   return new HttpErrorResponse({ status, error });
@@ -98,5 +98,25 @@ describe('describeImageFailure', () => {
     expect(describeImageFailure(failure(0))).toBe(networkMessage);
     expect(describeImageFailure(failure(404))).toBe('This hotel no longer exists.');
     expect(describeImageFailure(failure(500))).toBe('We could not update this image. Try again.');
+  });
+});
+
+describe('describeVisibilityFailure', () => {
+  it('describes permission, missing hotel, network and unexpected failures', () => {
+    expect(describeVisibilityFailure(failure(403))).toEqual({ message: permissionMessage, retryable: false });
+    expect(describeVisibilityFailure(failure(404))).toEqual({ message: 'This hotel no longer exists.', retryable: false });
+    expect(describeVisibilityFailure(failure(0))).toEqual({ message: networkMessage, retryable: true });
+    expect(describeVisibilityFailure(failure(500))).toEqual({
+      message: 'We could not change the visibility. Try again.',
+      retryable: true,
+    });
+    expect(describeVisibilityFailure(new Error('boom')).retryable).toBe(true);
+  });
+
+  it('shows the validation message of a 400', () => {
+    expect(describeVisibilityFailure(failure(400, { errors: { isActive: ['The active state is required.'] } }))).toEqual({
+      message: 'The active state is required.',
+      retryable: false,
+    });
   });
 });

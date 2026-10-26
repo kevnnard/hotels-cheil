@@ -139,6 +139,30 @@ describe('AdminHotelsService', () => {
     expect(received?.name).toBe('Aurea Cliff');
   });
 
+  it('sets the visibility with a PUT of only isActive to the status route', () => {
+    let received: Hotel | undefined;
+    service.setActive(hotel.id, true).subscribe((value) => (received = value));
+
+    const call = http.expectOne(`/api/hotels/${hotel.id}/status`);
+    expect(call.request.method).toBe('PUT');
+    expect(call.request.body).toEqual({ isActive: true });
+    expect(call.request.headers.get('Authorization')).toBe('Bearer admin-token');
+    call.flush({ ...hotel, isActive: true });
+
+    expect(received?.isActive).toBe(true);
+  });
+
+  it('encodes the hotel id in the status route and passes a failure to the caller', () => {
+    let failure: unknown;
+    service.setActive('a/b', false).subscribe({ error: (error: unknown) => (failure = error) });
+
+    const call = http.expectOne('/api/hotels/a%2Fb/status');
+    expect(call.request.body).toEqual({ isActive: false });
+    call.flush(null, { status: 403, statusText: 'Forbidden' });
+
+    expect((failure as HttpErrorResponse).status).toBe(403);
+  });
+
   it('uploads an image as the multipart field image to its position', () => {
     const file = new File(['pixels'], 'cliff.webp', { type: 'image/webp' });
     let received: HotelImage | undefined;

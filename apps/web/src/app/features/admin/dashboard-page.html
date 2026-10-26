@@ -254,12 +254,14 @@
   <span
     data-testid="row-status"
     class="inline-flex items-center gap-1.5 self-start rounded-full px-space-sm py-1 text-label-sm uppercase"
-    [class]="hotel.isActive ? 'bg-primary-container/10 text-primary' : 'bg-secondary-container text-on-secondary-fixed'"
+    [attr.data-state]="hotel.isActive ? 'active' : 'inactive'"
+    [attr.title]="hotel.isActive ? null : 'Hidden from the public site'"
+    [class]="hotel.isActive ? 'bg-primary-container/10 text-primary' : 'border border-dashed border-outline-variant bg-surface-container text-on-surface-variant'"
   >
     <span
       aria-hidden="true"
       class="h-1.5 w-1.5 rounded-full"
-      [class]="hotel.isActive ? 'bg-primary-container' : 'bg-secondary'"
+      [class]="hotel.isActive ? 'bg-primary-container' : 'border border-on-surface-variant bg-transparent'"
     ></span>
     {{ hotel.isActive ? 'Active' : 'Inactive' }}
   </span>

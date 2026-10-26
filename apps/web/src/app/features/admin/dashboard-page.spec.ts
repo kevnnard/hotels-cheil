@@ -183,6 +183,20 @@ describe('DashboardPage (hotel directory)', () => {
     expect(second.querySelector('[data-testid="row-status"]')?.textContent?.trim()).toBe('Inactive');
   });
 
+  it('marks an inactive hotel with a muted Inactive badge that says it is hidden from the public site', async () => {
+    await openWith(pageOf([alpha, beta]));
+
+    const active = row('Alpha House').querySelector('[data-testid="row-status"]') as HTMLElement;
+    const inactive = row('Beta Lodge').querySelector('[data-testid="row-status"]') as HTMLElement;
+    expect(active.dataset['state']).toBe('active');
+    expect(active.getAttribute('title')).toBeNull();
+    expect(inactive.dataset['state']).toBe('inactive');
+    expect(inactive.className).toContain('text-on-surface-variant');
+    expect(inactive.className).not.toContain('text-primary');
+    expect(inactive.getAttribute('title')).toBe('Hidden from the public site');
+    expect(inactive.textContent?.trim()).toBe('Inactive');
+  });
+
   it('stacks the same hotels as cards below md', async () => {
     await openWith(pageOf([alpha, beta]));
 
