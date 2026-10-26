@@ -22,7 +22,7 @@ function clampNights(value: number): number {
     <section
       data-testid="reservation-card"
       aria-labelledby="reservation-card-heading"
-      class="flex flex-col gap-space-md rounded-xl bg-surface-container-lowest p-space-lg shadow-xl"
+      class="flex flex-col gap-space-md rounded-xl bg-surface-container-lowest p-space-md shadow-xl sm:p-space-lg"
     >
       <h2 id="reservation-card-heading" class="sr-only">Plan a stay at {{ hotelName() }}</h2>
       @if (pricing(); as price) {
@@ -36,7 +36,7 @@ function clampNights(value: number): number {
 
       <div class="flex flex-col gap-space-xs rounded-lg bg-surface-container-low p-space-sm">
         @if (nightlyRate() !== null) {
-          <div class="flex items-center justify-between gap-space-sm rounded bg-surface-container-lowest px-space-sm py-space-xs">
+          <div class="flex flex-wrap items-center justify-between gap-space-sm rounded bg-surface-container-lowest px-space-sm py-space-xs">
             <label for="reservation-card-nights" class="text-label-sm uppercase text-on-surface-variant">Nights</label>
             <div class="flex items-center gap-space-xs">
               <button
@@ -81,7 +81,7 @@ function clampNights(value: number): number {
             </div>
           </div>
         }
-        <div class="flex items-center justify-between gap-space-sm rounded bg-surface-container-lowest px-space-sm py-space-xs">
+        <div class="flex flex-wrap items-center justify-between gap-space-sm rounded bg-surface-container-lowest px-space-sm py-space-xs">
           <label for="reservation-card-guests" class="text-label-sm uppercase text-on-surface-variant">Guests</label>
           <select
             id="reservation-card-guests"

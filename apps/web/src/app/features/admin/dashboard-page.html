@@ -33,9 +33,9 @@
   <div class="flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm">
     <div
       data-testid="directory-toolbar"
-      class="grid grid-cols-1 gap-space-sm bg-surface-container-low/60 p-space-md sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_12rem_12rem_auto] lg:items-end"
+      class="grid grid-cols-1 gap-space-sm bg-surface-container-low/60 p-space-md sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_12rem_12rem_auto] xl:items-end"
     >
-      <div class="flex flex-col gap-space-xs sm:col-span-2 lg:col-span-1">
+      <div class="flex flex-col gap-space-xs sm:col-span-2 xl:col-span-1">
         <label for="directory-search" class="text-label-md uppercase text-on-surface-variant">Search by name</label>
         <div class="relative">
           <svg
@@ -90,7 +90,7 @@
       <button
         type="button"
         data-testid="directory-reset"
-        class="inline-flex min-h-11 items-center justify-center rounded-lg border border-outline-variant px-space-md text-label-lg uppercase text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:col-span-2 lg:col-span-1"
+        class="inline-flex min-h-11 items-center justify-center rounded-lg border border-outline-variant px-space-md text-label-lg uppercase text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:col-span-2 xl:col-span-1"
         (click)="resetFilters()"
       >
         Reset
@@ -129,62 +129,64 @@
               />
             </div>
           } @else {
-            <table data-testid="directory-table" class="hidden w-full text-left md:table">
-              <thead>
-                <tr class="bg-surface-container-low text-label-sm uppercase text-on-surface-variant">
-                  <th scope="col" class="px-space-md py-space-sm">Hotel</th>
-                  <th scope="col" class="px-space-md py-space-sm">Location</th>
-                  <th scope="col" class="px-space-md py-space-sm">Rating</th>
-                  <th scope="col" class="px-space-md py-space-sm">Price</th>
-                  <th scope="col" class="px-space-md py-space-sm">Status</th>
-                  <th scope="col" class="px-space-md py-space-sm text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-surface-container text-body-md">
-                @for (hotel of result.items; track hotel.id) {
-                  <tr class="transition-colors hover:bg-surface-container-low/70">
-                    <td class="px-space-md py-space-md">
-                      <div class="flex items-center gap-space-md">
-                        <app-hotel-image-view
-                          class="h-14 w-14 shrink-0 overflow-hidden rounded-lg shadow-xs"
-                          [hotelId]="hotel.id"
-                          [hotelName]="hotel.name"
-                          [hasImage]="hasThumbnail(hotel)"
-                          [position]="0"
-                          [compact]="true"
-                        />
-                        <div class="flex min-w-0 flex-col">
-                          <span class="truncate font-serif text-headline-sm text-primary">{{ hotel.name }}</span>
-                          <span data-testid="row-city" class="text-body-sm text-on-surface-variant">{{ hotel.address.city }}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td data-testid="row-location" class="px-space-md py-space-md text-on-surface">{{ location(hotel) }}</td>
-                    <td data-testid="row-rating" class="px-space-md py-space-md">
-                      @if (averageRating(hotel); as average) {
-                        <span class="font-semibold text-primary">{{ average }}</span>
-                        <span class="block text-body-sm text-on-surface-variant">{{ ratingCount(hotel) }}</span>
-                      } @else {
-                        <span class="text-body-sm text-on-surface-variant">No ratings</span>
-                      }
-                    </td>
-                    <td data-testid="row-price" class="px-space-md py-space-md">
-                      @if (hotel.pricing; as pricing) {
-                        <app-hotel-price [pricing]="pricing" />
-                      } @else {
-                        <span class="text-body-sm text-on-surface-variant">No price</span>
-                      }
-                    </td>
-                    <td class="px-space-md py-space-md">
-                      <ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: hotel }" />
-                    </td>
-                    <td class="px-space-md py-space-md text-right">
-                      <ng-container *ngTemplateOutlet="rowActions; context: { $implicit: hotel }" />
-                    </td>
+            <div data-testid="directory-table-scroll" class="hidden overflow-x-auto md:block">
+              <table data-testid="directory-table" class="hidden w-full text-left md:table">
+                <thead>
+                  <tr class="bg-surface-container-low text-label-sm uppercase text-on-surface-variant">
+                    <th scope="col" class="px-space-md py-space-sm">Hotel</th>
+                    <th scope="col" class="px-space-md py-space-sm">Location</th>
+                    <th scope="col" class="px-space-md py-space-sm">Rating</th>
+                    <th scope="col" class="px-space-md py-space-sm">Price</th>
+                    <th scope="col" class="px-space-md py-space-sm">Status</th>
+                    <th scope="col" class="px-space-md py-space-sm text-right">Actions</th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody class="divide-y divide-surface-container text-body-md">
+                  @for (hotel of result.items; track hotel.id) {
+                    <tr class="transition-colors hover:bg-surface-container-low/70">
+                      <td class="px-space-md py-space-md">
+                        <div class="flex items-center gap-space-md">
+                          <app-hotel-image-view
+                            class="h-14 w-14 shrink-0 overflow-hidden rounded-lg shadow-xs"
+                            [hotelId]="hotel.id"
+                            [hotelName]="hotel.name"
+                            [hasImage]="hasThumbnail(hotel)"
+                            [position]="0"
+                            [compact]="true"
+                          />
+                          <div class="flex min-w-0 flex-col">
+                            <span class="truncate font-serif text-headline-sm text-primary">{{ hotel.name }}</span>
+                            <span data-testid="row-city" class="text-body-sm text-on-surface-variant">{{ hotel.address.city }}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td data-testid="row-location" class="px-space-md py-space-md text-on-surface">{{ location(hotel) }}</td>
+                      <td data-testid="row-rating" class="px-space-md py-space-md">
+                        @if (averageRating(hotel); as average) {
+                          <span class="font-semibold text-primary">{{ average }}</span>
+                          <span class="block text-body-sm text-on-surface-variant">{{ ratingCount(hotel) }}</span>
+                        } @else {
+                          <span class="text-body-sm text-on-surface-variant">No ratings</span>
+                        }
+                      </td>
+                      <td data-testid="row-price" class="px-space-md py-space-md">
+                        @if (hotel.pricing; as pricing) {
+                          <app-hotel-price [pricing]="pricing" />
+                        } @else {
+                          <span class="text-body-sm text-on-surface-variant">No price</span>
+                        }
+                      </td>
+                      <td class="px-space-md py-space-md">
+                        <ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: hotel }" />
+                      </td>
+                      <td class="px-space-md py-space-md text-right">
+                        <ng-container *ngTemplateOutlet="rowActions; context: { $implicit: hotel }" />
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
 
             <ul data-testid="directory-cards" class="flex flex-col gap-space-md md:hidden">
               @for (hotel of result.items; track hotel.id) {
@@ -199,7 +201,7 @@
                       [compact]="true"
                     />
                     <div class="flex min-w-0 flex-1 flex-col gap-space-xs">
-                      <span class="font-serif text-headline-sm text-primary">{{ hotel.name }}</span>
+                      <span class="break-words font-serif text-headline-sm text-primary">{{ hotel.name }}</span>
                       <span class="text-body-sm text-on-surface-variant">{{ location(hotel) }}</span>
                       <ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: hotel }" />
                     </div>
@@ -295,7 +297,7 @@
   data-testid="delete-dialog"
   aria-labelledby="delete-dialog-title"
   aria-describedby="delete-dialog-description"
-  class="m-auto w-[min(92vw,32rem)] max-w-none rounded-xl bg-surface-container-lowest p-space-lg text-on-surface shadow-2xl backdrop:bg-primary/40 backdrop:backdrop-blur-sm"
+  class="m-auto w-[min(92vw,32rem)] max-w-none rounded-xl bg-surface-container-lowest p-space-md text-on-surface sm:p-space-lg shadow-2xl backdrop:bg-primary/40 backdrop:backdrop-blur-sm"
   (cancel)="onDeleteDialogCancel($event)"
 >
   @let target = pendingDelete();
@@ -306,12 +308,12 @@
           <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </span>
-      <div class="flex flex-col">
-        <h2 id="delete-dialog-title" class="font-serif text-headline-sm text-primary">Delete {{ target?.name }}?</h2>
+      <div class="flex min-w-0 flex-col">
+        <h2 id="delete-dialog-title" class="break-words font-serif text-headline-sm text-primary">Delete {{ target?.name }}?</h2>
         <span class="text-label-sm uppercase text-error">This cannot be undone</span>
       </div>
     </div>
-    <p id="delete-dialog-description" class="text-body-md text-on-surface-variant">
+    <p id="delete-dialog-description" class="break-words text-body-md text-on-surface-variant">
       {{ target?.name }} and its images will be removed from the collection and from the public site.
     </p>
     <div data-testid="delete-error" role="alert">

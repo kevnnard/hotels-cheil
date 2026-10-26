@@ -602,9 +602,12 @@ describe('CatalogPage', () => {
     await settle();
 
     const group = query('[role="group"][aria-label="Minimum rating"]') as HTMLElement;
-    expect(group.classList.contains('h-11')).toBe(true);
+    expect(group.classList.contains('md:h-11')).toBe(true);
     const options = Array.from(group.querySelectorAll<HTMLElement>('[data-testid^="rating-"]'));
     expect(options.length).toBe(6);
+    for (const option of options) {
+      expect(option.classList.contains('h-11'), option.outerHTML).toBe(true);
+    }
     expect(query('[data-testid="clear-filters"]')?.classList.contains('h-11')).toBe(true);
   });
 

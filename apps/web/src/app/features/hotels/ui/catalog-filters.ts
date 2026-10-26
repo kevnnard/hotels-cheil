@@ -12,10 +12,10 @@ import { priceRange, ratingChoices } from '../data/catalog-query';
       data-testid="search-panel"
       class="scroll-mt-(--header-height) z-40 w-full rounded-xl bg-surface-container-lowest/95 p-3 shadow-[0_12px_32px_-16px_rgba(24,26,25,0.12),0_2px_8px_rgba(0,0,0,0.04)] backdrop-blur-2xl md:sticky md:top-(--header-height)"
     >
-      <div data-testid="primary-filters" class="flex flex-col gap-3 md:flex-row md:items-center">
+      <div data-testid="primary-filters" class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center lg:flex-nowrap">
         <div
           data-testid="search-group"
-          class="relative flex h-11 min-w-0 flex-1 items-center rounded-lg border border-outline-variant bg-surface-container-lowest transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 md:max-w-xl"
+          class="relative flex h-11 min-w-0 flex-1 items-center rounded-lg border border-outline-variant bg-surface-container-lowest transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 md:max-w-xl md:basis-full lg:basis-auto"
         >
           <svg viewBox="0 0 24 24" class="pointer-events-none absolute left-3 h-5 w-5 text-on-surface-variant" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="m21 21-4.3-4.3M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" stroke-linecap="round" stroke-linejoin="round" />
@@ -37,7 +37,7 @@ import { priceRange, ratingChoices } from '../data/catalog-query';
           <div
             role="group"
             aria-label="Minimum rating"
-            class="flex h-11 w-full min-w-0 items-center gap-1 overflow-x-auto rounded-lg bg-surface-container p-1 md:w-auto"
+            class="flex h-13 w-full min-w-0 items-center gap-1 overflow-x-auto rounded-lg bg-surface-container p-1 md:h-11 md:w-auto"
           >
             <button
               type="button"
@@ -192,7 +192,7 @@ export class CatalogFilters {
 
   protected segmentClasses(selected: boolean): string {
     const base =
-      'inline-flex h-9 shrink-0 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary md:flex-none';
+      'inline-flex h-11 min-w-11 shrink-0 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary md:h-9 md:flex-none';
     return selected
       ? `${base} bg-primary-container text-on-primary shadow-sm`
       : `${base} text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface`;

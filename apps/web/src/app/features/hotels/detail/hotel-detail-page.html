@@ -73,7 +73,7 @@
             @if (location()) {
               <p data-testid="detail-location" class="text-label-sm uppercase tracking-widest text-on-surface-variant">{{ location() }}</p>
             }
-            <h1 class="font-serif text-headline-lg tracking-tight text-primary md:text-display-md">{{ item.name }}</h1>
+            <h1 class="break-words font-serif text-headline-lg tracking-tight text-primary md:text-display-md">{{ item.name }}</h1>
           </div>
           <app-rating-summary [rating]="rating() ?? item.rating" />
         </header>
@@ -103,7 +103,7 @@
               </svg>
               <span class="text-label-sm uppercase tracking-widest">Architectural narrative</span>
             </div>
-            <h2 id="hotel-narrative-heading" class="font-serif text-headline-lg tracking-tight text-primary">About {{ item.name }}</h2>
+            <h2 id="hotel-narrative-heading" class="break-words font-serif text-headline-lg tracking-tight text-primary">About {{ item.name }}</h2>
             @if (item.description) {
               <p data-testid="hotel-description" class="whitespace-pre-line text-body-lg font-light leading-relaxed text-on-surface-variant">
                 {{ item.description }}
@@ -178,7 +178,7 @@
             <section
               data-testid="contact-card"
               aria-labelledby="contact-card-heading"
-              class="flex flex-col gap-space-md rounded-xl bg-surface-container-lowest p-space-lg shadow-xl"
+              class="flex flex-col gap-space-md rounded-xl bg-surface-container-lowest p-space-md shadow-xl sm:p-space-lg"
             >
               <h2 id="contact-card-heading" class="font-serif text-headline-md text-primary">Contact</h2>
               @if (item.contact.phone; as phone) {

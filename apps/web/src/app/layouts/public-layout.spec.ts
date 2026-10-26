@@ -362,6 +362,8 @@ describe('PublicLayout account area', () => {
     expect(find(root, 'header-sign-in')).toBeNull();
     expect(email.textContent?.trim()).toBe(visitor.email);
     expect(email.className).toContain('truncate');
+    expect(button.classList.contains('min-w-0')).toBe(true);
+    expect(find(root, 'header-account')?.classList.contains('min-w-0')).toBe(true);
     expect(button.getAttribute('title')).toBe(visitor.email);
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(button.getAttribute('aria-label')).toBe(`Account menu for ${visitor.email}`);

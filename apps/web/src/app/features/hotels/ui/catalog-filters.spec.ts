@@ -347,12 +347,12 @@ describe('CatalogFilters', () => {
     render(4.95);
 
     const group = query('[role="group"][aria-label="Minimum rating"]') as HTMLElement;
-    expectClasses(group, ['overflow-x-auto', 'min-w-0', 'w-full', 'h-11']);
+    expectClasses(group, ['overflow-x-auto', 'min-w-0', 'w-full', 'h-13', 'md:h-11']);
     expectClasses(group.parentElement as HTMLElement, ['min-w-0']);
     const options = queryAll('[data-testid^="rating-"]');
     expect(options.length).toBe(7);
     for (const option of options) {
-      expectClasses(option, ['shrink-0', 'whitespace-nowrap', 'h-9']);
+      expectClasses(option, ['shrink-0', 'whitespace-nowrap', 'h-11', 'min-w-11', 'md:h-9']);
     }
   });
 
@@ -397,23 +397,23 @@ describe('CatalogFilters', () => {
     expect((fixture.nativeElement as HTMLElement).classList.contains('contents')).toBe(true);
   });
 
-  it('lays the bar out as one centred row of 44px controls from md and as a column on mobile', () => {
+  it('lays the bar out as one centred row of 44px controls from lg, with the search on its own row at md and a column on mobile', () => {
     render(4.95);
 
     const bar = query('[data-testid="search-panel"]') as HTMLElement;
     expectClasses(bar, ['p-3', 'rounded-xl']);
     const primary = query('[data-testid="primary-filters"]') as HTMLElement;
-    expectClasses(primary, ['flex', 'flex-col', 'gap-3', 'md:flex-row', 'md:items-center']);
+    expectClasses(primary, ['flex', 'flex-col', 'gap-3', 'md:flex-row', 'md:flex-wrap', 'md:items-center', 'lg:flex-nowrap']);
     expect(bar.querySelector('.w-px')).toBeNull();
 
     const group = query('[data-testid="search-group"]') as HTMLElement;
-    expectClasses(group, ['relative', 'h-11', 'flex-1', 'min-w-0', 'md:max-w-xl', 'rounded-lg', 'border', 'border-outline-variant', 'bg-surface-container-lowest', 'focus-within:ring-2']);
+    expectClasses(group, ['relative', 'h-11', 'flex-1', 'min-w-0', 'md:basis-full', 'md:max-w-xl', 'lg:basis-auto', 'rounded-lg', 'border', 'border-outline-variant', 'bg-surface-container-lowest', 'focus-within:ring-2']);
     expect(group.contains(query('[data-testid="search-input"]'))).toBe(true);
     expect(group.querySelector('svg')?.classList.contains('absolute')).toBe(true);
     expectClasses(query('[data-testid="search-input"]') as HTMLElement, ['pl-10', 'text-sm', 'h-full', 'w-full']);
 
     const rating = query('[role="group"][aria-label="Minimum rating"]') as HTMLElement;
-    expectClasses(rating, ['h-11', 'rounded-lg', 'bg-surface-container', 'p-1', 'overflow-x-auto', 'w-full', 'md:w-auto']);
+    expectClasses(rating, ['h-13', 'md:h-11', 'rounded-lg', 'bg-surface-container', 'p-1', 'overflow-x-auto', 'w-full', 'md:w-auto']);
 
     const toggle = query('[data-testid="more-filters"]') as HTMLElement;
     expectClasses(toggle, ['h-11', 'px-4', 'text-sm', 'font-medium', 'border', 'border-outline-variant', 'bg-transparent', 'flex-1', 'md:flex-none']);
@@ -434,7 +434,7 @@ describe('CatalogFilters', () => {
 
     const options = queryAll('[data-testid^="rating-"]');
     expect(options.length).toBe(7);
-    const baseClasses = ['h-9', 'px-3', 'text-sm', 'font-medium', 'rounded-md', 'transition-colors'];
+    const baseClasses = ['h-11', 'md:h-9', 'px-3', 'text-sm', 'font-medium', 'rounded-md', 'transition-colors'];
     const selectedClasses = ['bg-primary-container', 'text-on-primary', 'shadow-sm'];
     const unselectedClasses = ['text-on-surface-variant', 'hover:bg-surface-container-high'];
     for (const option of options) {
@@ -460,7 +460,10 @@ describe('CatalogFilters', () => {
     render(4.9);
 
     const ratingGroup = query('[role="group"][aria-label="Minimum rating"]') as HTMLElement;
-    expect(ratingGroup.classList.contains('h-11')).toBe(true);
+    expect(ratingGroup.classList.contains('md:h-11')).toBe(true);
+    for (const segment of Array.from(ratingGroup.querySelectorAll<HTMLElement>('button'))) {
+      expect(segment.classList.contains('h-11'), segment.outerHTML).toBe(true);
+    }
     const targets = queryAll('button, select, input:not([type="checkbox"])').filter((target) => !ratingGroup.contains(target));
     expect(targets.length).toBeGreaterThan(10);
     for (const target of targets) {

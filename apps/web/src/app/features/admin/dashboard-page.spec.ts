@@ -209,6 +209,25 @@ describe('DashboardPage (hotel directory)', () => {
     expect(cards.querySelectorAll('[data-testid="row-delete"]').length).toBe(2);
   });
 
+  it('scrolls the table sideways inside its own container from md instead of clipping it', async () => {
+    await openWith(pageOf([alpha, beta]));
+
+    const scroller = find('directory-table-scroll') as HTMLElement;
+    expect(scroller.contains(table())).toBe(true);
+    for (const token of ['hidden', 'md:block', 'overflow-x-auto']) {
+      expect(scroller.classList.contains(token), token).toBe(true);
+    }
+  });
+
+  it('keeps the toolbar in two columns until xl so the search keeps its width beside the sidebar', async () => {
+    await openWith(pageOf([alpha]));
+
+    const toolbar = find('directory-toolbar') as HTMLElement;
+    expect(toolbar.className).toContain('sm:grid-cols-2');
+    expect(toolbar.className).toContain('xl:grid-cols-[minmax(0,1fr)_12rem_12rem_auto]');
+    expect(toolbar.className).not.toMatch(/(^|\s)lg:/);
+  });
+
   it('offers labelled Edit links and Delete buttons that are at least 44 px tall', async () => {
     await openWith(pageOf([alpha]), '/admin?name=alp');
 

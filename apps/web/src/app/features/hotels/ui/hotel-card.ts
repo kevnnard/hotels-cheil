@@ -55,7 +55,7 @@ import { HotelPrice } from './hotel-price';
             {{ place }}
           </p>
         }
-        <h3 class="mb-space-xs font-serif text-headline-sm tracking-tight text-primary transition-colors group-hover:text-primary-container">
+        <h3 class="mb-space-xs break-words font-serif text-headline-sm tracking-tight text-primary transition-colors group-hover:text-primary-container">
           {{ hotel().name }}
         </h3>
         @if (hotel().description; as description) {

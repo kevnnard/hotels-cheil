@@ -44,7 +44,7 @@ function distinctDestinations(hotels: Hotel[]): string[] {
           >
             <nav
               aria-label="Main"
-              class="flex items-center gap-gutter md:mx-auto md:gap-gutter-desktop"
+              class="flex items-center gap-space-md md:mx-auto md:gap-gutter-desktop"
             >
               <a
                 routerLink="/"
@@ -60,7 +60,7 @@ function distinctDestinations(hotels: Hotel[]): string[] {
                 Hotel Collection
               </a>
             </nav>
-            <div #accountArea data-testid="header-account" class="relative flex items-center md:order-last">
+            <div #accountArea data-testid="header-account" class="relative flex min-w-0 shrink-10 items-center md:order-last">
               @if (session(); as current) {
                 <button
                   #accountButton
@@ -70,7 +70,7 @@ function distinctDestinations(hotels: Hotel[]): string[] {
                   [attr.aria-expanded]="menuOpen()"
                   [attr.aria-label]="'Account menu for ' + current.email"
                   [attr.title]="current.email"
-                  class="inline-flex h-11 min-h-11 max-w-44 items-center gap-space-xs rounded-lg px-space-sm text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:max-w-56"
+                  class="inline-flex h-11 min-h-11 min-w-0 max-w-44 items-center gap-space-xs rounded-lg px-space-sm text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:max-w-56"
                   (click)="toggleMenu()"
                 >
                   <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -115,7 +115,7 @@ function distinctDestinations(hotels: Hotel[]): string[] {
                   routerLink="/account/sign-in"
                   data-testid="header-sign-in"
                   [queryParams]="signInQuery()"
-                  class="inline-flex min-h-11 items-center px-space-sm text-label-lg uppercase text-primary transition-colors hover:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  class="inline-flex min-h-11 items-center whitespace-nowrap px-space-sm text-label-lg uppercase text-primary transition-colors hover:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
                   Sign in
                 </a>
@@ -128,7 +128,7 @@ function distinctDestinations(hotels: Hotel[]): string[] {
               fragment="search-panel"
               data-testid="header-search"
               aria-label="Search hotels"
-              class="flex h-11 w-11 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -148,7 +148,7 @@ function distinctDestinations(hotels: Hotel[]): string[] {
             <a
               routerLink="/"
               fragment="collection"
-              class="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary-container px-space-md py-space-sm text-label-lg uppercase text-on-primary transition-colors hover:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              class="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-primary-container px-space-sm py-space-sm text-label-lg uppercase text-on-primary sm:px-space-md transition-colors hover:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Explore Hotels
             </a>

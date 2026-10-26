@@ -92,9 +92,9 @@ interface GalleryTile {
     >
       <div class="flex max-h-[90vh] flex-col">
         <div class="flex items-center justify-between gap-space-md px-space-md py-space-md md:px-space-lg">
-          <div class="flex flex-wrap items-baseline gap-x-space-md gap-y-space-xs">
+          <div class="flex min-w-0 flex-wrap items-baseline gap-x-space-md gap-y-space-xs">
             <h2 id="hotel-gallery-title" class="font-serif text-headline-sm text-surface">Photo gallery</h2>
-            <span class="text-label-md uppercase text-secondary-fixed">{{ hotelName() }} • {{ countLabel() }}</span>
+            <span class="min-w-0 break-words text-label-md uppercase text-secondary-fixed">{{ hotelName() }} • {{ countLabel() }}</span>
           </div>
           <button
             type="button"

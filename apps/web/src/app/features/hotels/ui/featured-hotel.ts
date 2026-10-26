@@ -22,7 +22,7 @@ import { HotelImageView } from './hotel-image-view';
         <div class="absolute inset-0 bg-linear-to-t from-primary via-primary/30 to-transparent"></div>
         <div class="absolute inset-0 bg-linear-to-r from-primary/80 via-primary/20 to-transparent"></div>
         <div class="absolute bottom-0 left-0 max-w-2xl p-space-md text-surface md:p-space-xl">
-          <h2 class="mb-space-xs font-serif text-display-md-mobile tracking-tight text-surface md:text-display-md">{{ current.name }}</h2>
+          <h2 class="mb-space-xs break-words font-serif text-display-md-mobile tracking-tight text-surface md:text-display-md">{{ current.name }}</h2>
           @if (current.description; as description) {
             <p class="mb-space-md line-clamp-3 max-w-xl text-body-md font-light text-surface/80">{{ description }}</p>
           }
