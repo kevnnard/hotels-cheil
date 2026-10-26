@@ -5,7 +5,7 @@ description: Decision to separate the backend and frontend into layers with inwa
 
 ## Status
 
-Implemented for the backend domain and persistence layers. HTTP and frontend layers remain Planned.
+Implemented. The API has the four projects Domain, Application, Infrastructure and Api with inward references, and the Angular app is organized in `core`, `shared`, `layouts` and `features`.
 
 ## Problem
 

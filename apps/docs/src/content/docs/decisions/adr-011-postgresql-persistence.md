@@ -5,7 +5,7 @@ description: Decision to persist hotels and one rating per user and hotel with E
 
 ## Status
 
-Implemented and tested: mappings, migration and store pass 28 integration tests against a real PostgreSQL 17 database (rows, constraints, concurrent same-user ratings). The migration command was applied to an isolated database, Compose configuration and image startup were verified, and the runtime image serves `/health` as a non-root user. API wiring and authentication are Planned (T3 and T4) and not part of this record.
+Implemented and tested: mappings, migration and store pass 28 integration tests against a real PostgreSQL 17 database (rows, constraints, concurrent same-user ratings). The migration command was applied to an isolated database, Compose configuration and image startup were verified, and the runtime image serves `/health` as a non-root user. The API wiring and the authentication built on this persistence are Implemented and recorded in ADR-012 and ADR-013.
 
 ## Problem
 

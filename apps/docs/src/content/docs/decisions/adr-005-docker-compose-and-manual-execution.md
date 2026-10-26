@@ -5,7 +5,7 @@ description: Decision to support both Docker Compose and running each applicatio
 
 ## Status
 
-Implemented for PostgreSQL and the API: Compose development/production configuration, the API Dockerfile and environment samples exist; the image builds, runs non-root and serves `/health`. Development Compose startup was verified against PostgreSQL. Web and docs services remain Planned. Production is not deployed.
+Implemented for the whole system: `compose.yaml` declares `db`, `migrator`, `api`, `web` and `docs`; `compose.dev.yaml` is self-contained and adds the development `seed`; `compose.prod.yaml` is the production overlay. The API, web and docs Dockerfiles and the environment samples exist, and every application also runs without Docker. The web and docs images are described in [ADR-021](adr-021-delivery-compose-and-ci.md). Production is not deployed.
 
 ## Problem
 
@@ -37,8 +37,8 @@ Compose gives reproducibility; manual execution keeps applications independent a
 
 ## Consequences
 
-The API Dockerfile is multi-stage with a development stage and a non-root runtime stage. Compose uses a common file plus `compose.dev.yaml` or `compose.prod.yaml`, a PostgreSQL volume, a health check the API waits for, a loopback-only PostgreSQL port in development and none in production. Image storage volumes remain Planned.
+The API Dockerfile is multi-stage with a development stage and a non-root runtime stage. Compose uses a common file plus `compose.dev.yaml` or `compose.prod.yaml`, a PostgreSQL volume, a health check the API waits for, a loopback-only PostgreSQL port in development and none in production. The API mounts the named volume `hotel-images` for the image files. The web and docs services run from unprivileged nginx images, and the web container proxies `/api` to the API (ADR-021).
 
 ## Future improvements
 
-Add CI checks that both paths work.
+The CI workflow of ADR-021 builds every application and image; running the Compose stack itself in CI is not done.

@@ -63,8 +63,8 @@ The order of ADR-015 is unchanged and applies per position: stage the new file, 
 
 ## Consequences
 
-Clients read `images` for the gallery and keep reading `image` for the primary picture. The Angular client still shows only the primary image; showing positions 1 and 2 is frontend work outside this decision. A running API built from the previous code cannot read a database migrated by this change, and the reverse is also true, so deploy the migration and the API together.
+Clients read `images` for the gallery and keep reading `image` for the primary picture. The Angular client shows positions 1 and 2 in the gallery of the detail page and manages the three positions in the image slots of the admin sheet. A running API built from the previous code cannot read a database migrated by this change, and the reverse is also true, so deploy the migration and the API together.
 
 ## Future improvements
 
-Reordering positions with one request, a gallery view in the Angular detail page, and the orphan sweep of ADR-015. None is implemented.
+Reordering positions with one request and the orphan sweep of ADR-015. Neither is implemented.

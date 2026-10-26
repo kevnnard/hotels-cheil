@@ -5,7 +5,7 @@ description: Decision on how the end-to-end suite starts the API, talks to it an
 
 ## Status
 
-Implemented and tested: the suite holds 36 tests that start the API as a separate process, walk the administrative journey over a real socket and read the persisted state from PostgreSQL. The domain, application, persistence and HTTP suites add 248 passing tests.
+Implemented and tested: the suite holds 46 tests that start the API as a separate process, walk the administrative journey over a real socket and read the persisted state from PostgreSQL. The domain, application, persistence and HTTP suites add 163, 117, 197 and 177 tests. The browser flows of the web app are covered separately by Playwright (ADR-016).
 
 ## Problem
 

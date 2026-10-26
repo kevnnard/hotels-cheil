@@ -3,16 +3,17 @@ title: Architecture
 description: Layers, security model, image handling and implementation status.
 ---
 
-The backend domain rules, PostgreSQL persistence layer, authentication, the hotel management endpoints and the hotel image lifecycle are implemented; the frontend remains planned. The status column states what is Implemented, Planned, Considered or Discarded.
+The API, the Angular web app, the documentation site and the Docker Compose stack are implemented. The status column states what is Implemented, Planned, Considered or Discarded; what a deployment would still need is in [Production considerations](production-considerations.md).
 
 ## Monorepo
 
 | Path | Purpose | Status |
 |---|---|---|
-| `apps/api` | ASP.NET Core modular monolith | Domain, persistence, authentication, hotel endpoints and hotel images Implemented |
-| `apps/web` | Angular application | Planned |
+| `apps/api` | ASP.NET Core modular monolith | Implemented: domain, persistence, authentication, hotel endpoints, public catalogue, ratings, pricing and images |
+| `apps/web` | Angular application: public site, visitor accounts and admin panel | Implemented |
 | `apps/docs` | Astro Starlight documentation with the interactive architecture canvas | Implemented |
-| `compose.yaml` | Container orchestration | API/PostgreSQL and the image volume Implemented; web/docs Planned |
+| `compose.yaml`, `compose.dev.yaml`, `compose.prod.yaml` | Container orchestration: db, migrator, api, web and docs, plus the seed in development | Implemented (ADR-005, ADR-021) |
+| `.github/workflows/ci.yml` | Builds, lint, type checks, tests and image builds | Written, not yet run on GitHub (ADR-021) |
 
 Applications stay independent. Documentation must not block the frontend or backend from running alone.
 
@@ -35,21 +36,25 @@ Backend style: modular monolith, application services instead of CQRS (ADR-003),
 
 ## Frontend areas
 
-`core` (configuration, authentication, interceptors, guards), `shared` (generic components), `layouts` (public and administrative), `features` (Hotels, Admin, Auth). Native Angular state and HTTP (ADR-007).
+`core` (configuration, authentication, interceptors, guards), `shared` (generic components), `layouts` (public and administrative), `features` (hotels, account, auth, admin). Native Angular state and HTTP (ADR-007). Implemented (ADR-016).
+
+The browser calls `/api` on its own origin. In Compose the nginx container of the web app proxies `/api` to the API; in development the Angular dev server does the same with `proxy.conf.json`. No CORS policy is needed (ADR-021).
 
 ## Authentication and RBAC
 
 | Item | Status |
 |---|---|
-| Public catalog readable without authentication | Planned |
+| Public catalog readable without authentication, under `/api/public/hotels` | Implemented |
 | Policies `hotels.read`, `hotels.create`, `hotels.update`, `hotels.delete`, `hotels.rate` | Implemented |
 | Roles `Administrator` (manage hotels) and `User` (read and rate) | Implemented |
 | Authentication transport | Identity with signed access tokens and revocable sessions (ADR-012) |
 | Registration, sign in, signed-in account and logout endpoints | Implemented |
 | First administrator provisioned from the environment | Implemented |
-| Hotel CRUD, listing with filters and pagination, and rating endpoint | Implemented (ADR-013) |
+| Hotel CRUD, listing with filters and pagination, active state, and rating endpoints | Implemented (ADR-013) |
+| Visitor registration and sign in in the web app, token in `sessionStorage` | Implemented (ADR-019) |
+| Login rate limiting, lockout, token refresh, cookie sessions | Not implemented; see Production considerations |
 
-The API is the only caller of the hotel endpoints, so no public catalog is exposed yet.
+The public catalogue serves active hotels only and has no policy; every route under `/api/hotels` requires a token.
 
 Frontend guards are navigation only. The backend enforces authorization (ADR-004).
 
@@ -59,9 +64,9 @@ Frontend guards are navigation only. The backend enforces authorization (ADR-004
 |---|---|
 | `IImageOptimizationService` and `IFileStorageService` as separate contracts | Implemented |
 | Content validation, strict lossless verification, result at most 400,000 bytes | Implemented (ADR-015) |
-| One image per hotel with upload, read, replace and remove endpoints | Implemented |
+| Up to three images per hotel in positions 0 to 2, with upload, read, replace and remove endpoints | Implemented (ADR-017) |
 | Local storage on a Docker volume with generated keys and staged writes | Implemented |
-| Resize, lossy conversion, galleries | Discarded for this scope (ADR-015) |
+| Resize, lossy conversion | Discarded for this scope (ADR-015) |
 | Cloudflare R2 | Considered for the future (ADR-006) |
 
 Rules, limits, failure behavior and operation are in [Hotel images](hotel-images.md).

@@ -5,7 +5,7 @@ description: Decision to keep api, web and docs in one repository as independent
 
 ## Status
 
-Partially implemented. `apps/api` and `apps/docs` exist and run on their own. `apps/web` is Planned and has not been created.
+Implemented. `apps/api`, `apps/web` and `apps/docs` exist, each with its own toolchain, Dockerfile and tests, and each runs on its own.
 
 ## Problem
 
@@ -45,4 +45,4 @@ Add workspace tooling if duplication becomes costly.
 
 ## Considerations
 
-The architecture canvas shows only what is built. A web application would enter the canvas when `apps/web` exists, not before. Reconsider shared tooling only if two or more applications duplicate the same configuration. This is a consideration, not a commitment.
+The architecture canvas shows only what is built, and the web application is now part of it. Reconsider shared tooling only if two or more applications duplicate the same configuration. This is a consideration, not a commitment.

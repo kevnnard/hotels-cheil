@@ -3,21 +3,22 @@ title: Development
 description: Requirements, setup, configuration, testing, build and deployment, with the status of each item.
 ---
 
-The API skeleton, its PostgreSQL persistence layer, the authentication endpoints, the hotel management endpoints and the hotel image lifecycle exist. The API uses the database and requires the connection string to start. Status per item is given below; anything not marked Implemented is Planned.
+The API, the web app and this documentation site exist and run with Docker Compose or by hand. The API uses the database and requires the connection string to start. Status per item is given below; what a deployment would still need is in [Production considerations](production-considerations.md).
 
 ## Requirements
 
-.NET 10 with SDK 10.0.402, pinned in `apps/api/global.json` (ADR-009). The documentation site runs on Astro 7.4.2 and Starlight 0.42.7 with Node 26.12.0 and pnpm; the versions of Angular and Tailwind are pending decisions. Docker is optional because manual execution must work (ADR-005).
+.NET 10 with SDK 10.0.402, pinned in `apps/api/global.json` (ADR-009). The web app runs on Angular 22.2.3 and Tailwind CSS 4.3.3 (ADR-016) and the documentation site on Astro 7.4.2 and Starlight 0.42.7, both with Node 26.12.1, the version of the Dockerfiles and the CI workflow, and pnpm 12.15.0. PostgreSQL 17 for the database, and Python 3 with the standard library only for the seed. Docker is optional because manual execution must work (ADR-005).
 
 ## Installation and local development
 
 | Item | Status |
 |---|---|
-| Run API without Docker | Implemented for the skeleton |
-| Run web without Docker | Planned |
+| Run API without Docker | Implemented |
+| Run web without Docker | Implemented with `pnpm start` |
 | Run docs without Docker | Implemented with pnpm |
-| Docker Compose with PostgreSQL and API | Implemented and verified for development; production configuration/image verified, not deployed |
-| Docker Compose with web and docs | Planned |
+| Docker Compose with PostgreSQL, migrator and API | Implemented and verified for development; production configuration and image verified, not deployed |
+| Docker Compose with web and docs | Implemented (ADR-021) |
+| CI workflow | Written in `.github/workflows/ci.yml`, not yet run on GitHub |
 
 From the repository root:
 
@@ -41,6 +42,20 @@ The development launch profile already provides the issuer and the audience. The
 
 In development the image files go to a per-user directory outside the repository unless `Storage__Images__RootPath` names another absolute directory. Outside development the setting is required, and the API refuses to start when the directory is relative, inside the application folder or not writable.
 
+To sign in to the admin panel of a manual run, also export `Authentication__Administrator__Email` and `Authentication__Administrator__Password`; the API then creates that administrator at startup.
+
+## Web app
+
+The web app in `apps/web` needs the API for data but not the documentation site. From the repository root:
+
+```bash
+cd apps/web
+pnpm install
+pnpm start
+```
+
+The dev server serves the app at <http://localhost:4200> and proxies `/api` to `http://127.0.0.1:5080` through `proxy.conf.json`, so the browser stays on one origin and the API needs no CORS policy. It listens on `localhost` only, so open `http://localhost:4200` and not `http://127.0.0.1:4200`. `pnpm build` writes the production build to `apps/web/dist/web/browser`, `pnpm lint` runs ESLint and `pnpm typecheck` runs the TypeScript compiler over the app and the specs.
+
 ## Documentation site
 
 The site in `apps/docs` is independent of the API and needs no database. From the repository root:
@@ -62,7 +77,9 @@ cp .env.dev.example .env.dev
 openssl rand -hex 24
 ```
 
-Put the generated value after `POSTGRES_PASSWORD=` in `.env.dev`. Use letters and digits only; Compose treats `$` specially. Repeat with `.env.prod.example` and `.env.prod` for production values, using a different password.
+Put the generated value after `POSTGRES_PASSWORD=` in `.env.dev`. Use letters and digits only; Compose treats `$` specially. Fill `ADMINISTRATOR_EMAIL` and `ADMINISTRATOR_PASSWORD`, and optionally `SEED_GUEST_PASSWORD`. Repeat with `.env.prod.example` and `.env.prod` for production values, using a different password and a `JWT_SIGNING_KEY` from `openssl rand -base64 48`.
+
+Compose strips the quotes around a value, and sourcing the file with `.` does too, but a script that extracts a line with `cut` keeps them. Write values without quotes, or strip them in the reader.
 
 ## Docker Compose
 
@@ -70,12 +87,14 @@ Two variants exist, each with its own project name and therefore its own volumes
 
 | Variant | Command | Notes |
 |---|---|---|
-| Development | `docker compose --env-file .env.dev -f compose.dev.yaml up --build` | Self-contained: database, migrator, API with `dotnet watch` and the seed; PostgreSQL and the API are published on `127.0.0.1` only |
+| Development | `docker compose --env-file .env.dev -f compose.dev.yaml up --build` | Self-contained: database, migrator, API with `dotnet watch`, web, docs and the seed; every port is published on `127.0.0.1` only |
 | Production check | `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml config` | Non-root runtime image; no PostgreSQL host port; nothing is deployed |
 
-`compose.dev.yaml` does not need `compose.yaml`. It declares `db`, `migrator`, `api` and `seed`. The migrator applies the pending migrations once and exits with code 0, and the API starts only after it succeeds. The runtime image never changes the schema by itself. Production keeps using `compose.yaml` with `compose.prod.yaml`.
+`compose.dev.yaml` does not need `compose.yaml`. It declares `db`, `migrator`, `api`, `web`, `docs` and `seed`. The `web` container serves the Angular build with unprivileged nginx and proxies `/api` to the `api` service; the `docs` container serves the static documentation build (ADR-021). The migrator applies the pending migrations once and exits with code 0, and the API starts only after it succeeds. The runtime image never changes the schema by itself. Production keeps using `compose.yaml` with `compose.prod.yaml`.
 
-Development requires `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ASPNETCORE_ENVIRONMENT`, `ADMINISTRATOR_EMAIL` and `ADMINISTRATOR_PASSWORD`; Compose stops with an error when one is missing. `JWT_SIGNING_KEY` stays optional in development, where the API uses an ephemeral key. `SEED_GUEST_PASSWORD` is optional and only used by the seed; when it is empty the seed skips the guest accounts and the ratings. It must follow the account password rules: 8 to 128 characters with at least one letter and one digit. The host ports default to `POSTGRES_HOST_PORT=5433` and `API_HTTP_PORT=5080`.
+Development requires `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `ASPNETCORE_ENVIRONMENT`, `ADMINISTRATOR_EMAIL` and `ADMINISTRATOR_PASSWORD`; Compose stops with an error when one is missing. `JWT_SIGNING_KEY` stays optional in development, where the API uses an ephemeral key. `SEED_GUEST_PASSWORD` is optional and only used by the seed; when it is empty the seed skips the guest accounts and the ratings. It must follow the account password rules: 8 to 128 characters with at least one letter and one digit. The host ports default to `POSTGRES_HOST_PORT=5433`, `API_HTTP_PORT=5080`, `WEB_HTTP_PORT=4200` and `DOCS_HTTP_PORT=4321`, so the web app is at <http://localhost:4200>, the admin login at <http://localhost:4200/admin/login>, the API at <http://localhost:5080> and the docs at <http://localhost:4321>.
+
+Stop the stack with `docker compose --env-file .env.dev -f compose.dev.yaml down`. Add `-v` to also delete the database and image volumes and start from an empty system.
 
 The API service mounts the named volume `hotel-images` at `/var/lib/hotel-images` and receives `Storage__Images__RootPath` pointing there. The volume belongs to the Compose project like the database volume, so removing the project volumes removes the images. The image directory is never part of a source bind mount.
 
@@ -95,7 +114,7 @@ Running it again therefore creates, updates, uploads, rates and changes nothing.
 
 Run it again without rebuilding with `docker compose --env-file .env.dev -f compose.dev.yaml up -d seed`. The seed is for development only and is not part of the production configuration. Its tests run with `python3 -I -m unittest discover -s docker/seed/tests -t docker/seed`.
 
-Build the production image with `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml build`. The production API waits for the database health check and for the migration, and the image directory is owned by the non-root runtime user. Missing secrets stop Compose with an error.
+Build the production images with `docker compose --env-file .env.prod -f compose.yaml -f compose.prod.yaml build`. The production API waits for the database health check and for the migration, and the image directory is owned by the non-root runtime user. The production overlay publishes the API, the web app and the docs on `127.0.0.1` and no PostgreSQL port. Missing secrets stop Compose with an error.
 
 ## Manual execution with PostgreSQL
 
@@ -112,9 +131,9 @@ The connection string is used by the migration tool, by the API composition root
 
 ## Configuration
 
-Implemented: `appsettings.json`, `appsettings.Development.json`, the development launch profile, the environment samples `.env.dev.example` and `.env.prod.example`, the authentication settings described in [Authentication](authentication.md) and the image directory described in [Hotel images](hotel-images.md). The Options Pattern is used for the JWT and the administrator bootstrap. Environment variables override ASP.NET Core configuration, using `__` for nesting (`ConnectionStrings__Hotels`, `Authentication__Jwt__SigningKey`). Secrets never enter Git.
+Implemented: `appsettings.json`, `appsettings.Development.json`, the development launch profile, the environment samples `.env.example`, `.env.dev.example` and `.env.prod.example`, the authentication settings described in [Authentication](authentication.md) and the image directory described in [Hotel images](hotel-images.md). The Options Pattern is used for the JWT and the administrator bootstrap. Environment variables override ASP.NET Core configuration, using `__` for nesting (`ConnectionStrings__Hotels`, `Authentication__Jwt__SigningKey`). Secrets never enter Git.
 
-The environment samples list the database credentials and the ports. The authentication variables are documented in [Authentication](authentication.md): the issuer, the audience, the token lifetime, the signing key and the first administrator. The samples do not carry them, because a file with the shape of a secret is a file that gets copied and shipped. The signing key and the administrator password have no default anywhere in the repository.
+`.env.dev.example` lists the database credentials, the host ports, the administrator pair and the seed guest password. `.env.prod.example` adds `JWT_SIGNING_KEY`. `.env.example` lists every variable the Compose files read, including the JWT issuer, audience and lifetime. Every secret is empty in the samples. The authentication settings are documented in [Authentication](authentication.md). The signing key and the administrator password have no default anywhere in the repository.
 
 ## Migrations
 
@@ -139,7 +158,9 @@ Source the environment and export `ConnectionStrings__Hotels` as shown above bef
 | Backend application services | xUnit unit tests over the authentication use cases with in-memory doubles | Implemented |
 | Backend HTTP and authorization | xUnit over the real server against a real PostgreSQL 17 database (endpoints, tokens, revocation, policies) | Implemented |
 | Backend end-to-end | xUnit over the API started as a separate process and reached over a real socket, against an isolated PostgreSQL 17 database (ADR-014) | Implemented |
-| Frontend | Component, form, service, interceptor, guard and filter tests, plus end-to-end tests for critical flows | Planned |
+| Web unit and component | Vitest over components, forms, services, the interceptor, guards and filters: 704 tests with `pnpm test` from `apps/web` | Implemented |
+| Web end-to-end | Playwright over the public catalogue, the responsive layout and the admin journey: 57 tests with `pnpm e2e` from `apps/web` | Implemented, run locally |
+| Seed | `unittest` over the seed script: 55 tests | Implemented |
 | Instructions | `node .pi/scripts/verify-instructions.mjs` structural check | Implemented |
 
 The image tests create their own images and use unique temporary directories that they delete, so they need no fixture files and never touch the configured image directory. They do not assert exact compressed bytes, which vary across codec versions.
@@ -154,11 +175,59 @@ HOTEL_TEST_CONNECTION='<connection string with Database=hotels_test>' dotnet tes
 
 The end-to-end suite starts the API as a separate process with `dotnet exec` over the built assembly, configured only through environment variables and with `ASPNETCORE_ENVIRONMENT=Production`. The server chooses its own loopback port and the suite reads the address it reports, so no port is reserved before the child binds it. The suite waits for `/health` before the first request, kills the process at the end and drops its database, and a startup that fails releases the process and the database before it reports the error. The inherited environment of the machine cannot alter that configuration, because every variable whose name matches one of the harness variables is removed before the child starts, including the variables written with the `DOTNET_` and the `ASPNETCORE_` prefixes that the host configuration reads. The secrets of the fixture reach the environment of the child process and are never printed, so the output of the process is redacted before it reaches a failure message. See [ADR-014](decisions/adr-014-end-to-end-tests-over-a-real-api-process.md).
 
+At delivery the backend suites hold 163 domain, 117 application, 197 infrastructure, 177 HTTP and 46 end-to-end tests. The domain and application suites need no database.
+
+### Playwright
+
+The Playwright suite in `apps/web/e2e` runs against the seeded development stack, because the public tests expect the 30 seed hotels and the admin tests sign in with the administrator of `.env.dev`. Start the stack with Compose, install the browser once and run the suite from `apps/web`:
+
+```bash
+pnpm exec playwright install chromium
+BASE_URL=http://localhost:4200 E2E_ADMIN_EMAIL="$ADMINISTRATOR_EMAIL" E2E_ADMIN_PASSWORD="$ADMINISTRATOR_PASSWORD" pnpm e2e
+```
+
+| Variable | Meaning |
+|---|---|
+| `BASE_URL` | Address of the web app. Without it Playwright starts `pnpm start --host 127.0.0.1` and uses `http://127.0.0.1:4200`. |
+| `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` | The administrator credentials. The admin tests fail with a clear message when they are missing. |
+
+The projects are `desktop` (1280 by 800), `tablet` (768 by 1024), `mobile-360` and `mobile-390`. The public and responsive tests run on every project and check that no page overflows horizontally; the admin tests run on `desktop` and `mobile-390`. The admin journey creates, edits, hides, rates and deletes its own uniquely named hotel, deleting it even when a step fails, so the seed hotels are not changed. It also registers a uniquely named visitor account, which stays in the database. Playwright is not part of the CI workflow.
+
 The instruction validator checks structure only: required files, frontmatter, sections, links, ADR sections, absence of machine paths, obvious secrets and comment syntax in the script. It cannot prove that an agent followed the rules.
+
+## Test coverage
+
+Coverage is the share of code lines and branches that the tests execute. A branch is one path of a decision, such as the two sides of an `if`. Coverage shows which code no test runs; it does not prove that the tested code is correct. The decision and its alternatives are in [ADR-020](decisions/adr-020-test-coverage.md).
+
+| Side | Command | Report | Status |
+|---|---|---|---|
+| Web | `pnpm test:coverage` from `apps/web` | Summary in the terminal, HTML in `apps/web/coverage/web/index.html`, lcov in `apps/web/coverage/web/lcov.info` | Implemented, with thresholds that fail the run |
+| API domain | `dotnet test apps/api/tests/HotelManagement.Domain.Tests --collect:"XPlat Code Coverage" --results-directory apps/api/TestResults/Domain` | `coverage.cobertura.xml` under `apps/api/TestResults/Domain` | Implemented, measured only |
+| API application | `dotnet test apps/api/tests/HotelManagement.Application.Tests --collect:"XPlat Code Coverage" --results-directory apps/api/TestResults/Application` | `coverage.cobertura.xml` under `apps/api/TestResults/Application` | Implemented, measured only |
+| API Infrastructure, Api and end-to-end suites | Not measured | None | Planned |
+
+`pnpm test` does not collect coverage, so it stays as fast as before. Both report folders are ignored by Git. The web run measures every TypeScript file under `src/app` except spec files, test support helpers, `src/main.ts` and `src/app/app.config.ts`. The Cobertura file of the application suite also lists the domain assembly, because the application references it; read the `HotelManagement.Application` package for the application number.
+
+Measured on 2026-10-26 with 704 web tests, 163 domain tests and 117 application tests:
+
+| Scope | Lines | Branches | Threshold |
+|---|---|---|---|
+| Web, whole app | 98.31% | 94.51% | Lines 95, branches 90, statements 95 (measured 98.17%), functions 94 (measured 97.61%) |
+| Web, `core` | 96.10% | 99.06% | Covered by the global threshold only |
+| Web, `features/admin/data` | 99.31% | 94.77% | Covered by the global threshold only |
+| Web, `features/hotels/data` | 100.00% | 100.00% | Covered by the global threshold only |
+| API, `HotelManagement.Domain` | 99.08% | 99.26% | Not enforced; documented target 95 lines and 90 branches |
+| API, `HotelManagement.Application` | 98.42% | 97.41% | Not enforced; documented target 95 lines and 90 branches |
+
+The Angular builder accepts only global thresholds, so the critical folders have no separate limit. Raise a threshold only after a new measurement, and keep it under the measured value.
 
 ## Build and deployment
 
-Implemented and verified: building with `dotnet build apps/api/HotelManagement.slnx`; the multi-stage API image builds, runs as a non-root user and serves `/health`; development Compose starts PostgreSQL and the API successfully. The runtime image was also exercised on `linux-arm64` with a fresh volume: the non-root user wrote, replaced and deleted images, and an image survived a restart. `linux-x64` is bundled by the package but was not exercised here. `dotnet publish` and the runtime image include `ThirdPartyNotices` next to the API with the unmodified third-party notices of Magick.NET. Deployment and the deployment target remain Planned.
+Implemented and verified: building with `dotnet build apps/api/HotelManagement.slnx`; the multi-stage API image builds, runs as a non-root user and serves `/health`; development Compose starts the whole stack. The web and docs images build with Node 26.12.1 and run on `nginxinc/nginx-unprivileged:1.30.6-alpine3.24` as user 101 on port 8080, each with its own `Dockerfile.dockerignore` (ADR-021). The runtime image was also exercised on `linux-arm64` with a fresh volume: the non-root user wrote, replaced and deleted images, and an image survived a restart. `linux-x64` is bundled by the package but was not exercised here. `dotnet publish` and the runtime image include `ThirdPartyNotices` next to the API with the unmodified third-party notices of Magick.NET. Deployment and the deployment target are not decided; see [Production considerations](production-considerations.md).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request with read-only permissions and four jobs: `web` (`pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck`, `pnpm test:coverage`, `pnpm build`), `docs` (`pnpm run check`, `pnpm run build`), `api` (Release build, `dotnet format --verify-no-changes` and every backend suite against a PostgreSQL 17 service through `HOTEL_TEST_CONNECTION`) and `images` (builds the web, docs and API Dockerfiles). It does not run Playwright, publish images or deploy. Status: written, not yet run on GitHub, because the repository has no remote yet (ADR-021).
 
 ## Working method
 

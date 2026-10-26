@@ -1,6 +1,7 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import { workspaceLinks } from "./src/data/architecture";
+import markdownLinks from "./src/plugins/markdown-links.mjs";
 
 const decisionsLink = "/decisions/";
 
@@ -13,6 +14,7 @@ const documentationItems = workspaceLinks.map(({ label, href }) =>
 export default defineConfig({
 	site: process.env.SITE_URL ?? "https://hotels.example.com",
 	integrations: [
+		markdownLinks(),
 		starlight({
 			title: "Hotel Management System",
 			favicon: "/brand-mark.svg",

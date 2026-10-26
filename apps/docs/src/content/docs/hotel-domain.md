@@ -5,7 +5,7 @@ description: Fields, limits and validation rules enforced by the hotel domain mo
 
 ## Status
 
-Implemented in `HotelManagement.Domain` as pure domain rules with unit tests. HTTP validation, request contracts, database column sizes and constraints are Planned and not implemented. Hotel ratings are covered by [ADR-010](/decisions/adr-010-hotel-scores/).
+Implemented in `HotelManagement.Domain` as pure domain rules with unit tests. The HTTP contract that applies them is in [Hotel API](/hotel-api/), and the database adds its own column sizes and checks as a second guard (ADR-011). Hotel ratings are covered by [ADR-010](/decisions/adr-010-hotel-scores/), the optional nightly price and discount by [ADR-018](/decisions/adr-018-nightly-price-and-discount/) and the image positions by [ADR-017](/decisions/adr-017-up-to-three-images-per-hotel/).
 
 ## Fields
 

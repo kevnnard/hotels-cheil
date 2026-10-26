@@ -5,7 +5,7 @@ description: Decision to authenticate with ASP.NET Core Identity, short-lived si
 
 ## Status
 
-Implemented and tested: 70 HTTP tests run against a real PostgreSQL 17 database through the in-process server, covering registration, sign in, the signed-in account, logout revocation, expired tokens, foreign signatures, foreign audiences, foreign issuers, unknown sessions, sessions owned by another account, concurrent registrations, role assignment, the administrator bootstrap, the four hotel policies and the hotel endpoints. Application, persistence and domain suites add 178 passing tests. The API refuses to start without the signing key outside development, and the production Compose overlay additionally requires the administrator credentials.
+Implemented and tested: 70 HTTP tests run against a real PostgreSQL 17 database through the in-process server, covering registration, sign in, the signed-in account, logout revocation, expired tokens, foreign signatures, foreign audiences, foreign issuers, unknown sessions, sessions owned by another account, concurrent registrations, role assignment, the administrator bootstrap, the four hotel policies and the hotel endpoints. Application, persistence and domain suites added 178 passing tests at the time of the decision. At delivery the suites hold 163 domain, 117 application, 197 infrastructure, 177 HTTP and 46 end-to-end tests. The API refuses to start without the signing key outside development, and the production Compose overlay additionally requires the administrator credentials.
 
 ## Problem
 

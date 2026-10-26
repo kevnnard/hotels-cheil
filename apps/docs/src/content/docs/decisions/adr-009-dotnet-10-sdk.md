@@ -5,7 +5,7 @@ description: Decision to build the API on .NET 10 and pin the SDK used for local
 
 ## Status
 
-Implemented for the API skeleton only. Docker images are Planned and will follow the same major version.
+Implemented for the API. The API Dockerfile builds with `mcr.microsoft.com/dotnet/sdk:10.0.402` and runs on `mcr.microsoft.com/dotnet/aspnet:10.0`, and the CI workflow reads the SDK from `apps/api/global.json`.
 
 ## Problem
 
@@ -37,8 +37,8 @@ A supported long-term support release avoids near-term end of support. The pin m
 
 ## Consequences
 
-EF Core, Npgsql, test framework and image library versions are still pending decisions. Frontend, database and tooling versions are not covered by this record.
+EF Core and Npgsql are recorded in ADR-011 and the image library in ADR-015. Frontend, database and tooling versions are not covered by this record.
 
 ## Future improvements
 
-Align Docker base images with the pinned SDK and record the EF Core and Npgsql versions in their own records.
+Move the SDK pin and the Dockerfile `SDK_VERSION` together when the feature band changes.

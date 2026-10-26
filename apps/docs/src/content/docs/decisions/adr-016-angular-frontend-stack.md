@@ -5,7 +5,7 @@ description: Decision to build apps/web on Angular 22.2.3 with TypeScript 6.0.3,
 
 ## Status
 
-Foundation Implemented and tested: pinned toolchain, routing skeleton, navigation guards and an authentication state service. Catalogue, administrative screens, the HTTP layer, login against the API and end-to-end flows are Planned. TypeScript 7 is Considered and not used.
+Implemented and tested: the pinned toolchain, the public landing, catalogue and hotel detail, the visitor account pages, the admin login and hotel administration, the HTTP layer, the guards and the authentication state. 704 unit and component tests run with Vitest, and 57 Playwright tests cover the public catalogue, the responsive layout and the admin journey. TypeScript 7 is Considered and not used.
 
 ## Problem
 
@@ -48,9 +48,10 @@ Decided by the project owner on 2026-10-25: TypeScript 6.0.3 exact, TypeScript 7
 | `rxjs`, `tslib` | 7.8.2, 2.8.1 | Published. Satisfy the Angular and `@angular/build` peers. | Implemented |
 | `tailwindcss`, `@tailwindcss/postcss` | 4.3.3 | Published, same version. Accepted by the `@angular/build` peer. | Implemented |
 | `postcss` | 8.5.31 | Published. Satisfies `@angular/build` peer. | Implemented |
-| `vitest` | 5.0.5 | Published. Node engine `^22.12 \|\| ^24 \|\| >=26` met by Node 26.12.1. Optional peers (browser, UI, coverage providers) are not installed. | Implemented |
+| `vitest` | 5.0.5 | Published. Node engine `^22.12 \|\| ^24 \|\| >=26` met by Node 26.12.1. Optional peers for the browser mode and the UI are not installed. The coverage provider `@vitest/coverage-v8` 5.0.5 is installed, see ADR-020. | Implemented |
+| `@vitest/coverage-v8` | 5.0.5 | Same version as Vitest, added for coverage measurement in ADR-020. | Implemented |
 | `jsdom` | 30.1.3 | Published. Node engine met. Optional peer `canvas` is not installed. | Implemented |
-| `@playwright/test` | 1.64.1 | Published. Configured in `playwright.config.ts`; no flows written yet. | Configured, flows Planned |
+| `@playwright/test` | 1.64.1 | Published. Configured in `playwright.config.ts` with the flows in `apps/web/e2e`. | Implemented |
 | `eslint` | 10.13.0 | Published. Node engine met. | Implemented |
 | `angular-eslint` | 22.6.0 | Published. Peers `eslint ^9 \|\| ^10` satisfied, `typescript *` satisfied, `typescript-eslint ^8.0.0` satisfied by 8.72.0. | Implemented |
 | `typescript-eslint` | 8.72.0 | Published, latest. Peer `typescript >=4.8.4 <6.1.0` accepts 6.0.3. Added because `angular-eslint` needs it and it is the only listed linter peer. | Implemented |
@@ -64,16 +65,16 @@ Other decisions:
 
 | Topic | Decision | Status |
 |---|---|---|
-| Structure | `src/app/core`, `shared`, `layouts`, `features`, standalone components, Signals, Reactive Forms, Angular Router, HttpClient, strict TypeScript and strict templates. | Implemented for core, layouts and features skeleton; `shared` and HttpClient Planned |
-| Routing | Public routes under `/` in a public layout. Administrative routes under `/admin`: `/admin/login` and a protected area. Lazy loading per feature. Unknown addresses go to `/`. | Implemented with placeholder pages |
+| Structure | `src/app/core`, `shared`, `layouts`, `features`, standalone components, Signals, Reactive Forms, Angular Router, HttpClient, strict TypeScript and strict templates. | Implemented |
+| Routing | Public routes under `/` in a public layout: the landing and catalogue, `/hotels/:id` and the visitor pages under `/account`. Administrative routes under `/admin`: `/admin/login` and a protected area with `/admin/hotels/new` and `/admin/hotels/:id/edit`. Lazy loading per feature. Unknown addresses go to `/`. | Implemented |
 | Guards | `authenticatedGuard`, `administratorGuard` and `guestGuard` read an `AuthState` Signals service in `core`. They only steer navigation and never call the server. Backend policies (ADR-004, ADR-012) remain the security boundary. | Implemented |
-| Authentication transport and token storage | Not decided. | Pending |
+| Authentication transport and token storage | Bearer token kept in `sessionStorage`, see ADR-019. | Implemented |
 | Development API access | Angular dev-server proxy `proxy.conf.json` sends `/api` to `http://127.0.0.1:5080`, so the API needs no CORS change. | Implemented |
-| Production routing between web and API | Not decided. | Pending |
+| Production routing between web and API | The nginx container of the web app proxies `/api` to the API on the same origin, see ADR-021. | Implemented |
 | Styling | Tailwind CSS 4 through `@tailwindcss/postcss`, with Plus Jakarta Sans as the sans font and Playfair Display as the serif font, see the Fonts section. | Implemented |
 | Unit and component tests | Vitest through the `@angular/build:unit-test` builder, jsdom environment. | Implemented |
-| End-to-end tests | Playwright with a Chromium project and an Angular dev-server web server. | Configured, flows Planned |
-| Node | Angular engines accept `^22.22.3 \|\| ^24.15.0 \|\| >=26`. Verified locally with 26.12.1. The Node version is not pinned in the repository yet. | Pending |
+| End-to-end tests | Playwright with Chromium projects at 1280, 768, 390 and 360 px, run against the seeded stack through `BASE_URL`, or against a dev server it starts itself. | Implemented, run locally |
+| Node | Angular engines accept `^22.22.3 \|\| ^24.15.0 \|\| >=26`. Node 26.12.1 is pinned in the web and docs Dockerfiles (`node:26.12.1-alpine3.24`) and in the CI workflow; there is no `.nvmrc` or `engines` field. | Implemented |
 
 ## Justification
 
@@ -95,12 +96,10 @@ Angular 22.2.3 is the latest release requested by the owner and its supported Ty
 
 ## Consequences
 
-Upgrading TypeScript requires a new Angular release whose peer range includes it, then a new record. Authentication storage, the HTTP layer, production routing and the Node pin are still decisions to take before the features that depend on them. `playwright.config.ts` is outside the application TypeScript projects and is not type-checked by `tsc`; Playwright transpiles it when it runs.
+Upgrading TypeScript requires a new Angular release whose peer range includes it, then a new record. Authentication storage is recorded in ADR-019 and production routing and the container build in ADR-021. `playwright.config.ts` is outside the application TypeScript projects and is not type-checked by `tsc`; Playwright transpiles it when it runs.
 
 ## Future improvements
 
 - Revisit TypeScript 7 when an Angular release accepts it.
-- Record the authentication token transport and storage with the login phase.
-- Record production routing for web and API, and add a multi-stage Dockerfile under its own task.
-- Pin the Node version used by the project.
-- Write end-to-end flows for login and the catalogue.
+- Pin Node for local runs too, for example with an `engines` field.
+- Run the Playwright flows in CI (ADR-021).

@@ -5,7 +5,7 @@ description: Decision to use Signals and HttpClient instead of TanStack Query or
 
 ## Status
 
-Planned.
+Implemented. The web app uses Signals, HttpClient, Reactive Forms and the Angular Router; TanStack Query, NgRx and Angular Material are not installed.
 
 ## Problem
 
@@ -45,4 +45,4 @@ Reconsider if caching and synchronization become complex.
 
 ## Considerations
 
-No browser client exists yet, so the architecture canvas models only the implemented API, its layers, PostgreSQL and Docker. A browser client, and with it a public read-only catalog, would be decided when the work starts. Every current hotel route requires a valid token, so anonymous reads would need a deliberate change to the authorization policies and an update to the API contract. Reconsider this ADR and add the client to the canvas only when that client is built. This is a consideration, not a commitment.
+The browser client now exists and the architecture canvas models its routes, services, interceptor and guards. The anonymous catalog was added as separate read-only routes under `/api/public/hotels`, so the authorization policies of the administrative routes did not change. Reconsider a query library only if caching and synchronization across screens become complex. This is a consideration, not a commitment.

@@ -5,7 +5,7 @@ description: Decision to give each hotel an optional nightly price and an option
 
 ## Status
 
-Implemented and tested in the API and the development seed. The Angular screens that show the price and use the price filter are Planned.
+Implemented and tested in the API, the development seed and the Angular app: the catalogue cards and the detail page show the nightly and discounted prices, the public and admin filters send `maxPrice`, and the admin form edits the price and the discount.
 
 ## Problem
 
@@ -61,7 +61,7 @@ The catalogue shows hotels without any price, and its filter panel already has a
 
 ## Consequences
 
-The development seed gives every seeded hotel a price and a third of them a discount, and prices the hotels it seeded before this change when their pricing is `null`. An API built from this change cannot read a database without the new columns, so apply the migration before or together with the API. The Angular client must be updated to show the price and to send `maxPrice` from its slider.
+The development seed gives every seeded hotel a price and a third of them a discount, and prices the hotels it seeded before this change when their pricing is `null`. An API built from this change cannot read a database without the new columns, so apply the migration before or together with the API. The Angular client shows the price and sends `maxPrice` from its filters.
 
 ## Future improvements
 

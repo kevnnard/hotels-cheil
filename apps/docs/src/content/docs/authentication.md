@@ -52,6 +52,7 @@ An account without the role can still sign in, but every write returns `403`.
 | Policy | `Administrator` | `User` |
 |---|---|---|
 | `hotels.read` | Allowed | Allowed |
+| `hotels.rate` | Allowed | Allowed |
 | `hotels.create` | Allowed | Forbidden |
 | `hotels.update` | Allowed | Forbidden |
 | `hotels.delete` | Allowed | Forbidden |
@@ -70,3 +71,7 @@ Status: Implemented in `apps/web`.
 Both pages live in the public layout, are open only to visitors without a session and return to a validated `returnUrl` that must be an internal path, or to `/`. A signed-in visitor sees the email in the public header with a menu to sign out, and an administrator also sees a link to `/admin`.
 
 The API stays the authority: registration always grants the `User` role, and a `User` can rate hotels but every hotel write still answers `403`. In the web app a `401` inside `/admin` returns to the admin login, while a `401` anywhere else only clears the session and leaves the visitor on the page.
+
+## Not implemented
+
+Login rate limiting and lockout, token refresh, httpOnly cookie sessions, email verification and password reset are not implemented. The reasons and what each would involve are in [Production considerations](production-considerations.md).

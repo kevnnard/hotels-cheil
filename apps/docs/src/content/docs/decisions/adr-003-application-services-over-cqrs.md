@@ -5,7 +5,7 @@ description: Decision to use traditional application services and no MediatR ini
 
 ## Status
 
-Planned.
+Implemented. The authentication, hotel and hotel image use cases are application services in `HotelManagement.Application`; MediatR and CQRS are not used.
 
 ## Problem
 

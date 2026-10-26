@@ -77,6 +77,7 @@ export const workspaceLinks: WorkspaceLink[] = [
 	{ label: "Hotel images", href: "/hotel-images/", description: "Up to three strict lossless images per hotel and their limits" },
 	{ label: "Hotel domain", href: "/hotel-domain/", description: "Rules of hotels and ratings" },
 	{ label: "Development", href: "/development/", description: "Run, build and test" },
+	{ label: "Production considerations", href: "/production-considerations/", description: "What a deployment needs beyond this exercise" },
 	{ label: "Agents", href: "/agents/", description: "How instructions and skills are loaded" },
 	{ label: "Decisions (ADRs)", href: "/decisions/", description: "Why the system is built this way" },
 ];
@@ -172,11 +173,13 @@ export const layers: LayerDescriptor[] = [
 	{
 		id: "delivery",
 		title: "Delivery",
-		responsibility: "Runs the API and the database with the same definition in every environment, and holds the Angular client: the public catalog and the guarded administration area.",
+		responsibility: "Runs the database, the migrator, the API, the web app and the docs with the same definition in every environment, checks every application in CI, and holds the Angular client: the public catalog and the guarded administration area.",
 		accent: "violet",
-		badges: ["Docker Compose", "Angular"],
+		badges: ["Docker Compose", "nginx", "Angular", "GitHub Actions"],
 		docs: [
 			{ label: "Development", href: "/development/" },
+			{ label: "Production considerations", href: "/production-considerations/" },
+			{ label: "ADR-021 Delivery with Compose and CI", href: "/decisions/adr-021-delivery-compose-and-ci/" },
 			{ label: "ADR-016 Angular frontend stack", href: "/decisions/adr-016-angular-frontend-stack/" },
 			{ label: "ADR-019 Admin session storage", href: "/decisions/adr-019-admin-session-storage/" },
 			{ label: "ADR-005 Docker Compose and manual execution", href: "/decisions/adr-005-docker-compose-and-manual-execution/" },
@@ -192,18 +195,42 @@ export const nodes: ArchitectureNode[] = [
 		layer: "delivery",
 		status: "implemented",
 		summary:
-			"Starts the API and PostgreSQL 17 from one definition, with a development overlay and a production overlay.",
+			"Starts db, migrator, api, web and docs from one definition, plus the one-shot seed in development, with a self-contained development file and a production overlay.",
 		responsibilities: [
 			"Builds the API image and runs it as a non-root user.",
 			"Mounts a persistent volume for the hotel images, writable by that user.",
 			"Applies the migrations with a one-shot migrator before the API starts.",
+			"Serves the Angular build from an unprivileged nginx container that proxies /api to the API, so the browser stays on one origin.",
+			"Serves the static documentation build from a second unprivileged nginx container.",
+			"Runs the development seed once, which loads 30 hotels through the public HTTP API.",
 			"Keeps the PostgreSQL port unpublished in production.",
 		],
 		expectations: [
-			"Development binds the database to loopback; production publishes only the API.",
+			"Every published port is bound to 127.0.0.1: the API on 5080, the web app on 4200 and the docs on 4321 in development, and the database on 5433 in development only.",
 			"Secrets arrive from the environment; no credential is written in the repository.",
+			"HTTPS, security headers and backups are not provided; see Production considerations.",
 		],
 		data: "Volumes (database and hotel images) and environment variables only. It stores no domain state.",
+	},
+	{
+		id: "ci-workflow",
+		label: "CI workflow",
+		kind: "GitHub Actions",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"Written in .github/workflows/ci.yml and not yet run on GitHub, because the repository has no remote. It checks every application on each push and pull request.",
+		responsibilities: [
+			"Lints, type-checks, tests with the coverage thresholds and builds the web app.",
+			"Checks and builds the documentation site.",
+			"Builds the API, verifies its formatting and runs every backend suite against a PostgreSQL 17 service.",
+			"Builds the web, docs and API Dockerfiles.",
+		],
+		expectations: [
+			"Read-only repository permissions; nothing is published or deployed.",
+			"Playwright is not run in CI; it needs the seeded stack and the administrator credentials and runs locally.",
+		],
+		data: "No state. The test database is a disposable service container.",
 	},
 	{
 		id: "composition-root",
@@ -1209,6 +1236,7 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "bootstrap", to: "db-context", label: "EF Core", protocol: "in-process" },
 	{ from: "file-storage", to: "image-volume", label: "reads and writes files", protocol: "in-process" },
 	{ from: "compose", to: "image-volume", label: "mounts the volume", protocol: "container" },
+	{ from: "compose", to: "public-web-routes", label: "serves the web build through nginx with the /api proxy", protocol: "container" },
 	{ from: "db-context", to: "postgres", label: "SQL over Npgsql", protocol: "sql" },
 ];
 

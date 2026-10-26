@@ -5,7 +5,7 @@ description: Decision to use PostgreSQL through Npgsql.
 
 ## Status
 
-PostgreSQL 17 is the selected major (community support until November 2029). EF Core 10.0.13 with Npgsql provider 10.0.3 is used for persistence ([ADR-011](adr-011-postgresql-persistence.md)); covered by PostgreSQL integration tests. API wiring is Planned.
+PostgreSQL 17 is the selected major (community support until November 2029). EF Core 10.0.13 with Npgsql provider 10.0.3 is used for persistence ([ADR-011](adr-011-postgresql-persistence.md)); covered by PostgreSQL integration tests. Implemented: the API, the migrator, the backend test suites and the Compose stacks all use PostgreSQL 17.
 
 ## Problem
 

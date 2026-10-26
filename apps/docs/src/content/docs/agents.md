@@ -38,11 +38,13 @@ No extension was added. Discovery and read receipts cover the need, and this doe
 
 The installed gentle-pi package defines ODD as Organic Driven Development and states there is no ODD CLI or harness. This repository adds none. The definition is verifiable, so no owner clarification is required. The workflow is in `AGENTS.md`: contained work needs no tracking, substantial or resumable work is tracked before the first write, the parent owns continuity and delegation, documentation-only changes use structural checks instead of a simulated RED, and the docs grant no permission to commit or publish.
 
-## Pending decisions
+## Resolved decisions
 
-- Versions: Angular, Node, Tailwind, Starlight. .NET is decided in ADR-009.
-- Allowed image formats, input limits, maximum dimensions, and the unit of 400 KB.
-- Filter semantics.
-- Authentication transport.
-- Image processing library after license review.
-- Test runners and the end-to-end tool.
+The decisions that were pending when the instructions were written are now recorded:
+
+- Versions: .NET in ADR-009, Angular, TypeScript, Tailwind, Vitest and Playwright in ADR-016, Node in ADR-016 and ADR-021, Astro and Starlight in `apps/docs/package.json`.
+- Image formats, input limits, maximum dimensions and the unit of 400 KB (400,000 bytes): ADR-015 and ADR-017.
+- Filter semantics: ADR-013 and ADR-018.
+- Authentication transport: ADR-012, with the browser storage in ADR-019.
+- Image processing library: ADR-015. Whether LGPL and MPL redistribution needs more than the shipped notices is still open there.
+- Test runners and the end-to-end tool: xUnit for the API, Vitest and Playwright for the web app (ADR-014, ADR-016).
