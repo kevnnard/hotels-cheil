@@ -671,13 +671,22 @@ class SeedDataTests(unittest.TestCase):
                     continue
                 self.assertTrue(0 < len(hotel[key]) <= limit, key)
 
+    def test_every_active_hotel_has_a_photo(self):
+        hotels = load_data_file()
+
+        without = [hotel["name"] for hotel in hotels if hotel.get("isActive") is not False and "image" not in hotel]
+
+        self.assertEqual([], without)
+
     def test_every_referenced_image_exists_within_the_upload_size_range(self):
         images = Path(seed_hotels.__file__).with_name("images")
         hotels = load_data_file()
 
         referenced = [name for hotel in hotels for name in [hotel.get("image")] + hotel.get("images", []) if name is not None]
         self.assertGreaterEqual(len([hotel for hotel in hotels if "image" in hotel]), 9)
-        self.assertEqual(len(referenced), len(set(referenced)))
+        for hotel in hotels:
+            own = [name for name in [hotel.get("image")] + hotel.get("images", []) if name is not None]
+            self.assertEqual(len(own), len(set(own)), hotel["name"])
         for name in referenced:
             path = images.joinpath(name)
             self.assertTrue(path.is_file(), name)

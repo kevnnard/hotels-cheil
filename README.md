@@ -50,7 +50,7 @@ docker compose --env-file .env.dev -f compose.dev.yaml up --build
 > **What this does:**
 > 1. Starts `db` (PostgreSQL 17) and `migrator`, which applies the EF Core migrations once and exits.
 > 2. Starts `api` with `dotnet watch`, `web` (Angular build on nginx, proxying `/api`) and `docs`.
-> 3. Runs `seed` once: 30 sample hotels (27 public, 3 inactive), 24 with photos, and, with `SEED_GUEST_PASSWORD`, 6 guest accounts rating 20 hotels.
+> 3. Runs `seed` once: 30 sample hotels (27 public, 3 inactive), 27 with photos, and, with `SEED_GUEST_PASSWORD`, 6 guest accounts rating 20 hotels.
 > 4. Binds every port to `127.0.0.1` only.
 
 | Service | URL | Port variable |
@@ -444,7 +444,7 @@ None of these is implemented; reasons and scope are in [Production consideration
 ## 🚧 Known Limitations
 
 - The admin directory has no filter by active state.
-- Six seed hotels have no photo: three visible and three inactive.
+- Three seed hotels have no photo: the three inactive ones. Three visible hotels reuse the photo of a similar hotel (Banff, Chiang Mai and Edinburgh) because image generation ran out of quota.
 - No email verification or password reset.
 - No real booking: the reservation card is a demo and sends nothing.
 - The quote, suites, amenities and manager sections of the detail page are static sample content.

@@ -475,7 +475,8 @@
       2,
       2,
       3
-    ]
+    ],
+    "image": "aurea-bali-rice-villa.jpg"
   },
   {
     "name": "Aurea Arenal Cloud Forest",
@@ -523,7 +524,8 @@
       3,
       4,
       4
-    ]
+    ],
+    "image": "aurea-harbour-house.jpg"
   },
   {
     "name": "Aurea Banff Mountain Lodge",
@@ -536,6 +538,7 @@
     "phone": "+1 555 0030",
     "email": "stay.banff@example.test",
     "website": "https://www.example.com/aurea-banff",
-    "pricePerNight": 485
+    "pricePerNight": 485,
+    "image": "aurea-lake-retreat.jpg"
   }
 ]

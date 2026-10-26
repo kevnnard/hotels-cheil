@@ -90,7 +90,7 @@ Status: Considered.
 These are product gaps, not infrastructure, and they are known at delivery:
 
 - The admin directory has no filter by active or inactive state; inactive hotels are listed with the others.
-- Six seed hotels have no photo: three visible and three inactive.
+- Three seed hotels have no photo: the three inactive ones. Three visible hotels reuse the photo of a similar hotel (Banff, Chiang Mai and Edinburgh) because image generation ran out of quota.
 - There is no email verification and no password reset.
 - There is no real booking. The reservation card computes an estimate and sends nothing.
 - The quote, suites, amenities and manager sections of the hotel detail page are static sample content.
