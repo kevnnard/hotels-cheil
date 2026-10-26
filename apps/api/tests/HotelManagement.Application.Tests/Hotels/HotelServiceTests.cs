@@ -252,6 +252,25 @@ public class HotelServiceTests
     }
 
     [Fact]
+    public async Task Timestamps_keep_the_microsecond_precision_that_the_database_stores()
+    {
+        var precise = new DateTime(2026, 10, 23, 12, 0, 0, DateTimeKind.Utc).AddTicks(1234567);
+        var stored = new DateTime(2026, 10, 23, 12, 0, 0, DateTimeKind.Utc).AddTicks(1234560);
+        var service = new HotelService(hotels, ratings, storage, new FixedTimeProvider(precise));
+        var existing = SeedHotel();
+
+        var created = await service.CreateAsync(new CreateHotel(ValidInput()), CancellationToken.None);
+        var updated = await service.UpdateAsync(existing.Id, new UpdateHotel(ValidInput("Renamed")), CancellationToken.None);
+        var switched = await service.SetActiveAsync(existing.Id, false, CancellationToken.None);
+
+        Assert.Equal(CreateHotelStatus.Created, created.Status);
+        Assert.Equal(stored, Assert.Single(hotels.Added).UpdatedAtUtc);
+        Assert.Equal(stored, updated.Hotel!.UpdatedAtUtc);
+        Assert.Equal(stored, switched!.UpdatedAtUtc);
+        Assert.Equal(stored, Assert.Single(hotels.ActiveStateChanges).NowUtc);
+    }
+
+    [Fact]
     public async Task SetActive_true_reactivates_an_inactive_hotel()
     {
         var hotel = SeedHotel();

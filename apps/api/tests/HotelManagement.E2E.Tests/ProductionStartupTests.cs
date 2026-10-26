@@ -90,11 +90,13 @@ public sealed class ProductionStartupTests(HotelApiServerFixture server)
     private string[] StartupSecrets()
     {
         var full = server.StartupSettings();
-        return
-        [
-            full[SigningKeySetting],
-            full[AdministratorPasswordSetting],
-            SecretRedactor.PasswordOf(full["ConnectionStrings__Hotels"])
-        ];
+        return new[]
+            {
+                full[SigningKeySetting],
+                full[AdministratorPasswordSetting],
+                SecretRedactor.PasswordOf(full["ConnectionStrings__Hotels"])
+            }
+            .Where(secret => !string.IsNullOrEmpty(secret))
+            .ToArray();
     }
 }

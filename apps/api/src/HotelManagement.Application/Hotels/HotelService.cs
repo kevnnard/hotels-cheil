@@ -8,6 +8,8 @@ namespace HotelManagement.Application.Hotels;
 
 public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings, IFileStorageService storage, TimeProvider clock) : IHotelService
 {
+    private const long TicksPerMicrosecond = TimeSpan.TicksPerMillisecond / 1000;
+
     public async Task<CreateHotelOutcome> CreateAsync(CreateHotel command, CancellationToken cancellationToken)
     {
         if (!TryBuildDetails(command.Details, out var details, out var invalidField, out var message))
@@ -15,7 +17,7 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
             return CreateHotelOutcome.InvalidInput(invalidField, message);
         }
 
-        var hotel = Hotel.Create(details, clock.GetUtcNow().UtcDateTime);
+        var hotel = Hotel.Create(details, StoredNow());
         await hotels.AddAsync(hotel, cancellationToken);
         return CreateHotelOutcome.Created(hotel.Id);
     }
@@ -56,7 +58,7 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
             return UpdateHotelOutcome.InvalidInput(invalidField, message);
         }
 
-        hotel.Update(details, clock.GetUtcNow().UtcDateTime);
+        hotel.Update(details, StoredNow());
         if (!await hotels.UpdateAsync(hotel, cancellationToken))
         {
             return UpdateHotelOutcome.NotFound();
@@ -75,7 +77,7 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
 
         if (hotel.IsActive != isActive)
         {
-            hotel.SetActive(isActive, clock.GetUtcNow().UtcDateTime);
+            hotel.SetActive(isActive, StoredNow());
             if (!await hotels.SetActiveAsync(hotel.Id, hotel.IsActive, hotel.UpdatedAtUtc, cancellationToken))
             {
                 return null;
@@ -219,5 +221,11 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
             message = exception.Message;
             return false;
         }
+    }
+
+    private DateTime StoredNow()
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        return now.AddTicks(-(now.Ticks % TicksPerMicrosecond));
     }
 }
