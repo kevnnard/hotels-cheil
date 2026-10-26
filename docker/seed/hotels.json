@@ -12,7 +12,14 @@
     "website": "https://lima.aurea.example.com",
     "pricePerNight": 240,
     "discountPercent": 15,
-    "image": "aurea-palace-lima.jpg"
+    "image": "aurea-palace-lima.jpg",
+    "ratings": [
+      5,
+      5,
+      4,
+      5,
+      5
+    ]
   },
   {
     "name": "Aurea Sacred Valley Lodge",
@@ -26,7 +33,13 @@
     "email": "stay.valley@example.test",
     "website": "https://valley.aurea.example.com",
     "pricePerNight": 310,
-    "image": "aurea-sacred-valley-lodge.jpg"
+    "image": "aurea-sacred-valley-lodge.jpg",
+    "ratings": [
+      5,
+      4,
+      5,
+      4
+    ]
   },
   {
     "name": "Aurea Harbour House",
@@ -40,7 +53,12 @@
     "email": "stay.harbour@example.test",
     "website": "https://harbour.aurea.example.com",
     "pricePerNight": 185.5,
-    "image": "aurea-harbour-house.jpg"
+    "image": "aurea-harbour-house.jpg",
+    "ratings": [
+      4,
+      3,
+      4
+    ]
   },
   {
     "name": "Aurea Lake Retreat",
@@ -55,7 +73,15 @@
     "website": "https://lake.aurea.example.com",
     "pricePerNight": 220,
     "discountPercent": 10,
-    "image": "aurea-lake-retreat.jpg"
+    "image": "aurea-lake-retreat.jpg",
+    "ratings": [
+      5,
+      5,
+      5,
+      4,
+      5,
+      5
+    ]
   },
   {
     "name": "Aurea Amalfi Terrace",
@@ -68,7 +94,12 @@
     "phone": "+39 555 0005",
     "email": "stay.positano@example.test",
     "website": "https://www.example.com/aurea-positano",
-    "pricePerNight": 680
+    "pricePerNight": 680,
+    "ratings": [
+      5,
+      5
+    ],
+    "image": "aurea-amalfi-terrace.jpg"
   },
   {
     "name": "Aurea Kyoto Garden House",
@@ -82,7 +113,15 @@
     "email": "stay.kyoto@example.test",
     "website": "https://www.example.com/aurea-kyoto",
     "pricePerNight": 420,
-    "discountPercent": 20
+    "discountPercent": 20,
+    "image": "aurea-kyoto-garden-house.jpg",
+    "ratings": [
+      4,
+      5,
+      4,
+      4,
+      5
+    ]
   },
   {
     "name": "Aurea Marrakech Riad",
@@ -95,7 +134,8 @@
     "phone": "+212 555 0007",
     "email": "stay.marrakech@example.test",
     "website": "https://www.example.com/aurea-marrakech",
-    "pricePerNight": 175
+    "pricePerNight": 175,
+    "image": "aurea-marrakech-riad.jpg"
   },
   {
     "name": "Aurea Santorini Caldera",
@@ -109,7 +149,13 @@
     "email": "stay.oia@example.test",
     "website": "https://www.example.com/aurea-oia",
     "pricePerNight": 890,
-    "discountPercent": 25
+    "discountPercent": 25,
+    "ratings": [
+      3,
+      4,
+      2
+    ],
+    "image": "aurea-santorini-caldera.jpg"
   },
   {
     "name": "Aurea Alpine Chalet",
@@ -122,7 +168,12 @@
     "phone": "+41 555 0009",
     "email": "stay.zermatt@example.test",
     "website": "https://www.example.com/aurea-zermatt",
-    "pricePerNight": 950
+    "pricePerNight": 950,
+    "image": "aurea-alpine-chalet.jpg",
+    "ratings": [
+      5,
+      4
+    ]
   },
   {
     "name": "Aurea Lisbon Palace",
@@ -135,7 +186,14 @@
     "phone": "+351 555 0010",
     "email": "stay.lisbon@example.test",
     "website": "https://www.example.com/aurea-lisbon",
-    "pricePerNight": 260
+    "pricePerNight": 260,
+    "ratings": [
+      3,
+      3,
+      4,
+      2
+    ],
+    "image": "aurea-lisbon-palace.jpg"
   },
   {
     "name": "Aurea Bali Rice Villa",
@@ -149,7 +207,13 @@
     "email": "stay.ubud@example.test",
     "website": "https://www.example.com/aurea-ubud",
     "pricePerNight": 210,
-    "discountPercent": 30
+    "discountPercent": 30,
+    "image": "aurea-bali-rice-villa.jpg",
+    "ratings": [
+      4,
+      4,
+      5
+    ]
   },
   {
     "name": "Aurea Cape Winelands",
@@ -162,7 +226,13 @@
     "phone": "+27 555 0012",
     "email": "stay.stellenbosch@example.test",
     "website": "https://www.example.com/aurea-stellenbosch",
-    "pricePerNight": 295
+    "pricePerNight": 295,
+    "ratings": [
+      2,
+      3,
+      3
+    ],
+    "image": "aurea-cape-winelands.jpg"
   },
   {
     "name": "Aurea Dolomites Refuge",
@@ -175,7 +245,8 @@
     "phone": "+39 555 0013",
     "email": "stay.cortina-d-ampezzo@example.test",
     "website": "https://www.example.com/aurea-cortina-d-ampezzo",
-    "pricePerNight": 345
+    "pricePerNight": 345,
+    "image": "aurea-dolomites-refuge.jpg"
   },
   {
     "name": "Aurea Reykjavik Lava Lodge",
@@ -189,7 +260,12 @@
     "email": "stay.reykjavik@example.test",
     "website": "https://www.example.com/aurea-reykjavik",
     "pricePerNight": 390,
-    "discountPercent": 15
+    "discountPercent": 15,
+    "ratings": [
+      4,
+      3
+    ],
+    "image": "aurea-reykjavik-lava-lodge.jpg"
   },
   {
     "name": "Aurea Oaxaca Courtyard",
@@ -202,7 +278,13 @@
     "phone": "+52 555 0015",
     "email": "stay.oaxaca@example.test",
     "website": "https://www.example.com/aurea-oaxaca",
-    "pricePerNight": 145
+    "pricePerNight": 145,
+    "ratings": [
+      2,
+      1,
+      2
+    ],
+    "image": "aurea-oaxaca-courtyard.jpg"
   },
   {
     "name": "Aurea Tulum Cenote Retreat",
@@ -215,7 +297,14 @@
     "phone": "+52 555 0016",
     "email": "stay.tulum@example.test",
     "website": "https://www.example.com/aurea-tulum",
-    "pricePerNight": 330
+    "pricePerNight": 330,
+    "image": "aurea-tulum-cenote-retreat.jpg",
+    "ratings": [
+      3,
+      4,
+      3,
+      3
+    ]
   },
   {
     "name": "Aurea Sydney Harbour Loft",
@@ -228,7 +317,14 @@
     "phone": "+61 555 0017",
     "email": "stay.sydney@example.test",
     "website": "https://www.example.com/aurea-sydney",
-    "pricePerNight": 365.5
+    "pricePerNight": 365.5,
+    "image": "aurea-sydney-harbour-loft.jpg",
+    "ratings": [
+      4,
+      4,
+      4,
+      5
+    ]
   },
   {
     "name": "Aurea Queenstown Lakeside",
@@ -242,7 +338,13 @@
     "email": "stay.queenstown@example.test",
     "website": "https://www.example.com/aurea-queenstown",
     "pricePerNight": 410,
-    "discountPercent": 10
+    "discountPercent": 10,
+    "ratings": [
+      5,
+      4,
+      5
+    ],
+    "image": "aurea-queenstown-lakeside.jpg"
   },
   {
     "name": "Aurea Dubai Dune Retreat",
@@ -255,7 +357,8 @@
     "phone": "+971 555 0019",
     "email": "stay.dubai@example.test",
     "website": "https://www.example.com/aurea-dubai",
-    "pricePerNight": 760
+    "pricePerNight": 760,
+    "image": "aurea-dubai-dune-retreat.jpg"
   },
   {
     "name": "Aurea Istanbul Bosphorus",
@@ -268,7 +371,8 @@
     "phone": "+90 555 0020",
     "email": "stay.istanbul@example.test",
     "website": "https://www.example.com/aurea-istanbul",
-    "pricePerNight": 285
+    "pricePerNight": 285,
+    "image": "aurea-istanbul-bosphorus.jpg"
   },
   {
     "name": "Aurea Lofoten Fjord Cabins",
@@ -281,7 +385,8 @@
     "phone": "+47 555 0021",
     "email": "stay.svolvaer@example.test",
     "website": "https://www.example.com/aurea-svolvaer",
-    "pricePerNight": 275
+    "pricePerNight": 275,
+    "image": "aurea-lofoten-fjord-cabins.jpg"
   },
   {
     "name": "Aurea Provence Lavender Estate",
@@ -295,7 +400,15 @@
     "email": "stay.gordes@example.test",
     "website": "https://www.example.com/aurea-gordes",
     "pricePerNight": 470,
-    "discountPercent": 20
+    "discountPercent": 20,
+    "ratings": [
+      3,
+      2,
+      3,
+      4,
+      3
+    ],
+    "image": "aurea-provence-lavender-estate.jpg"
   },
   {
     "name": "Aurea Tuscan Villa",
@@ -308,7 +421,14 @@
     "phone": "+39 555 0023",
     "email": "stay.montalcino@example.test",
     "website": "https://www.example.com/aurea-montalcino",
-    "pricePerNight": 520
+    "pricePerNight": 520,
+    "ratings": [
+      1,
+      2,
+      2,
+      1
+    ],
+    "image": "aurea-tuscan-villa.jpg"
   },
   {
     "name": "Aurea Seoul Hanok",
@@ -321,7 +441,8 @@
     "phone": "+82 555 0024",
     "email": "stay.seoul@example.test",
     "website": "https://www.example.com/aurea-seoul",
-    "pricePerNight": 195
+    "pricePerNight": 195,
+    "image": "aurea-seoul-hanok.jpg"
   },
   {
     "name": "Aurea Hoi An Riverside",
@@ -334,7 +455,8 @@
     "phone": "+84 555 0025",
     "email": "stay.hoi-an@example.test",
     "website": "https://www.example.com/aurea-hoi-an",
-    "pricePerNight": 120
+    "pricePerNight": 120,
+    "isActive": false
   },
   {
     "name": "Aurea Chiang Mai Teak House",
@@ -348,7 +470,12 @@
     "email": "stay.chiang-mai@example.test",
     "website": "https://www.example.com/aurea-chiang-mai",
     "pricePerNight": 135.5,
-    "discountPercent": 15
+    "discountPercent": 15,
+    "ratings": [
+      2,
+      2,
+      3
+    ]
   },
   {
     "name": "Aurea Arenal Cloud Forest",
@@ -361,7 +488,8 @@
     "phone": "+506 555 0027",
     "email": "stay.la-fortuna@example.test",
     "website": "https://www.example.com/aurea-la-fortuna",
-    "pricePerNight": 230
+    "pricePerNight": 230,
+    "isActive": false
   },
   {
     "name": "Aurea Vienna Secession",
@@ -374,7 +502,8 @@
     "phone": "+43 555 0028",
     "email": "stay.vienna@example.test",
     "website": "https://www.example.com/aurea-vienna",
-    "pricePerNight": 315
+    "pricePerNight": 315,
+    "isActive": false
   },
   {
     "name": "Aurea Edinburgh Old Town",
@@ -388,7 +517,13 @@
     "email": "stay.edinburgh@example.test",
     "website": "https://www.example.com/aurea-edinburgh",
     "pricePerNight": 255,
-    "discountPercent": 10
+    "discountPercent": 10,
+    "ratings": [
+      4,
+      3,
+      4,
+      4
+    ]
   },
   {
     "name": "Aurea Banff Mountain Lodge",
