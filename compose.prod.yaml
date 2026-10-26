@@ -10,3 +10,11 @@ services:
       Authentication__Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
       Authentication__Administrator__Email: ${ADMINISTRATOR_EMAIL:?ADMINISTRATOR_EMAIL is required}
       Authentication__Administrator__Password: ${ADMINISTRATOR_PASSWORD:?ADMINISTRATOR_PASSWORD is required}
+
+  web:
+    ports:
+      - "127.0.0.1:${WEB_HTTP_PORT:-4200}:8080"
+
+  docs:
+    ports:
+      - "127.0.0.1:${DOCS_HTTP_PORT:-4321}:8080"

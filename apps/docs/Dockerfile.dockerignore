@@ -1,0 +1,12 @@
+*
+!apps/docs
+!docker/nginx/docs.conf
+**/.git
+**/node_modules
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+apps/docs/dist
+apps/docs/.astro
+apps/docs/**/.DS_Store
