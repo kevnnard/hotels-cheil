@@ -465,4 +465,4 @@ Conventions: no comments in code or configuration files, exact dependency versio
 
 ---
 
-Built by [@kevnnard](https://github.com/kevnnard) as an interview validation exercise.
+Built by Kevin Londoño ([@kevnnard](https://github.com/kevnnard)) as an interview validation exercise.
