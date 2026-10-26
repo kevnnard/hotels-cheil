@@ -97,6 +97,16 @@ public sealed class HotelService(IHotelStore hotels, IHotelRatingsStore ratings,
         return summary is null ? RateHotelOutcome.HotelNotFound() : RateHotelOutcome.Rated(summary);
     }
 
+    public async Task<OwnRatingOutcome> FindOwnRatingAsync(Guid hotelId, Guid userId, CancellationToken cancellationToken)
+    {
+        if (await hotels.FindAsync(hotelId, cancellationToken) is null)
+        {
+            return OwnRatingOutcome.HotelNotFound();
+        }
+
+        return OwnRatingOutcome.Found(await ratings.FindScoreAsync(hotelId, userId, cancellationToken));
+    }
+
     private async Task<HotelSummary> SummarizeAsync(Hotel hotel, CancellationToken cancellationToken)
     {
         var rating = await ratings.GetSummaryAsync(hotel.Id, cancellationToken) ?? RatingSummary.Empty;

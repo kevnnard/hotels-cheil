@@ -5,7 +5,7 @@ description: Decision to model user scores from 1 to 5 as a rule separate from o
 
 ## Status
 
-Domain rule Implemented in `HotelManagement.Domain` with unit tests. Persistence, the uniqueness constraint and atomic writes are Implemented and tested against PostgreSQL ([ADR-011](adr-011-postgresql-persistence.md)). HTTP exposure is Planned.
+Domain rule Implemented in `HotelManagement.Domain` with unit tests. Persistence, the uniqueness constraint and atomic writes are Implemented and tested against PostgreSQL ([ADR-011](adr-011-postgresql-persistence.md)). HTTP exposure is Implemented: the rating write and the read of the own score ([ADR-013](adr-013-hotel-http-contract.md)).
 
 ## Problem
 
@@ -44,6 +44,10 @@ Replacing the vote matches the answer given for the repeat-rating question and k
 ## Consequences
 
 The domain does not guarantee uniqueness or atomicity across requests. Those guarantees depend on a PostgreSQL unique constraint on the hotel and user pair and on atomic writes. Both are enforced and tested in persistence (ADR-011); they are not exposed over HTTP yet.
+
+## Addendum: reading the own score
+
+The rule is unchanged. A signed-in account can read its own current score for a hotel through `GET /api/hotels/{id}/ratings/me` (ADR-013), so the interface can show and replace the vote after a reload. The read returns only the score of the caller, or `null` when there is none, and reads the existing `hotel_ratings` row by its hotel and user key; no table or migration was added.
 
 ## Related
 

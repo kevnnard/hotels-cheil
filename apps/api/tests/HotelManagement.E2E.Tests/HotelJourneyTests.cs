@@ -122,6 +122,10 @@ public sealed class HotelJourneyTests(HotelApiServerFixture server)
         var guest = await SignInAsync(guestClient, guestEmail, GuestPassword);
         guestClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", guest.AccessToken);
 
+        using var unrated = await guestClient.GetAsync($"/api/hotels/{harbor.Id}/ratings/me");
+        Assert.Equal(HttpStatusCode.OK, unrated.StatusCode);
+        Assert.Null((await unrated.Content.ReadFromJsonAsync<OwnRatingResponse>())!.Score);
+
         using var rating = await guestClient.PostAsJsonAsync($"/api/hotels/{harbor.Id}/ratings", new { score = 4m });
         Assert.Equal(HttpStatusCode.OK, rating.StatusCode);
         var summary = await rating.Content.ReadFromJsonAsync<RatingSummaryResponse>();
@@ -135,6 +139,10 @@ public sealed class HotelJourneyTests(HotelApiServerFixture server)
         Assert.Equal(2m, replaced!.Sum);
         Assert.Equal(1, replaced.Count);
         Assert.Equal(2m, replaced.Average);
+
+        using var ownRating = await guestClient.GetAsync($"/api/hotels/{harbor.Id}/ratings/me");
+        Assert.Equal(HttpStatusCode.OK, ownRating.StatusCode);
+        Assert.Equal(2m, (await ownRating.Content.ReadFromJsonAsync<OwnRatingResponse>())!.Score);
 
         using var marinaRating = await guestClient.PostAsJsonAsync($"/api/hotels/{marina!.Id}/ratings", new { score = 4m });
         Assert.Equal(HttpStatusCode.OK, marinaRating.StatusCode);

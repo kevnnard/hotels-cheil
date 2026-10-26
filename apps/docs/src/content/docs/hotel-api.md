@@ -15,6 +15,7 @@ The hotel management API exposes the administrative CRUD of the hotels and the r
 | `PUT` | `/api/hotels/{id}` | `hotels.update` | `200` with the updated hotel | `400` invalid input, `404` unknown hotel, `403` the role cannot write, `401` missing or invalid token |
 | `DELETE` | `/api/hotels/{id}` | `hotels.delete` | `204` | `404` unknown hotel, `403` the role cannot write, `401` missing or invalid token |
 | `POST` | `/api/hotels/{id}/ratings` | `hotels.rate` | `200` with the rating summary | `400` score outside 1 to 5, `404` unknown hotel, `401` missing or invalid token |
+| `GET` | `/api/hotels/{id}/ratings/me` | `hotels.rate` | `200` with the score of the caller, or a null score | `404` unknown hotel, `403` the role cannot rate, `401` missing or invalid token |
 | `PUT` | `/api/hotels/{id}/image` | `hotels.update` | `200` with the image metadata | `400`, `413`, `415`, `422` rejected image, `404` unknown hotel, `403`, `401` |
 | `GET` | `/api/hotels/{id}/image` | `hotels.read` | `200` with the image bytes | `404` unknown hotel or no image, `401` |
 | `DELETE` | `/api/hotels/{id}/image` | `hotels.update` | `204` | `404` unknown hotel or no image, `403`, `401` |
@@ -150,6 +151,14 @@ The body carries the score and nothing else. The account that rates is the subje
 The score is a decimal between 1 and 5, both included. A score outside that range is answered with `400` and no vote is stored.
 
 One account has one rating per hotel. Rating again replaces the previous value: the average moves and the count does not grow. The answer carries the summary of the hotel after the write, with the sum, the count and the average. A hotel without votes reports a count of zero and a null average.
+
+`GET /api/hotels/{id}/ratings/me` returns the current score of the signed-in account for that hotel, so a client can show and change it after a reload. The account is the subject of the validated token. The answer carries only the score, which is `null` when the account has not rated the hotel; it never carries another account's score or a user identifier.
+
+```json
+{ "score": 4.5 }
+```
+
+An unknown hotel is answered with `404` and the title `The hotel does not exist.`. An identifier that is not a GUID does not match the route and is answered with `404`.
 
 ## Policies
 

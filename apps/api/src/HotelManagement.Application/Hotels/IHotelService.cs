@@ -15,4 +15,6 @@ public interface IHotelService
     Task<bool> DeleteAsync(Guid hotelId, CancellationToken cancellationToken);
 
     Task<RateHotelOutcome> RateAsync(Guid hotelId, Guid userId, decimal score, CancellationToken cancellationToken);
+
+    Task<OwnRatingOutcome> FindOwnRatingAsync(Guid hotelId, Guid userId, CancellationToken cancellationToken);
 }

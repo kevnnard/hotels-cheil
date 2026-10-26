@@ -20,6 +20,9 @@ public class HotelRatingPersistenceTests(PostgresDatabaseFixture database)
     private Task<RatingSummary?> RateAsync(Guid hotelId, Guid userId, decimal score) =>
         database.CreateRatingStore().RateAsync(hotelId, userId, score, CancellationToken.None);
 
+    private Task<decimal?> ScoreAsync(Guid hotelId, Guid userId) =>
+        database.CreateRatingStore().FindScoreAsync(hotelId, userId, CancellationToken.None);
+
     private async Task<RatingSummary> SummaryAsync(Guid hotelId) =>
         (await database.CreateRatingStore().GetSummaryAsync(hotelId, CancellationToken.None))!;
 
@@ -179,6 +182,42 @@ public class HotelRatingPersistenceTests(PostgresDatabaseFixture database)
         var summary = await SummaryAsync(hotelId);
         Assert.Equal(2, summary.Count);
         Assert.Contains(summary.Sum - 5m, attempts);
+    }
+
+    [Fact]
+    public async Task OwnScore_ReturnsTheScoreOfThatUserForThatHotelOnly()
+    {
+        var hotelId = await StoreNewHotelAsync();
+        var otherHotelId = await StoreNewHotelAsync();
+        var userId = Guid.NewGuid();
+        await RateAsync(hotelId, userId, 2.5m);
+        await RateAsync(hotelId, Guid.NewGuid(), 5m);
+        await RateAsync(otherHotelId, userId, 1m);
+
+        Assert.Equal(2.5m, await ScoreAsync(hotelId, userId));
+        Assert.Equal(1m, await ScoreAsync(otherHotelId, userId));
+    }
+
+    [Fact]
+    public async Task OwnScore_OfAUserWhoHasNotRated_IsNullEvenWhenOthersRated()
+    {
+        var hotelId = await StoreNewHotelAsync();
+        await RateAsync(hotelId, Guid.NewGuid(), 4m);
+
+        Assert.Null(await ScoreAsync(hotelId, Guid.NewGuid()));
+        Assert.Null(await ScoreAsync(Guid.NewGuid(), Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task OwnScore_AfterAReplacedRating_IsTheLatestScore()
+    {
+        var hotelId = await StoreNewHotelAsync();
+        var userId = Guid.NewGuid();
+        await RateAsync(hotelId, userId, 1m);
+
+        await RateAsync(hotelId, userId, 4.25m);
+
+        Assert.Equal(4.25m, await ScoreAsync(hotelId, userId));
     }
 
     [Fact]

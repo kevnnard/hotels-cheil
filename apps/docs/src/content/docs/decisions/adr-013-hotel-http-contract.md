@@ -58,6 +58,10 @@ Named routes and query parameters make the contract readable from a browser and 
 
 ADR-015 extends this contract without changing any decision above. The hotel response gains a nullable `image` property with the content type, the dimensions and the size. Three routes are added under `/api/hotels/{id}/image`: `PUT` and `DELETE` use `hotels.update`, `GET` uses `hotels.read`. The create and update JSON bodies, the filters, the pagination, the status codes and the policies of the other routes are unchanged, and an update of the descriptive details never writes the image. The image contract is documented in [Hotel images](../hotel-images.md).
 
+## Addendum: the own rating read
+
+`GET /api/hotels/{id}/ratings/me` returns the score of the signed-in account for one hotel as `{ "score": <decimal or null> }`. It uses `hotels.rate`, the same policy as the rating write, and reads the account from the validated `sub` claim the same way. An unknown hotel is answered with `404`, a request without a token with `401`, and a principal without the policy with `403`. The answer never carries another account or a user identifier. The rating write, the summaries and the one rating per account rule are unchanged.
+
 ## Future improvements
 
 - Cursor pagination, if the catalog grows enough for the offset cost to matter.

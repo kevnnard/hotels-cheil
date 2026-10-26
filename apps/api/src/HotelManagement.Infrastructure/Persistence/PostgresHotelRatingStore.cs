@@ -14,6 +14,13 @@ public sealed class PostgresHotelRatingStore(HotelDbContext database) : IHotelRa
         return exists ? await SummarizeAsync(hotelId, cancellationToken) : null;
     }
 
+    public Task<decimal?> FindScoreAsync(Guid hotelId, Guid userId, CancellationToken cancellationToken) =>
+        database.HotelRatings
+            .AsNoTracking()
+            .Where(rating => rating.HotelId == hotelId && rating.UserId == userId)
+            .Select(rating => (decimal?)rating.Score)
+            .SingleOrDefaultAsync(cancellationToken);
+
     public async Task<RatingSummary?> RateAsync(
         Guid hotelId,
         Guid userId,

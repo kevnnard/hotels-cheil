@@ -506,4 +506,41 @@ public class HotelServiceTests
         Assert.Null(outcome.Rating);
         Assert.Single(ratings.Rated);
     }
+
+    [Fact]
+    public async Task Own_rating_of_a_rated_hotel_returns_the_score_of_the_caller()
+    {
+        var hotel = SeedHotel();
+        var userId = Guid.NewGuid();
+        ratings.SeedScore(hotel.Id, userId, 4.5m);
+        ratings.SeedScore(hotel.Id, Guid.NewGuid(), 1m);
+
+        var outcome = await Service.FindOwnRatingAsync(hotel.Id, userId, CancellationToken.None);
+
+        Assert.Equal(OwnRatingStatus.Found, outcome.Status);
+        Assert.Equal(4.5m, outcome.Score);
+        Assert.Equal((hotel.Id, userId), Assert.Single(ratings.ScoreLookups));
+    }
+
+    [Fact]
+    public async Task Own_rating_of_a_hotel_the_caller_has_not_rated_returns_no_score()
+    {
+        var hotel = SeedHotel();
+        ratings.SeedScore(hotel.Id, Guid.NewGuid(), 3m);
+
+        var outcome = await Service.FindOwnRatingAsync(hotel.Id, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(OwnRatingStatus.Found, outcome.Status);
+        Assert.Null(outcome.Score);
+    }
+
+    [Fact]
+    public async Task Own_rating_of_a_missing_hotel_returns_not_found_without_reading_scores()
+    {
+        var outcome = await Service.FindOwnRatingAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(OwnRatingStatus.HotelNotFound, outcome.Status);
+        Assert.Null(outcome.Score);
+        Assert.Empty(ratings.ScoreLookups);
+    }
 }

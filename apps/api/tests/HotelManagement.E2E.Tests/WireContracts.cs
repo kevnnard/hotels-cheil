@@ -23,6 +23,8 @@ public sealed record HotelContactResponse(string? Phone, string? Email, string? 
 
 public sealed record RatingSummaryResponse(decimal Sum, int Count, decimal? Average);
 
+public sealed record OwnRatingResponse(decimal? Score);
+
 public sealed record HotelImageResponse(string ContentType, int Width, int Height, int SizeBytes);
 
 public sealed record HotelPricingResponse(string Currency, decimal NightlyRate, int? DiscountPercent, decimal? DiscountedNightlyRate);

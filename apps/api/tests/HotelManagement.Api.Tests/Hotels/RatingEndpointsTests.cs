@@ -208,6 +208,107 @@ public class RatingEndpointsTests(HotelApiFixture api) : IAsyncLifetime
         Assert.Equal(0, await CountVotesAsync(hotelId));
     }
 
+    [Fact]
+    public async Task OwnRating_AfterRating_ReturnsOnlyTheScoreOfTheCaller()
+    {
+        var hotelId = await CreateHotelAsync();
+        await firstUser.PostAsJsonAsync($"/api/hotels/{hotelId}/ratings", new { score = 4.5m });
+        await secondUser.PostAsJsonAsync($"/api/hotels/{hotelId}/ratings", new { score = 1m });
+
+        var response = await firstUser.GetAsync($"/api/hotels/{hotelId}/ratings/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var property = Assert.Single(body.RootElement.EnumerateObject());
+        Assert.Equal("score", property.Name);
+        Assert.Equal(4.5m, property.Value.GetDecimal());
+        Assert.DoesNotContain(firstUserId.ToString(), body.RootElement.GetRawText(), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(secondUserId.ToString(), body.RootElement.GetRawText(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task OwnRating_AfterReplacingTheVote_ReturnsTheLatestScore()
+    {
+        var hotelId = await CreateHotelAsync();
+        await secondUser.PostAsJsonAsync($"/api/hotels/{hotelId}/ratings", new { score = 2m });
+        await secondUser.PostAsJsonAsync($"/api/hotels/{hotelId}/ratings", new { score = 5m });
+
+        var response = await secondUser.GetAsync($"/api/hotels/{hotelId}/ratings/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(5m, (await response.Content.ReadFromJsonAsync<OwnRatingView>(Json))!.Score);
+    }
+
+    [Fact]
+    public async Task OwnRating_AsAnAdministrator_IsAccepted()
+    {
+        var hotelId = await CreateHotelAsync();
+        await administrator.PostAsJsonAsync($"/api/hotels/{hotelId}/ratings", new { score = 3m });
+
+        var response = await administrator.GetAsync($"/api/hotels/{hotelId}/ratings/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(3m, (await response.Content.ReadFromJsonAsync<OwnRatingView>(Json))!.Score);
+    }
+
+    [Fact]
+    public async Task OwnRating_WhenOnlyAnotherAccountRated_ReturnsANullScore()
+    {
+        var hotelId = await CreateHotelAsync();
+        await secondUser.PostAsJsonAsync($"/api/hotels/{hotelId}/ratings", new { score = 5m });
+
+        var response = await firstUser.GetAsync($"/api/hotels/{hotelId}/ratings/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var property = Assert.Single(body.RootElement.EnumerateObject());
+        Assert.Equal("score", property.Name);
+        Assert.Equal(JsonValueKind.Null, property.Value.ValueKind);
+    }
+
+    [Fact]
+    public async Task OwnRating_OfAHotelThatDoesNotExist_ReturnsNotFound()
+    {
+        var response = await firstUser.GetAsync($"/api/hotels/{Guid.CreateVersion7()}/ratings/me");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<TitleView>(Json);
+        Assert.Equal("The hotel does not exist.", problem!.Title);
+    }
+
+    [Fact]
+    public async Task OwnRating_WithAnIdentifierThatIsNotAGuid_ReturnsNotFound()
+    {
+        var response = await firstUser.GetAsync("/api/hotels/not-a-guid/ratings/me");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task OwnRating_WithoutAToken_ReturnsUnauthorized()
+    {
+        var hotelId = await CreateHotelAsync();
+
+        var response = await anonymous.GetAsync($"/api/hotels/{hotelId}/ratings/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task OwnRating_WithAPrincipalWithoutTheHotelRoles_ReturnsForbidden()
+    {
+        var hotelId = await CreateHotelAsync();
+        await firstUser.PostAsJsonAsync($"/api/hotels/{hotelId}/ratings", new { score = 4m });
+        using var client = factory!.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            TestPrincipals.TokenWithoutHotelRoles(firstUserToken));
+
+        var response = await client.GetAsync($"/api/hotels/{hotelId}/ratings/me");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private async Task<Guid> RegisterAndAuthorizeAsync(HttpClient client)
     {
         var email = $"{Guid.CreateVersion7()}@example.com";
@@ -278,6 +379,8 @@ public class RatingEndpointsTests(HotelApiFixture api) : IAsyncLifetime
     private sealed record ProblemView(Dictionary<string, string[]> Errors);
 
     private sealed record TitleView(string Title);
+
+    private sealed record OwnRatingView(decimal? Score);
 
     private sealed record SignInView(string AccessToken, Guid UserId);
 }
