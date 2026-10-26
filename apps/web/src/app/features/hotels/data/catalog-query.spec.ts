@@ -1,5 +1,5 @@
 import { convertToParamMap } from '@angular/router';
-import { parseCatalogQuery, ratingOptions } from './catalog-query';
+import { parseCatalogQuery, ratingChoices, ratingOptions } from './catalog-query';
 
 function parse(params: Record<string, string>) {
   return parseCatalogQuery(convertToParamMap(params));
@@ -26,9 +26,31 @@ describe('parseCatalogQuery', () => {
     expect(parse({}).minRating).toBeNull();
   });
 
-  it('offers the rating threshold options of the design', () => {
-    expect(ratingOptions.map((option) => option.value)).toEqual([4.9, 4.95, 5]);
-    expect(ratingOptions.map((option) => option.label)).toEqual(['4.90+', '4.95+', '5.0 ★']);
+  it('offers broad minimum rating thresholds from 3.0 to 4.9', () => {
+    expect(ratingOptions.map((option) => option.value)).toEqual([3, 3.5, 4, 4.5, 4.9]);
+    expect(ratingOptions.map((option) => option.label)).toEqual(['3.0+', '3.5+', '4.0+', '4.5+', '4.9+']);
+  });
+
+  it('offers exactly the thresholds when no rating or a listed rating is selected', () => {
+    expect(ratingChoices(null)).toEqual(ratingOptions);
+    for (const option of ratingOptions) {
+      expect(ratingChoices(option.value)).toEqual(ratingOptions);
+    }
+  });
+
+  it('adds a selected rating outside the thresholds as one extra choice in sorted order', () => {
+    expect(ratingChoices(4.95).map((option) => [option.value, option.label])).toEqual([
+      [3, '3.0+'],
+      [3.5, '3.5+'],
+      [4, '4.0+'],
+      [4.5, '4.5+'],
+      [4.9, '4.9+'],
+      [4.95, '4.95+'],
+    ]);
+    expect(ratingChoices(5).at(-1)).toEqual({ value: 5, label: '5.0+' });
+    expect(ratingChoices(2)[0]).toEqual({ value: 2, label: '2.0+' });
+    expect(ratingChoices(3.75).map((option) => option.value)).toEqual([3, 3.5, 3.75, 4, 4.5, 4.9]);
+    expect(ratingChoices(3.75)[2].label).toBe('3.75+');
   });
 
   it('keeps positive maximum prices, including decimals', () => {

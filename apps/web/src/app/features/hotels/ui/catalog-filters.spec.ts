@@ -52,8 +52,8 @@ describe('CatalogFilters', () => {
     const group = bar.querySelector('[role="group"][aria-label="Minimum rating"]') as HTMLElement;
     expect(group).not.toBeNull();
     const options = Array.from(group.querySelectorAll<HTMLButtonElement>('button'));
-    expect(options.map((option) => option.textContent?.trim())).toEqual(['All', '4.90+', '4.95+', '5.0 ★']);
-    expect(options.map((option) => option.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false', 'false']);
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['All', '3.0+', '3.5+', '4.0+', '4.5+', '4.9+']);
+    expect(options.map((option) => option.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false', 'false', 'false', 'true']);
     for (const option of options) {
       expect(option.disabled).toBe(false);
     }
@@ -300,12 +300,60 @@ describe('CatalogFilters', () => {
     const ratingChange = vi.fn();
     fixture.componentInstance.ratingChange.subscribe(ratingChange);
 
-    query('[data-testid="rating-4.95"]')?.click();
-    query('[data-testid="rating-5"]')?.click();
-    query('[data-testid="rating-all"]')?.click();
+    for (const value of ['3', '3.5', '4', '4.5', '4.9', 'all']) {
+      query(`[data-testid="rating-${value}"]`)?.click();
+    }
 
-    expect(ratingChange.mock.calls).toEqual([[4.95], [5], [null]]);
+    expect(ratingChange.mock.calls).toEqual([[3], [3.5], [4], [4.5], [4.9], [null]]);
     expect(query('[data-testid="rating-4.9"]')?.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it.each([
+    [4.95, '4.95+', ['All', '3.0+', '3.5+', '4.0+', '4.5+', '4.9+', '4.95+']],
+    [5, '5.0+', ['All', '3.0+', '3.5+', '4.0+', '4.5+', '4.9+', '5.0+']],
+    [2, '2.0+', ['All', '2.0+', '3.0+', '3.5+', '4.0+', '4.5+', '4.9+']],
+  ])('shows a selected rating %s outside the thresholds as one extra pressed segment', (value, label, labels) => {
+    render(value);
+
+    const options = queryAll('[data-testid^="rating-"]');
+    expect(options.map((option) => option.textContent?.trim())).toEqual(labels);
+    const pressed = options.filter((option) => option.getAttribute('aria-pressed') === 'true');
+    expect(pressed.map((option) => option.dataset['testid'])).toEqual([`rating-${value}`]);
+    expect(pressed[0].textContent?.trim()).toBe(label);
+  });
+
+  it('emits another threshold when one is chosen while an extra rating is selected', () => {
+    render(4.95);
+    const ratingChange = vi.fn();
+    fixture.componentInstance.ratingChange.subscribe(ratingChange);
+
+    query('[data-testid="rating-4"]')?.click();
+
+    expect(ratingChange.mock.calls).toEqual([[4]]);
+  });
+
+  it('drops the extra segment once the selected rating is one of the thresholds', () => {
+    render(4.95);
+
+    fixture.componentRef.setInput('minRating', 4);
+    fixture.detectChanges();
+
+    expect(query('[data-testid="rating-4.95"]')).toBeNull();
+    expect(queryAll('[data-testid^="rating-"]').length).toBe(6);
+    expect(queryAll('[aria-pressed="true"][data-testid^="rating-"]').map((option) => option.dataset['testid'])).toEqual(['rating-4']);
+  });
+
+  it('keeps seven rating segments scrolling inside their own group without shrinking them', () => {
+    render(4.95);
+
+    const group = query('[role="group"][aria-label="Minimum rating"]') as HTMLElement;
+    expectClasses(group, ['overflow-x-auto', 'min-w-0', 'w-full', 'h-11']);
+    expectClasses(group.parentElement as HTMLElement, ['min-w-0']);
+    const options = queryAll('[data-testid^="rating-"]');
+    expect(options.length).toBe(7);
+    for (const option of options) {
+      expectClasses(option, ['shrink-0', 'whitespace-nowrap', 'h-9']);
+    }
   });
 
   it.each([false, true])('starts the disclosure collapsed at every width (desktop %s)', (desktop) => {
@@ -385,7 +433,7 @@ describe('CatalogFilters', () => {
     render(4.95);
 
     const options = queryAll('[data-testid^="rating-"]');
-    expect(options.length).toBe(4);
+    expect(options.length).toBe(7);
     const baseClasses = ['h-9', 'px-3', 'text-sm', 'font-medium', 'rounded-md', 'transition-colors'];
     const selectedClasses = ['bg-primary-container', 'text-on-primary', 'shadow-sm'];
     const unselectedClasses = ['text-on-surface-variant', 'hover:bg-surface-container-high'];

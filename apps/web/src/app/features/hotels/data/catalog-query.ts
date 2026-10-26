@@ -10,11 +10,18 @@ export interface RatingOption {
   label: string;
 }
 
-export const ratingOptions: readonly RatingOption[] = [
-  { value: 4.9, label: '4.90+' },
-  { value: 4.95, label: '4.95+' },
-  { value: 5, label: '5.0 ★' },
-];
+function ratingOption(value: number): RatingOption {
+  return { value, label: `${Number.isInteger(value) ? value.toFixed(1) : value}+` };
+}
+
+export const ratingOptions: readonly RatingOption[] = [3, 3.5, 4, 4.5, 4.9].map(ratingOption);
+
+export function ratingChoices(selected: number | null): readonly RatingOption[] {
+  if (selected === null || ratingOptions.some((option) => option.value === selected)) {
+    return ratingOptions;
+  }
+  return [...ratingOptions, ratingOption(selected)].sort((left, right) => left.value - right.value);
+}
 
 function positiveInteger(value: string | null): number | null {
   if (value === null || !/^\d+$/.test(value)) {

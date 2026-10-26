@@ -1,6 +1,6 @@
 import { Component, WritableSignal, computed, effect, input, output, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { priceRange, ratingOptions } from '../data/catalog-query';
+import { priceRange, ratingChoices } from '../data/catalog-query';
 
 @Component({
   selector: 'app-catalog-filters',
@@ -48,7 +48,7 @@ import { priceRange, ratingOptions } from '../data/catalog-query';
             >
               All
             </button>
-            @for (option of ratingOptions; track option.value) {
+            @for (option of ratingOptions(); track option.value) {
               <button
                 type="button"
                 [attr.data-testid]="'rating-' + option.value"
@@ -172,7 +172,7 @@ export class CatalogFilters {
   readonly ratingChange = output<number | null>();
   readonly cleared = output<void>();
 
-  protected readonly ratingOptions = ratingOptions;
+  protected readonly ratingOptions = computed(() => ratingChoices(this.minRating()));
   protected readonly advancedOpen = signal(false);
   protected readonly priceRange = priceRange;
   private readonly searchText = signal('');

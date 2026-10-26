@@ -326,6 +326,7 @@ describe('CatalogPage', () => {
 
     expect((query('[data-testid="search-input"]') as HTMLInputElement).value).toBe('sea');
     expect(query('[data-testid="rating-4.95"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(query('[data-testid="rating-4.95"]')?.textContent?.trim()).toBe('4.95+');
   });
 
   it('falls back to the first page and all ratings for invalid query values', async () => {
@@ -365,43 +366,74 @@ describe('CatalogPage', () => {
     request.flush(pageOf([]));
   });
 
-  it('offers All, 4.90+, 4.95+ and 5.0 as rating options', async () => {
+  it('offers All, 3.0+, 3.5+, 4.0+, 4.5+ and 4.9+ as rating options', async () => {
     await open('/');
     expectList().flush(pageOf([]));
     await settle();
 
     const labels = Array.from(root().querySelectorAll('[data-testid^="rating-"]')).map((b) => b.textContent?.trim());
-    expect(labels).toEqual(['All', '4.90+', '4.95+', '5.0 ★']);
+    expect(labels).toEqual(['All', '3.0+', '3.5+', '4.0+', '4.5+', '4.9+']);
     expect(query('[data-testid="rating-all"]')?.getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('requests minRating=4.9 exactly when 4.90+ is chosen and resets the page', async () => {
+  it('requests minRating=3 exactly when 3.0+ is chosen and resets the page', async () => {
     await open('/?page=2');
     expectList().flush(pageOf([], 2, 3));
     await settle();
 
-    query('[data-testid="rating-4.9"]')?.click();
+    query('[data-testid="rating-3"]')?.click();
     await settle();
 
-    expect(router.url).toBe('/?minRating=4.9');
-    const request = expectList((p) => p('minRating') === '4.9');
+    expect(router.url).toBe('/?minRating=3');
+    const request = expectList((p) => p('minRating') === '3');
     expect(request.request.params.get('page')).toBe('1');
     request.flush(pageOf([]));
     await settle();
 
-    expect(query('[data-testid="rating-4.9"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(query('[data-testid="rating-3"]')?.getAttribute('aria-pressed')).toBe('true');
     expect(query('[data-testid="rating-all"]')?.getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('requests minRating=5 when 5.0 is chosen', async () => {
+  it('requests minRating=4.5 when 4.5+ is chosen', async () => {
     await open('/');
     expectList().flush(pageOf([]));
     await settle();
 
-    query('[data-testid="rating-5"]')?.click();
+    query('[data-testid="rating-4.5"]')?.click();
     await settle();
 
+    expectList((p) => p('minRating') === '4.5').flush(pageOf([]));
+  });
+
+  it('keeps an old minRating=5 address, shows it as an extra pressed segment and replaces it with another option', async () => {
+    await open('/?minRating=5');
     expectList((p) => p('minRating') === '5').flush(pageOf([]));
+    await settle();
+
+    const extra = query('[data-testid="rating-5"]') as HTMLElement;
+    expect(extra.textContent?.trim()).toBe('5.0+');
+    expect(extra.getAttribute('aria-pressed')).toBe('true');
+    expect(root().querySelectorAll('[data-testid^="rating-"][aria-pressed="true"]').length).toBe(1);
+
+    query('[data-testid="rating-4"]')?.click();
+    await settle();
+
+    expect(router.url).toBe('/?minRating=4');
+    expectList((p) => p('minRating') === '4').flush(pageOf([]));
+    await settle();
+
+    expect(query('[data-testid="rating-5"]')).toBeNull();
+    expect(root().querySelectorAll('[data-testid^="rating-"]').length).toBe(6);
+    expect(query('[data-testid="rating-4"]')?.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('shows no extra segment for a listed minRating from the address', async () => {
+    await open('/?minRating=3.5');
+    expectList((p) => p('minRating') === '3.5').flush(pageOf([]));
+    await settle();
+
+    expect(root().querySelectorAll('[data-testid^="rating-"]').length).toBe(6);
+    expect(query('[data-testid="rating-3.5"]')?.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('omits minRating when All is chosen', async () => {
@@ -435,6 +467,7 @@ describe('CatalogPage', () => {
     await settle();
 
     expect((query('[data-testid="search-input"]') as HTMLInputElement).value).toBe('');
+    expect(query('[data-testid="rating-all"]')?.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('moves between pages with the pagination controls', async () => {
@@ -571,7 +604,7 @@ describe('CatalogPage', () => {
     const group = query('[role="group"][aria-label="Minimum rating"]') as HTMLElement;
     expect(group.classList.contains('h-11')).toBe(true);
     const options = Array.from(group.querySelectorAll<HTMLElement>('[data-testid^="rating-"]'));
-    expect(options.length).toBe(4);
+    expect(options.length).toBe(6);
     expect(query('[data-testid="clear-filters"]')?.classList.contains('h-11')).toBe(true);
   });
 
@@ -582,9 +615,9 @@ describe('CatalogPage', () => {
 
     expect(query('[data-testid="clear-filters"]')).toBeNull();
 
-    query('[data-testid="rating-4.95"]')?.click();
+    query('[data-testid="rating-4.5"]')?.click();
     await settle();
-    expectList((p) => p('minRating') === '4.95').flush(pageOf([]));
+    expectList((p) => p('minRating') === '4.5').flush(pageOf([]));
     await settle();
 
     expect(query('[data-testid="clear-filters"]')?.textContent?.trim()).toBe('Reset');
