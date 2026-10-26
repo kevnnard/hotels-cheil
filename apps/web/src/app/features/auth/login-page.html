@@ -1,0 +1,125 @@
+<main
+  data-testid="admin-login"
+  class="flex min-h-screen items-center justify-center bg-surface-container-low px-margin-mobile py-space-xl md:px-margin-tablet"
+>
+  <div class="flex w-full max-w-md flex-col gap-space-lg">
+    <section
+      aria-labelledby="login-heading"
+      class="flex flex-col gap-space-lg rounded-xl bg-surface-container-lowest p-space-lg shadow-[0_4px_24px_rgba(14,39,32,0.08)] md:p-space-xl"
+    >
+      <header class="flex flex-col gap-space-sm">
+        <span class="font-serif text-headline-sm uppercase tracking-widest text-primary">AUREA</span>
+        <span
+          class="self-start rounded-lg bg-secondary-container/60 px-space-sm py-space-xs text-label-sm uppercase text-primary-container"
+        >
+          Administration
+        </span>
+        <h1 id="login-heading" class="mt-space-sm font-serif text-headline-lg-mobile text-primary md:text-headline-lg">
+          Sign in to the console
+        </h1>
+        <p class="text-body-md text-on-surface-variant">
+          Use your administrator account to manage the hotel collection.
+        </p>
+        <div data-testid="login-error" role="alert" aria-live="assertive">
+          @if (errorMessage(); as message) {
+            <p class="mt-space-sm rounded-lg bg-error-container px-space-md py-space-sm text-body-sm text-on-error-container">
+              {{ message }}
+            </p>
+          }
+        </div>
+      </header>
+
+      <form [formGroup]="form" novalidate class="flex flex-col gap-gutter" (ngSubmit)="submit()">
+        <div class="flex flex-col gap-space-xs">
+          <label for="login-email" class="text-label-lg uppercase text-on-surface-variant">Email</label>
+          <input
+            #emailInput
+            id="login-email"
+            type="email"
+            formControlName="email"
+            autocomplete="username"
+            inputmode="email"
+            spellcheck="false"
+            [attr.aria-invalid]="fieldError('email') !== null"
+            [attr.aria-describedby]="fieldError('email') !== null ? 'login-email-error' : null"
+            class="min-h-11 w-full rounded-lg border bg-surface-container-lowest px-space-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            [class.border-error]="fieldError('email') !== null"
+            [class.border-outline-variant]="fieldError('email') === null"
+          />
+          @if (fieldError('email'); as message) {
+            <p id="login-email-error" data-testid="login-email-error" class="text-body-sm text-error">{{ message }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-space-xs">
+          <label for="login-password" class="text-label-lg uppercase text-on-surface-variant">Password</label>
+          <div class="relative">
+            <input
+              #passwordInput
+              id="login-password"
+              formControlName="password"
+              autocomplete="current-password"
+              [type]="passwordVisible() ? 'text' : 'password'"
+              [attr.aria-invalid]="fieldError('password') !== null"
+              [attr.aria-describedby]="fieldError('password') !== null ? 'login-password-error' : null"
+              class="min-h-11 w-full rounded-lg border bg-surface-container-lowest py-space-sm pr-14 pl-space-md text-body-md text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              [class.border-error]="fieldError('password') !== null"
+              [class.border-outline-variant]="fieldError('password') === null"
+            />
+            <button
+              type="button"
+              data-testid="login-toggle-password"
+              aria-controls="login-password"
+              [attr.aria-pressed]="passwordVisible()"
+              [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
+              class="absolute inset-y-0 right-0 flex h-11 min-h-11 w-11 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              (click)="togglePasswordVisibility()"
+            >
+              <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path
+                  d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <circle cx="12" cy="12" r="3" />
+                @if (passwordVisible()) {
+                  <path d="M4 4l16 16" stroke-linecap="round" />
+                }
+              </svg>
+            </button>
+          </div>
+          @if (fieldError('password'); as message) {
+            <p id="login-password-error" data-testid="login-password-error" class="text-body-sm text-error">
+              {{ message }}
+            </p>
+          }
+        </div>
+
+        <button
+          type="submit"
+          data-testid="login-submit"
+          [disabled]="submitting()"
+          [attr.aria-busy]="submitting()"
+          class="mt-space-sm inline-flex min-h-11 w-full items-center justify-center gap-space-sm rounded-lg bg-primary-container px-space-md py-space-sm text-label-lg uppercase text-on-primary shadow-md transition-colors hover:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-70"
+        >
+          @if (submitting()) {
+            <span
+              class="h-4 w-4 animate-spin rounded-full border-2 border-on-primary/40 border-t-on-primary"
+              aria-hidden="true"
+            ></span>
+            Signing in…
+          } @else {
+            Sign in
+          }
+        </button>
+      </form>
+    </section>
+
+    <a
+      routerLink="/"
+      class="inline-flex min-h-11 items-center justify-center self-center text-label-lg uppercase text-on-surface-variant transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      Back to the public site
+    </a>
+  </div>
+</main>

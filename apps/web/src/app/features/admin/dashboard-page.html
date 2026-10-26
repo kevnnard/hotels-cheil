@@ -1,0 +1,344 @@
+<section data-testid="admin-hotels" class="flex flex-col gap-space-lg">
+  <header
+    class="flex flex-col gap-space-md rounded-xl bg-surface-container-low p-space-lg md:flex-row md:items-end md:justify-between"
+  >
+    <div class="flex flex-col gap-space-xs">
+      <p class="text-label-sm uppercase text-on-surface-variant">Administration</p>
+      <h1
+        #heading
+        tabindex="-1"
+        class="font-serif text-headline-lg-mobile text-primary focus:outline-none md:text-headline-lg"
+      >
+        Hotels
+      </h1>
+      <p class="max-w-2xl text-body-md text-on-surface-variant">
+        Search, review and maintain every hotel of the collection, including the inactive ones.
+      </p>
+    </div>
+    <a
+      data-testid="directory-new"
+      [href]="newHotelHref()"
+      class="inline-flex min-h-11 items-center justify-center gap-space-xs self-start rounded-lg bg-primary-container px-space-md py-space-sm text-label-lg uppercase text-on-primary shadow-md transition-colors hover:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:self-auto"
+      (click)="openSheet($event, newHotelHref())"
+    >
+      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+      </svg>
+      New hotel
+    </a>
+  </header>
+
+  <p data-testid="directory-status" role="status" aria-live="polite" class="text-body-md text-primary empty:hidden">{{ statusMessage() }}</p>
+
+  <div class="flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm">
+    <div
+      data-testid="directory-toolbar"
+      class="grid grid-cols-1 gap-space-sm bg-surface-container-low/60 p-space-md sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_12rem_12rem_auto] lg:items-end"
+    >
+      <div class="flex flex-col gap-space-xs sm:col-span-2 lg:col-span-1">
+        <label for="directory-search" class="text-label-md uppercase text-on-surface-variant">Search by name</label>
+        <div class="relative">
+          <svg
+            viewBox="0 0 24 24"
+            class="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-on-surface-variant"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path d="m21 21-4.3-4.3M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <input
+            id="directory-search"
+            data-testid="directory-search"
+            type="search"
+            autocomplete="off"
+            placeholder="Hotel name"
+            class="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pr-space-md pl-10 text-body-md text-on-surface placeholder:text-on-surface-variant/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            [formControl]="searchControl"
+          />
+        </div>
+      </div>
+      <div class="flex flex-col gap-space-xs">
+        <label for="directory-rating" class="text-label-md uppercase text-on-surface-variant">Minimum rating</label>
+        <select
+          id="directory-rating"
+          data-testid="directory-rating"
+          class="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-space-sm text-body-md text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          [formControl]="ratingControl"
+        >
+          <option value="">Any rating</option>
+          @for (option of ratingOptions(); track option.value) {
+            <option [value]="'' + option.value">{{ option.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="flex flex-col gap-space-xs">
+        <label for="directory-max-price" class="text-label-md uppercase text-on-surface-variant">Maximum price (USD)</label>
+        <input
+          id="directory-max-price"
+          data-testid="directory-max-price"
+          type="number"
+          inputmode="decimal"
+          min="1"
+          step="1"
+          placeholder="Any price"
+          class="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-space-sm text-body-md text-on-surface placeholder:text-on-surface-variant/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          [formControl]="maxPriceControl"
+        />
+      </div>
+      <button
+        type="button"
+        data-testid="directory-reset"
+        class="inline-flex min-h-11 items-center justify-center rounded-lg border border-outline-variant px-space-md text-label-lg uppercase text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:col-span-2 lg:col-span-1"
+        (click)="resetFilters()"
+      >
+        Reset
+      </button>
+    </div>
+
+    <div class="p-space-md md:p-0">
+      @if (hotels.error()) {
+        <div class="md:p-space-md">
+          <app-state-panel
+            data-testid="directory-error"
+            tone="error"
+            heading="We could not load the hotels"
+            message="Something went wrong while contacting the server. Try again in a moment."
+            actionLabel="Try again"
+            actionTestId="directory-retry"
+            (action)="retry()"
+          />
+        </div>
+      } @else if (loadedPage(); as result) {
+        <div
+          data-testid="directory-results"
+          class="flex flex-col gap-space-md transition-opacity"
+          [attr.aria-busy]="hotels.isLoading()"
+          [class.opacity-60]="hotels.isLoading()"
+        >
+          @if (result.items.length === 0) {
+            <div class="md:p-space-md">
+              <app-state-panel
+                data-testid="directory-empty"
+                heading="No hotels found"
+                [message]="hasFilters() ? 'No hotels match these filters.' : 'There are no hotels yet. Create the first one with New hotel.'"
+                [actionLabel]="hasFilters() ? 'Reset filters' : null"
+                actionTestId="directory-empty-reset"
+                (action)="resetFilters()"
+              />
+            </div>
+          } @else {
+            <table data-testid="directory-table" class="hidden w-full text-left md:table">
+              <thead>
+                <tr class="bg-surface-container-low text-label-sm uppercase text-on-surface-variant">
+                  <th scope="col" class="px-space-md py-space-sm">Hotel</th>
+                  <th scope="col" class="px-space-md py-space-sm">Location</th>
+                  <th scope="col" class="px-space-md py-space-sm">Rating</th>
+                  <th scope="col" class="px-space-md py-space-sm">Price</th>
+                  <th scope="col" class="px-space-md py-space-sm">Status</th>
+                  <th scope="col" class="px-space-md py-space-sm text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-surface-container text-body-md">
+                @for (hotel of result.items; track hotel.id) {
+                  <tr class="transition-colors hover:bg-surface-container-low/70">
+                    <td class="px-space-md py-space-md">
+                      <div class="flex items-center gap-space-md">
+                        <app-hotel-image-view
+                          class="h-14 w-14 shrink-0 overflow-hidden rounded-lg shadow-xs"
+                          [hotelId]="hotel.id"
+                          [hotelName]="hotel.name"
+                          [hasImage]="hasThumbnail(hotel)"
+                          [position]="0"
+                          [compact]="true"
+                        />
+                        <div class="flex min-w-0 flex-col">
+                          <span class="truncate font-serif text-headline-sm text-primary">{{ hotel.name }}</span>
+                          <span data-testid="row-city" class="text-body-sm text-on-surface-variant">{{ hotel.address.city }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td data-testid="row-location" class="px-space-md py-space-md text-on-surface">{{ location(hotel) }}</td>
+                    <td data-testid="row-rating" class="px-space-md py-space-md">
+                      @if (averageRating(hotel); as average) {
+                        <span class="font-semibold text-primary">{{ average }}</span>
+                        <span class="block text-body-sm text-on-surface-variant">{{ ratingCount(hotel) }}</span>
+                      } @else {
+                        <span class="text-body-sm text-on-surface-variant">No ratings</span>
+                      }
+                    </td>
+                    <td data-testid="row-price" class="px-space-md py-space-md">
+                      @if (hotel.pricing; as pricing) {
+                        <app-hotel-price [pricing]="pricing" />
+                      } @else {
+                        <span class="text-body-sm text-on-surface-variant">No price</span>
+                      }
+                    </td>
+                    <td class="px-space-md py-space-md">
+                      <ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: hotel }" />
+                    </td>
+                    <td class="px-space-md py-space-md text-right">
+                      <ng-container *ngTemplateOutlet="rowActions; context: { $implicit: hotel }" />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+
+            <ul data-testid="directory-cards" class="flex flex-col gap-space-md md:hidden">
+              @for (hotel of result.items; track hotel.id) {
+                <li class="flex flex-col gap-space-sm rounded-xl bg-surface-container-low p-space-md">
+                  <div class="flex items-start gap-space-md">
+                    <app-hotel-image-view
+                      class="h-16 w-16 shrink-0 overflow-hidden rounded-lg"
+                      [hotelId]="hotel.id"
+                      [hotelName]="hotel.name"
+                      [hasImage]="hasThumbnail(hotel)"
+                      [position]="0"
+                      [compact]="true"
+                    />
+                    <div class="flex min-w-0 flex-1 flex-col gap-space-xs">
+                      <span class="font-serif text-headline-sm text-primary">{{ hotel.name }}</span>
+                      <span class="text-body-sm text-on-surface-variant">{{ location(hotel) }}</span>
+                      <ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: hotel }" />
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap items-center justify-between gap-space-sm">
+                    <span class="text-body-sm text-on-surface-variant">
+                      @if (averageRating(hotel); as average) {
+                        <span class="font-semibold text-primary">{{ average }}</span> · {{ ratingCount(hotel) }}
+                      } @else {
+                        No ratings
+                      }
+                    </span>
+                    @if (hotel.pricing; as pricing) {
+                      <app-hotel-price [pricing]="pricing" />
+                    } @else {
+                      <span class="text-body-sm text-on-surface-variant">No price</span>
+                    }
+                  </div>
+                  <ng-container *ngTemplateOutlet="rowActions; context: { $implicit: hotel }" />
+                </li>
+              }
+            </ul>
+
+            <div class="md:px-space-md md:pb-space-md">
+              <app-pagination [page]="result.page" [totalPages]="result.totalPages" (pageChange)="goToPage($event)" />
+            </div>
+          }
+        </div>
+      } @else {
+        <div
+          data-testid="directory-loading"
+          aria-busy="true"
+          aria-label="Loading hotels"
+          class="flex flex-col gap-space-sm md:p-space-md"
+        >
+          @for (placeholder of placeholders; track placeholder) {
+            <div class="flex animate-pulse items-center gap-space-md rounded-lg bg-surface-container-low p-space-sm">
+              <div class="h-14 w-14 rounded-lg bg-surface-container-high"></div>
+              <div class="flex flex-1 flex-col gap-space-xs">
+                <div class="h-4 w-1/3 rounded bg-surface-container-high"></div>
+                <div class="h-3 w-1/4 rounded bg-surface-container-high"></div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<ng-template #statusBadge let-hotel>
+  <span
+    data-testid="row-status"
+    class="inline-flex items-center gap-1.5 self-start rounded-full px-space-sm py-1 text-label-sm uppercase"
+    [class]="hotel.isActive ? 'bg-primary-container/10 text-primary' : 'bg-secondary-container text-on-secondary-fixed'"
+  >
+    <span
+      aria-hidden="true"
+      class="h-1.5 w-1.5 rounded-full"
+      [class]="hotel.isActive ? 'bg-primary-container' : 'bg-secondary'"
+    ></span>
+    {{ hotel.isActive ? 'Active' : 'Inactive' }}
+  </span>
+</ng-template>
+
+<ng-template #rowActions let-hotel>
+  <div class="inline-flex items-center gap-space-xs">
+    <a
+      data-testid="row-edit"
+      [href]="editHref(hotel)"
+      [attr.aria-label]="'Edit ' + hotel.name"
+      class="inline-flex min-h-11 items-center justify-center rounded-lg px-space-md text-label-lg uppercase text-primary transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      (click)="openSheet($event, editHref(hotel))"
+    >
+      Edit
+    </a>
+    <button
+      type="button"
+      data-testid="row-delete"
+      [attr.aria-label]="'Delete ' + hotel.name"
+      class="inline-flex min-h-11 items-center justify-center rounded-lg px-space-md text-label-lg uppercase text-error transition-colors hover:bg-error-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      (click)="askToDelete(hotel, $event)"
+    >
+      Delete
+    </button>
+  </div>
+</ng-template>
+
+<dialog
+  #deleteDialog
+  data-testid="delete-dialog"
+  aria-labelledby="delete-dialog-title"
+  aria-describedby="delete-dialog-description"
+  class="m-auto w-[min(92vw,32rem)] max-w-none rounded-xl bg-surface-container-lowest p-space-lg text-on-surface shadow-2xl backdrop:bg-primary/40 backdrop:backdrop-blur-sm"
+  (cancel)="onDeleteDialogCancel($event)"
+>
+  @let target = pendingDelete();
+  <div class="flex flex-col gap-space-md">
+    <div class="flex items-center gap-space-sm">
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-error-container/60 text-error" aria-hidden="true">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </span>
+      <div class="flex flex-col">
+        <h2 id="delete-dialog-title" class="font-serif text-headline-sm text-primary">Delete {{ target?.name }}?</h2>
+        <span class="text-label-sm uppercase text-error">This cannot be undone</span>
+      </div>
+    </div>
+    <p id="delete-dialog-description" class="text-body-md text-on-surface-variant">
+      {{ target?.name }} and its images will be removed from the collection and from the public site.
+    </p>
+    <div data-testid="delete-error" role="alert">
+      @if (deleteError(); as message) {
+        <p class="rounded-lg bg-error-container px-space-md py-space-sm text-body-sm text-on-error-container">{{ message }}</p>
+      }
+    </div>
+    <div class="flex flex-col-reverse gap-space-sm sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        data-testid="delete-cancel"
+        class="inline-flex min-h-11 items-center justify-center rounded-lg bg-surface-container px-space-md text-label-lg uppercase text-on-surface transition-colors hover:bg-surface-container-high focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+        [disabled]="deleting()"
+        (click)="cancelDelete()"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        data-testid="delete-confirm"
+        class="inline-flex min-h-11 items-center justify-center rounded-lg bg-error px-space-md text-label-lg uppercase text-on-primary shadow-md transition-colors hover:bg-on-error-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-70"
+        [disabled]="deleting()"
+        [attr.aria-busy]="deleting()"
+        (click)="confirmDelete()"
+      >
+        Delete
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<router-outlet />

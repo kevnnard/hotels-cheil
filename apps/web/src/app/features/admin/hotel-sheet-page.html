@@ -1,0 +1,84 @@
+<app-admin-sheet [title]="title()" [dirty]="sheetDirty()" (closed)="returnToDirectory()">
+  @switch (view()) {
+    @case ('loading') {
+      <div data-testid="hotel-sheet-loading" role="status" aria-busy="true" class="flex flex-col gap-space-md">
+        <span class="sr-only">Loading the hotel…</span>
+        @for (placeholder of [0, 1, 2]; track placeholder) {
+          <div class="flex animate-pulse flex-col gap-space-sm rounded-xl bg-surface-container-low p-space-md" aria-hidden="true">
+            <div class="h-4 w-1/4 rounded bg-surface-container-high"></div>
+            <div class="h-11 w-full rounded-lg bg-surface-container-high"></div>
+            <div class="h-11 w-2/3 rounded-lg bg-surface-container-high"></div>
+          </div>
+        }
+      </div>
+    }
+    @case ('not-found') {
+      <div
+        data-testid="hotel-sheet-not-found"
+        role="alert"
+        class="flex flex-col items-center gap-space-sm rounded-xl bg-surface-container-low px-space-md py-space-xl text-center"
+      >
+        <h3 class="font-serif text-headline-sm text-primary">Hotel not found</h3>
+        <p class="max-w-lg text-body-md text-on-surface-variant">This hotel does not exist or was deleted.</p>
+        <a
+          routerLink="/admin"
+          queryParamsHandling="preserve"
+          class="mt-space-sm inline-flex min-h-11 items-center justify-center rounded-lg bg-primary-container px-space-md text-label-lg uppercase text-on-primary shadow-md transition-colors hover:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Back to the directory
+        </a>
+      </div>
+    }
+    @case ('error') {
+      <app-state-panel
+        data-testid="hotel-sheet-error"
+        tone="error"
+        heading="We could not load this hotel"
+        message="Something went wrong while contacting the server. Try again in a moment."
+        actionLabel="Try again"
+        actionTestId="hotel-sheet-retry"
+        (action)="retryLoad()"
+      />
+    }
+    @default {
+      @let hotel = loadedHotel();
+      <app-admin-hotel-form
+        [hotel]="hotel"
+        [saving]="saving()"
+        [alert]="alert()"
+        (save)="save($event)"
+        (cancelRequested)="cancel()"
+        (dirtyChange)="formDirty.set($event)"
+      >
+        @if (hotel) {
+          <section
+            data-testid="hotel-ratings"
+            aria-labelledby="hotel-section-ratings"
+            class="flex flex-col gap-space-sm rounded-xl bg-surface-container-low/70 p-space-md md:p-space-lg"
+          >
+            <h3 id="hotel-section-ratings" class="font-serif text-headline-sm text-primary">Guest ratings</h3>
+            @let summary = rating() ?? hotel.rating;
+            @if (summary.count > 0) {
+              <app-rating-summary class="self-start" [rating]="summary" />
+            } @else {
+              <p class="text-body-md text-on-surface-variant">No ratings yet.</p>
+            }
+            <app-own-rating-field [state]="ownRating" />
+            <p data-testid="hotel-ratings-note" class="text-body-sm text-on-surface-variant">
+              Your stars are your own vote as an administrator. Guest votes are included in the average.
+            </p>
+          </section>
+        }
+        <app-admin-image-slots
+          [hotelId]="hotelId()"
+          [hotelName]="hotel?.name ?? ''"
+          [slots]="slots()"
+          [disabled]="saving()"
+          (fileChosen)="chooseImage($event)"
+          (removeConfirmed)="removeImage($event)"
+          (pendingCleared)="clearPending($event)"
+        />
+      </app-admin-hotel-form>
+    }
+  }
+</app-admin-sheet>

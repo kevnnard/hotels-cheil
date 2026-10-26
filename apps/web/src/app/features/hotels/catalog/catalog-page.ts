@@ -34,7 +34,7 @@ export class CatalogPage {
   protected readonly placeholders = Array.from({ length: 4 }, (_, index) => index);
   protected readonly pageSize = catalogPageSize;
 
-  protected readonly query = toSignal(this.route.queryParamMap.pipe(map(parseCatalogQuery)), {
+  protected readonly query = toSignal(this.route.queryParamMap.pipe(map((params) => parseCatalogQuery(params))), {
     initialValue: parseCatalogQuery(this.route.snapshot.queryParamMap),
   });
 

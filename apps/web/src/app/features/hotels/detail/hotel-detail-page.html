@@ -75,8 +75,9 @@
             }
             <h1 class="font-serif text-headline-lg tracking-tight text-primary md:text-display-md">{{ item.name }}</h1>
           </div>
-          <app-rating-summary [rating]="item.rating" />
+          <app-rating-summary [rating]="rating() ?? item.rating" />
         </header>
+        <app-hotel-rating-panel class="mb-space-lg" [hotelId]="item.id" (summaryChange)="rating.set($event)" />
         <app-hotel-gallery [hotelId]="item.id" [hotelName]="item.name" [images]="item.images" />
       </div>
     </section>

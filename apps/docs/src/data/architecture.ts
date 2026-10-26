@@ -172,12 +172,13 @@ export const layers: LayerDescriptor[] = [
 	{
 		id: "delivery",
 		title: "Delivery",
-		responsibility: "Runs the API and the database with the same definition in every environment, and holds the public Angular client that reads the catalog.",
+		responsibility: "Runs the API and the database with the same definition in every environment, and holds the Angular client: the public catalog and the guarded administration area.",
 		accent: "violet",
 		badges: ["Docker Compose", "Angular"],
 		docs: [
 			{ label: "Development", href: "/development/" },
 			{ label: "ADR-016 Angular frontend stack", href: "/decisions/adr-016-angular-frontend-stack/" },
+			{ label: "ADR-019 Admin session storage", href: "/decisions/adr-019-admin-session-storage/" },
 			{ label: "ADR-005 Docker Compose and manual execution", href: "/decisions/adr-005-docker-compose-and-manual-execution/" },
 		],
 	},
@@ -342,16 +343,18 @@ export const nodes: ArchitectureNode[] = [
 		layer: "api",
 		status: "implemented",
 		summary:
-			"Records the rating of the signed-in account for one hotel and returns the summary after the write.",
+			"Records the rating of the signed-in account for one hotel and returns the summary after the write, and returns the score of that account alone.",
 		responsibilities: [
 			"Reads the account from the validated token, never from the request body.",
 			"Replaces the previous rating of the same account for the same hotel.",
+			"Answers the own score of the caller, or null when the caller has not rated the hotel.",
 		],
 		expectations: [
 			"The score is a decimal between 1 and 5, both included.",
 			"Rating again moves the average and never grows the number of votes.",
+			"The own score answer carries only the score, never another account or a user identifier.",
 		],
-		data: "Writes the hotel_ratings table through the hotel service.",
+		data: "Reads and writes the hotel_ratings table through the hotel service.",
 		endpoints: [
 			{
 				method: "POST",
@@ -359,6 +362,13 @@ export const nodes: ArchitectureNode[] = [
 				policy: "hotels.rate",
 				success: "200 with the rating summary",
 				failures: "400 score outside 1 to 5, 404 unknown hotel, 401 missing or invalid token",
+			},
+			{
+				method: "GET",
+				path: "/api/hotels/{id}/ratings/me",
+				policy: "hotels.rate",
+				success: "200 with the score of the caller, or a null score",
+				failures: "404 unknown hotel, 403 forbidden role, 401 missing or invalid token",
 			},
 		],
 	},
@@ -559,7 +569,7 @@ export const nodes: ArchitectureNode[] = [
 		layer: "application",
 		status: "implemented",
 		summary:
-			"Owns the hotel use cases: list with filters, read, create, update, delete and rate.",
+			"Owns the hotel use cases: list with filters, read, create, update, delete, rate and read the own score.",
 		responsibilities: [
 			"Translates the query into the filters the store understands.",
 			"Computes the rating summary from the stored votes.",
@@ -744,6 +754,7 @@ export const nodes: ArchitectureNode[] = [
 			"Escape the wildcard characters of the name filter.",
 			"Compute the average and the count of votes in one aggregate query.",
 			"Write a rating with an atomic upsert on the account and hotel pair.",
+			"Read the score of one account for one hotel by its key, without tracking.",
 			"Swap and clear the image of one position, and delete a hotel with every image, under the hotel row lock, reporting what was displaced.",
 			"Filter the listing by the effective nightly price (the discounted rate when there is a discount) inside the SQL query, before the count and the page.",
 		],
@@ -874,7 +885,7 @@ export const nodes: ArchitectureNode[] = [
 		layer: "delivery",
 		status: "implemented",
 		summary:
-			"The anonymous screens of apps/web: the catalog at / and the hotel detail at /hotels/:id, lazy loaded inside the public layout.",
+			"The public screens of apps/web: the catalog at /, the hotel detail at /hotels/:id and the visitor account pages under /account, lazy loaded inside the public layout.",
 		responsibilities: [
 			"Show the catalog with a hero for the first hotel that has an image, a sticky name search, the minimum rating thresholds All, 4.90+, 4.95+ and 5.0 (decimals kept exactly) and the pagination, all reflected in the query string.",
 			"Show the nightly price in USD on every card that has pricing: the rate and per night, or the struck-through original rate, the discounted rate and a percentage badge when the hotel has a discount. The hero shows no price.",
@@ -882,6 +893,9 @@ export const nodes: ArchitectureNode[] = [
 			"Show the detail of one hotel with a back link and a breadcrumb to its country, its city and region, the rating summary when it has ratings, a three-tile photo mosaic, the real facts, address and description, and a column that is sticky from lg with the stay estimate, the contact card limited to the contact values the API returned and a sample manager card.",
 			"Show loading, empty, error and not found states, and a placeholder when a hotel has no image.",
 			"Show a footer whose Destinations area lists the distinct, sorted city and country pairs of the hotels returned by one GET /api/public/hotels request made by the public layout, and is omitted when there are none.",
+			"Show the account state in the public header: a Sign in link that carries the current address as a validated returnUrl for an anonymous visitor, and for a signed-in account a button with the truncated email that opens a menu with the full email, Sign out and, for an Administrator, an Administration link to /admin. Sign out clears the session and stays on the page.",
+			"Show a Rate this hotel panel below the title block of the detail: an anonymous visitor sees Sign in to rate this hotel. with Sign in and Create an account links back to the detail; a signed-in User or Administrator sees the rating control with the own score, a loading state and a retryable error that never breaks the page.",
+			"After a rating is saved, show Thanks, your rating was saved. and update the rating summary from the POST answer without reloading the hotel, so the summary appears after the first rating of a hotel that had none; a 400, 401, 403, 404 or network failure shows its own message in an alert and keeps the previous vote.",
 		],
 		expectations: [
 			"Hotel facts, prices and images come only from the public API. The quote, the suites, the amenities, the perks and the manager card on the detail are typed sample constants with no remote asset, and nothing on the detail makes a booking or claims availability.",
@@ -898,17 +912,22 @@ export const nodes: ArchitectureNode[] = [
 		layer: "delivery",
 		status: "implemented",
 		summary:
-			"The presentation pieces composed by the detail page: HotelGallery, ReservationCard and SuitesShowcase.",
+			"The presentation pieces composed by the detail page: HotelGallery, ReservationCard, SuitesShowcase, HotelRatingPanel and the reusable OwnRatingField and RatingControl, which the admin edit sheet reuses.",
 		responsibilities: [
 			"HotelGallery places the image of positions 0, 1 and 2 by their explicit position in a mosaic, keeps the placeholder for an empty position, and opens the existing images in a native modal dialog that closes with its button, Escape or a backdrop click and returns focus to the opener.",
 			"ReservationCard shows the nightly price block or Price on request, a nights stepper from 1 to 14, a sample guests select and an estimated total of the effective nightly price times the nights, announced politely.",
 			"SuitesShowcase shows three sample suites in an accessible tablist with roving focus and the arrow, Home and End keys.",
+			"RatingControl shows five inline SVG stars as a radiogroup labelled Your rating with one radio per integer score, aria-checked on the current score, a roving tab stop, arrow, Home and End keys that move the focus and preview, Space and Enter that select, a hover preview, the value as text such as 4 of 5, read only, disabled and saving states, 44 px targets and motion only when the visitor allows it. It emits the chosen integer score.",
+			"createOwnRating is the one own rating state shared by the detail panel and the admin edit sheet: once the session is settled it reads the own score through HotelRatingService, saves a selection, ignores a second selection while saving, maps the failures to their messages and hands the new summary to its host. A rating in flight is never cancelled when the host closes.",
+			"OwnRatingField renders that state: loading, a load error with Try again, the RatingControl, the saved message in a status region and the failure in an alert region.",
+			"HotelRatingPanel invites an anonymous visitor to sign in or register, shows the OwnRatingField to a signed-in account and reports the new summary to the page.",
 		],
 		expectations: [
 			"The request and concierge buttons are inert: they only show Demo only: nothing was sent. and make no request.",
-			"No component calls HTTP; image addresses come from the catalog service and the browser loads them.",
+			"No component calls HTTP; image addresses come from the catalog service and the browser loads them, and the own rating state reaches the API only through HotelRatingService.",
+			"The panel never shows the account email and never presents a vote as public identity data.",
 		],
-		data: "Local view state in Signals only: the open dialog, the nights and the selected suite.",
+		data: "Local view state in Signals only: the open dialog, the nights, the selected suite, the own score, the saving state and the last rating message.",
 	},
 	{
 		id: "hotel-catalog-service",
@@ -925,9 +944,193 @@ export const nodes: ArchitectureNode[] = [
 		],
 		expectations: [
 			"A 404 on the detail reaches the screen as a not found state, other failures as a retryable error.",
-			"No token is sent; the service only uses the anonymous public routes.",
+			"The service only uses the anonymous public routes; while any account is signed in the interceptor attaches the token, which those routes ignore.",
 		],
 		data: "Stateless. It holds no cache and no copy of the hotels.",
+	},
+	{
+		id: "hotel-rating-service",
+		label: "HotelRatingService",
+		kind: "Angular HTTP service",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The typed HttpClient service of the ratings of the signed-in account, separate from the public catalog service and from the administration service.",
+		responsibilities: [
+			"Send an integer score from 1 to 5 to POST /api/hotels/{id}/ratings and return the rating summary of the answer.",
+			"Read the score of the caller from GET /api/hotels/{id}/ratings/me, or null when the caller has not rated the hotel.",
+		],
+		expectations: [
+			"Every request carries the bearer token added by the interceptor; a 401 clears the session there without leaving the public page.",
+			"Failures reach the caller unchanged and the shared own rating state maps them to its messages for the detail panel and the admin edit sheet.",
+		],
+		data: "Stateless. It holds no cache and no copy of the scores.",
+	},
+	{
+		id: "account-web-routes",
+		label: "Visitor account pages",
+		kind: "Angular routes",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The visitor sign in at /account/sign-in and registration at /account/register, lazy loaded inside the public layout and open only to visitors without a session.",
+		responsibilities: [
+			"Show the sign in card with labelled email and password fields, a show or hide password button, field validation, a loading state and an alert region; 401 shows Invalid email or password., 400 maps the API field errors and network or server failures show a generic message.",
+			"Keep the session of any role after a sign in, never revoking it, and go to the validated returnUrl or /.",
+			"Show the registration card with email, password and confirm password, the email and password rules of the API mirrored with clear messages, a check that both passwords match, focus on the first invalid field, the 400 field errors mapped and a 409 shown as This email address is already registered. Sign in instead.",
+			"After a 201, sign in with the same credentials and go to the validated returnUrl or /; when that sign in fails, ask the visitor to sign in.",
+		],
+		expectations: [
+			"Pages never call HTTP directly; they use AuthService.",
+			"The token and the password are never rendered or logged.",
+			"The API stays the authority for every rule mirrored in the forms, and registration always yields the User role.",
+		],
+		data: "Local form state in Signals only; the session in AuthState.",
+	},
+	{
+		id: "admin-web-routes",
+		label: "Admin web routes",
+		kind: "Angular routes",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The administration screens of apps/web: the login at /admin/login, the hotel directory at /admin and the bottom sheet routes /admin/hotels/new and /admin/hotels/:id/edit, all lazy loaded and guarded.",
+		responsibilities: [
+			"Show a login card with labelled email and password fields, a show or hide password button, field validation, a loading state and an alert region; 401 shows Invalid email or password., 400 maps the API field errors, and network or server failures show a generic message.",
+			"Go to a validated returnUrl or /admin after a sign in, and refuse an account without the Administrator role, revoking its session.",
+			"Render the admin shell: a left sidebar from lg and a top bar below it with the brand, the Hotels link, View public site, the signed-in email and Sign out.",
+			"Show the hotel directory at /admin: a name search debounced 300 ms, a minimum rating select, a maximum price input debounced 300 ms, Reset and the pagination, all kept in the query string as name, minRating, maxPrice and page, so reload and back restore the view.",
+			"List ten hotels per page, active and inactive, in a table from md and in stacked cards below it, with the thumbnail of position 0, the name, the city and country, the rating, the nightly price with its discount and the Active or Inactive status, plus loading, empty, error and retry states; the previous rows stay visible while the next page loads and the page never jumps to the top.",
+			"Delete a hotel after a native modal confirmation that names it: success or a 404 announces Hotel deleted., reloads the page and steps back one page when the removed hotel was the only one of the last page; any other failure keeps the dialog open with an error.",
+			"Open /admin/hotels/new and /admin/hotels/:id/edit as child routes over the mounted directory, in the bottom sheet, and return to /admin with the same query string when the sheet closes.",
+			"Create a hotel at /admin/hotels/new with POST /api/hotels, then upload the images chosen per slot in position order; when every upload succeeds close the sheet, otherwise open /admin/hotels/{id}/edit of the created hotel with a message naming the failed slots, so a retry never posts a second hotel.",
+			"Edit a hotel at /admin/hotels/:id/edit: show a loading state, pre-fill the form from GET /api/hotels/{id}, send the full replacement with PUT /api/hotels/{id} with empty optional fields as null, show a not found state with a link back on 404 and a retryable error otherwise, and show the rating summary with the own vote of the administrator.",
+			"In the Guest ratings section of the edit sheet, read the own vote of the administrator from GET /api/hotels/{id}/ratings/me and save a selection with POST /api/hotels/{id}/ratings through the shared own rating state; the summary of the answer replaces the one in the sheet without reloading the hotel, touching the form values or marking the form dirty, a failed own vote load offers Try again without blocking the form, and the create sheet shows no rating control.",
+			"After a create or a save, close the sheet without the discard question and announce Hotel created. or Hotel saved. in the directory, which reloads the current page through AdminDirectoryRefresh without a full page reload; after a rating, announce a quiet change that reloads the page with the new average and leaves the status message as it was.",
+			"Upload, replace and remove the image of each of the three positions at once from the edit sheet with PUT and DELETE /api/hotels/{id}/images/{position}, independent of Save and without marking the form dirty; each slot shows its own progress, the API message of a 400, 413, 415 or 422 in an alert, and the new image through a versioned public address.",
+		],
+		expectations: [
+			"Screens never call HTTP directly; they use AuthService, AuthState, AdminHotelsService and, for the own vote, HotelRatingService through the shared own rating state.",
+			"The token and the password are never rendered or logged.",
+			"The thumbnails and the image slots use the public image address because an image element cannot send the bearer token, so an inactive hotel shows the placeholder.",
+			"Server messages are rendered as text, never as HTML; a 401 is left to the interceptor and a 403 shows You do not have permission to do this.",
+		],
+		data: "Local form and view state in Signals and the query string only; the latest directory change in AdminDirectoryRefresh.",
+	},
+	{
+		id: "admin-hotels-service",
+		label: "AdminHotelsService",
+		kind: "Angular HTTP service",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The typed HttpClient service of the administration area over the administrative hotel routes, reusing the public hotel contracts.",
+		responsibilities: [
+			"List hotels from GET /api/hotels with name, minRating, maxPrice, page and pageSize, omitting the name, the rating and the price limit when unset, with the same parameter builder as the catalog service.",
+			"Read one hotel from GET /api/hotels/{id}, create one with POST /api/hotels, replace one with PUT /api/hotels/{id} and delete one with DELETE /api/hotels/{id}, always sending the full request body.",
+			"Upload an image as the multipart field image with PUT /api/hotels/{id}/images/{position} and remove it with DELETE /api/hotels/{id}/images/{position}.",
+		],
+		expectations: [
+			"Every request carries the bearer token added by the interceptor; a 401 ends the session there.",
+			"Failures reach the caller unchanged; the directory treats a 404 on delete as already deleted and the sheet treats a 404 on an image removal as already removed.",
+		],
+		data: "Stateless. It holds no cache and no copy of the hotels.",
+	},
+	{
+		id: "admin-sheet",
+		label: "AdminSheet",
+		kind: "Angular component",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The reusable bottom sheet of the administration area: a native modal dialog that slides up from the bottom and hosts projected content.",
+		responsibilities: [
+			"Open with showModal, slide up unless the visitor prefers reduced motion, limit the height to 92vh with rounded top corners, a drag handle bar, a sticky header with the title and a close button, and a scrollable body; full width on mobile and centered up to max-w-3xl from md.",
+			"Close with Escape, the close button or a backdrop click, lock the page scroll while open and return the focus to the opener.",
+			"When its dirty input is set, ask Discard your changes? with Keep editing and Discard instead of closing.",
+		],
+		expectations: [
+			"It knows nothing about hotels; it emits closed and the host route decides where to go.",
+		],
+		data: "Local view state in Signals only: the discard confirmation.",
+	},
+	{
+		id: "admin-hotel-form",
+		label: "AdminHotelForm and AdminImageSlots",
+		kind: "Angular components",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The typed reactive hotel form used for create and edit inside the sheet, and the three image slots projected into it.",
+		responsibilities: [
+			"Build the Identity, Location, Contact and Pricing sections from the hotel request contract, with the maximum lengths, the required name, the email rule and the http or https website rule of the domain, character counters for the name and the description, errors on blur or submit linked by aria-describedby, and focus on the first invalid field.",
+			"Disable and clear the discount while the price is empty, accept a price above 0 up to 100000 with two decimals and a whole discount from 1 to 90, and preview Guests pay $X per night in USD with the effective price helper shared with the public pages.",
+			"Place the API field errors of a 400 on their controls, show the other messages in an alert region with a retry for network failures, block double submits while saving and report the dirty state to the sheet.",
+			"Show the main image and images 2 and 3 with Upload or Replace and Remove behind an inline confirmation, or let a new hotel pick files that are uploaded after it is created; accept JPEG, PNG and WebP up to 10 MB as client hints.",
+		],
+		expectations: [
+			"No component calls HTTP; the sheet route coordinates AdminHotelsService.",
+			"The API stays the authority for every rule mirrored in the form.",
+		],
+		data: "The form state and the inline confirmation only.",
+	},
+	{
+		id: "web-auth-session",
+		label: "AuthService, AuthApi and AuthState",
+		kind: "Angular auth services",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"Registers visitor accounts, signs in, restores and signs out the session of any role and holds it in Signals mirrored to sessionStorage under one key.",
+		responsibilities: [
+			"Post a new account to /api/auth/register without storing anything.",
+			"Post the credentials to /api/auth/login and keep the token, email, roles array and expiry; the role check of the admin login lives in that page, so visitor sessions are never revoked.",
+			"Restore a stored session on startup without blocking the first render: discard a malformed or expired value, validate a plausible one with GET /api/auth/me and discard it silently on any failure.",
+			"Call POST /api/auth/logout best effort and always clear the local session.",
+		],
+		expectations: [
+			"The register, restore, login and logout requests never trigger the 401 handling of the interceptor.",
+			"A closed tab drops the session; there is no refresh.",
+		],
+		data: "The session in Signals and in sessionStorage under aurea.admin.session.",
+	},
+	{
+		id: "web-auth-interceptor",
+		label: "authInterceptor",
+		kind: "Angular HTTP interceptor",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"Adds the bearer token to same-origin /api requests and ends the session on a 401.",
+		responsibilities: [
+			"Attach Authorization: Bearer only when a session exists and the request targets the same origin with a path of /api or below.",
+			"On a 401 from such a request, clear the session; when the router is in or entering /admin, also open /admin/login with the attempted address as a validated returnUrl, and elsewhere stay on the page so the visitor sees the signed-out state.",
+		],
+		expectations: [
+			"Other origins, protocol-relative addresses and non-API paths never receive the token.",
+			"No refresh and no retry.",
+		],
+		data: "Reads the token from AuthState; stores nothing.",
+	},
+	{
+		id: "web-auth-guards",
+		label: "Access guards",
+		kind: "Angular route guards",
+		layer: "delivery",
+		status: "implemented",
+		summary:
+			"The authenticated, Administrator, guest and visitor guest guards that steer navigation once the session restoration has ended.",
+		responsibilities: [
+			"Send a signed-in account of any role away from /account/sign-in and /account/register to the validated returnUrl or /.",
+			"Send an anonymous visitor of /admin to the login with the attempted address.",
+			"Send a signed-in account without the Administrator role to the login with an explanation.",
+			"Send a signed-in administrator from the login to /admin.",
+		],
+		expectations: [
+			"Guards only steer navigation; the API policies stay the authority.",
+			"An expired session is discarded before deciding.",
+		],
+		data: "Reads AuthState only.",
 	},
 ];
 
@@ -951,6 +1154,27 @@ export const edges: ArchitectureEdge[] = [
 	{ from: "public-web-routes", to: "hotel-detail-components", label: "composes the detail", protocol: "in-process" },
 	{ from: "hotel-detail-components", to: "hotel-catalog-service", label: "image addresses by position", protocol: "in-process" },
 	{ from: "hotel-catalog-service", to: "public-hotels-controller", label: "GET list, detail, image and image positions", protocol: "https" },
+	{ from: "public-web-routes", to: "web-auth-session", label: "header state and sign out", protocol: "in-process" },
+	{ from: "hotel-detail-components", to: "hotel-rating-service", label: "own score and rating", protocol: "in-process" },
+	{ from: "hotel-rating-service", to: "web-auth-interceptor", label: "requests through HttpClient", protocol: "in-process" },
+	{ from: "web-auth-interceptor", to: "ratings-controller", label: "POST rating and GET own rating with the bearer token", protocol: "https" },
+	{ from: "account-web-routes", to: "web-auth-guards", label: "guest only navigation", protocol: "in-process" },
+	{ from: "account-web-routes", to: "web-auth-session", label: "register and sign in", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "web-auth-guards", label: "guards navigation", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "web-auth-session", label: "sign in and sign out", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "admin-hotels-service", label: "lists, reads, writes and deletes hotels and images", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "admin-sheet", label: "opens create and edit", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "hotel-detail-components", label: "reuses OwnRatingField and RatingControl", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "hotel-rating-service", label: "own vote of the administrator", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "admin-hotel-form", label: "hosts the hotel form", protocol: "in-process" },
+	{ from: "admin-hotel-form", to: "hotel-catalog-service", label: "image addresses by position", protocol: "in-process" },
+	{ from: "admin-web-routes", to: "hotel-catalog-service", label: "thumbnail image addresses", protocol: "in-process" },
+	{ from: "admin-hotels-service", to: "web-auth-interceptor", label: "requests through HttpClient", protocol: "in-process" },
+	{ from: "web-auth-interceptor", to: "hotels-controller", label: "GET list, GET by id, POST, PUT, DELETE with the bearer token", protocol: "https" },
+	{ from: "web-auth-interceptor", to: "hotel-images-controller", label: "PUT and DELETE images by position with the bearer token", protocol: "https" },
+	{ from: "web-auth-guards", to: "web-auth-session", label: "waits for the restore", protocol: "in-process" },
+	{ from: "web-auth-session", to: "web-auth-interceptor", label: "requests through HttpClient", protocol: "in-process" },
+	{ from: "web-auth-interceptor", to: "auth-controller", label: "POST register, POST login, GET me, POST logout", protocol: "https" },
 	{ from: "jwt-bearer", to: "ports", label: "session lookup", protocol: "identity" },
 	{ from: "policies", to: "ports", label: "role claim", protocol: "identity" },
 	{ from: "authentication-service", to: "token-issuer", label: "issues the token", protocol: "in-process" },
@@ -982,7 +1206,7 @@ export const requestFlow: RequestFlowStep[] = [
 	{
 		title: "The client calls the API",
 		detail:
-			"Protected hotel calls carry the token in the Authorization header, while the public catalogue calls are anonymous and send no token. The body never identifies the account.",
+			"Protected hotel calls carry the token in the Authorization header, while the public catalogue calls do not need one: they are anonymous, and the interceptor adds the token to them only when an account is signed in, where the public routes ignore it. The body never identifies the account.",
 	},
 	{
 		title: "The token is validated",
@@ -1002,7 +1226,27 @@ export const requestFlow: RequestFlowStep[] = [
 	{
 		title: "The Angular client reads the catalog",
 		detail:
-			"The public web routes ask the catalog service for a page or a hotel. The service calls the public routes over same-origin /api, with minRating and maxPrice omitted when unset, and the screen renders loading, empty, error or not found states from the answer. The detail page loads the image of each stored position from /api/public/hotels/{id}/images/{position} and requests nothing else. The public layout makes its own request for up to 100 hotels to derive the footer destinations, and shows none when it fails.",
+			"The public web routes ask the catalog service for a page or a hotel. The service calls the public routes over same-origin /api, with minRating and maxPrice omitted when unset, and the screen renders loading, empty, error or not found states from the answer. The detail page loads the image of each stored position from /api/public/hotels/{id}/images/{position} and, for a signed-in account, reads the own rating from /api/hotels/{id}/ratings/me. The public layout makes its own request for up to 100 hotels to derive the footer destinations, and shows none when it fails.",
+	},
+	{
+		title: "The administrator signs in to the web panel",
+		detail:
+			"The login page posts to /api/auth/login and AuthState keeps the token, email, roles and expiry in sessionStorage. On reload the session is validated with GET /api/auth/me before the guards decide. The interceptor attaches the token only to same-origin /api requests, and a 401 while in the admin area clears the session and returns to /admin/login with a validated returnUrl. Sign out calls /api/auth/logout best effort and always clears the session.",
+	},
+	{
+		title: "A visitor creates an account and rates a hotel",
+		detail:
+			"The register page posts to /api/auth/register, which always yields the User role, then signs in with the same credentials through /api/auth/login and returns to the validated returnUrl. The session is kept for any role in the same sessionStorage key. On the detail, the rating panel reads GET /api/hotels/{id}/ratings/me and sends an integer score to POST /api/hotels/{id}/ratings with the bearer token; the summary of the answer replaces the one on screen without reloading the hotel. A 401 outside /admin clears the session and leaves the visitor on the page.",
+	},
+	{
+		title: "The administrator manages the hotel directory",
+		detail:
+			"The directory reads name, minRating, maxPrice and page from the query string and asks AdminHotelsService for GET /api/hotels with a page size of 10; the interceptor adds the token. Delete calls DELETE /api/hotels/{id} after a confirmation and treats 204 and 404 as deleted. /admin/hotels/new and /admin/hotels/:id/edit open a bottom sheet over the same directory and closing it returns to /admin with the same query string.",
+	},
+	{
+		title: "The administrator creates or edits a hotel in the sheet",
+		detail:
+			"The new sheet posts the full request to POST /api/hotels and then uploads each chosen image to PUT /api/hotels/{id}/images/{position} as the multipart field image, in position order; a failed upload opens the edit sheet of the created hotel instead of posting again. The edit sheet reads GET /api/hotels/{id}, sends the full replacement to PUT /api/hotels/{id} and changes images at once with PUT and DELETE /api/hotels/{id}/images/{position}. A 400 maps the field errors to the form. After a create or a save the sheet closes and the directory reloads its current page and announces the result. In the edit sheet the administrator also reads GET /api/hotels/{id}/ratings/me and rates with POST /api/hotels/{id}/ratings; the answer updates the summary in the sheet and a quiet AdminDirectoryRefresh change reloads the directory behind it without a message, while PUT /api/hotels/{id} never changes ratings.",
 	},
 	{
 		title: "The controller calls the use case",

@@ -337,6 +337,15 @@ describe('CatalogPage', () => {
     request.flush(pageOf([]));
   });
 
+  it('always requests the catalogue page size, on open and after the filters change', async () => {
+    await open('/?name=sea&minRating=3');
+    expectList((p) => p('pageSize') === '8').flush(pageOf([]));
+    await settle();
+
+    await open('/?name=sea&minRating=4');
+    expectList((p) => p('pageSize') === '8' && p('minRating') === '4').flush(pageOf([]));
+  });
+
   it('reflects the typed search in the address after the debounce and resets the page', async () => {
     await open('/?page=3');
     expectList().flush(pageOf([], 3, 4));

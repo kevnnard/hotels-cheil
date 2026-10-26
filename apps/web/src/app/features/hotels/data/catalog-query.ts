@@ -40,12 +40,12 @@ function maximumPrice(value: string | null): number | null {
   return parsed > 0 ? parsed : null;
 }
 
-export function parseCatalogQuery(params: ParamMap): HotelListQuery {
+export function parseCatalogQuery(params: ParamMap, pageSize: number = catalogPageSize): HotelListQuery {
   return {
     name: params.get('name') ?? '',
     minRating: minimumRating(params.get('minRating')),
     maxPrice: maximumPrice(params.get('maxPrice')),
     page: positiveInteger(params.get('page')) ?? 1,
-    pageSize: catalogPageSize,
+    pageSize,
   };
 }

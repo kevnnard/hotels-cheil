@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, linkedSignal } from '@angular/core';
 import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
@@ -11,6 +11,7 @@ import { HotelGallery } from '../ui/hotel-gallery';
 import { RatingSummary } from '../ui/rating-summary';
 import { ReservationCard } from '../ui/reservation-card';
 import { SuitesShowcase } from '../ui/suites-showcase';
+import { HotelRatingPanel } from './hotel-rating-panel';
 
 interface HotelFact {
   label: string;
@@ -23,7 +24,7 @@ function joinPresent(parts: (string | null)[], separator: string): string {
 
 @Component({
   selector: 'app-hotel-detail-page',
-  imports: [RouterLink, HotelGallery, RatingSummary, ReservationCard, StatePanel, SuitesShowcase],
+  imports: [RouterLink, HotelGallery, HotelRatingPanel, RatingSummary, ReservationCard, StatePanel, SuitesShowcase],
   templateUrl: './hotel-detail-page.html',
 })
 export class HotelDetailPage {
@@ -46,6 +47,8 @@ export class HotelDetailPage {
     params: () => this.hotelId(),
     stream: ({ params }) => this.catalog.get(params),
   });
+
+  protected readonly rating = linkedSignal(() => this.hotel.value()?.rating ?? null);
 
   protected readonly notFound = computed(() => {
     const error = this.hotel.error();

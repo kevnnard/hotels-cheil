@@ -21,7 +21,16 @@ export const routes: Routes = [
   {
     path: '',
     loadComponent: () => import('./layouts/public-layout').then((module) => module.PublicLayout),
-    loadChildren: () => import('./features/hotels/hotels.routes').then((module) => module.hotelsRoutes),
+    children: [
+      {
+        path: 'account',
+        loadChildren: () => import('./features/account/account.routes').then((module) => module.accountRoutes),
+      },
+      {
+        path: '',
+        loadChildren: () => import('./features/hotels/hotels.routes').then((module) => module.hotelsRoutes),
+      },
+    ],
   },
   { path: '**', redirectTo: '' },
 ];

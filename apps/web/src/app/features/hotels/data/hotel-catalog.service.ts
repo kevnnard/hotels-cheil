@@ -1,6 +1,7 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { hotelListParams } from './hotel-list-params';
 import { Hotel, HotelListQuery, HotelPage } from './hotel.models';
 
 const publicHotelsUrl = '/api/public/hotels';
@@ -10,19 +11,7 @@ export class HotelCatalogService {
   private readonly http = inject(HttpClient);
 
   list(query: HotelListQuery): Observable<HotelPage> {
-    let params = new HttpParams().set('page', query.page).set('pageSize', query.pageSize);
-    const name = query.name.trim();
-    if (name) {
-      params = params.set('name', name);
-    }
-    if (query.minRating !== null) {
-      params = params.set('minRating', query.minRating);
-    }
-    const maxPrice = query.maxPrice ?? null;
-    if (maxPrice !== null && maxPrice > 0) {
-      params = params.set('maxPrice', maxPrice);
-    }
-    return this.http.get<HotelPage>(publicHotelsUrl, { params });
+    return this.http.get<HotelPage>(publicHotelsUrl, { params: hotelListParams(query) });
   }
 
   get(id: string): Observable<Hotel> {

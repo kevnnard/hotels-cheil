@@ -50,4 +50,9 @@ describe('parseCatalogQuery', () => {
     expect(parse({ page: '0' }).page).toBe(1);
     expect(parse({ page: '2' }).page).toBe(2);
   });
+
+  it('uses the catalog page size unless another one is given', () => {
+    expect(parse({}).pageSize).toBe(8);
+    expect(parseCatalogQuery(convertToParamMap({}), 10).pageSize).toBe(10);
+  });
 });

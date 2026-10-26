@@ -1,6 +1,8 @@
-export type UserRole = 'Administrator' | 'User';
+export const administratorRole = 'Administrator';
 
 export interface Session {
+  readonly accessToken: string;
   readonly email: string;
-  readonly role: UserRole;
+  readonly roles: readonly string[];
+  readonly expiresAtUtc: string;
 }

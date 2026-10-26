@@ -49,6 +49,40 @@ describe('HotelImageView', () => {
     expect(placeholder.classList.contains('h-full')).toBe(true);
   });
 
+  it('keeps a compact placeholder small with the label for screen readers only', () => {
+    const fixture = TestBed.createComponent(HotelImageView);
+    fixture.componentRef.setInput('hotelId', 'abc');
+    fixture.componentRef.setInput('hotelName', 'Aurea Test');
+    fixture.componentRef.setInput('hasImage', false);
+    fixture.componentRef.setInput('compact', true);
+    fixture.detectChanges();
+    const placeholder = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="image-placeholder"]') as HTMLElement;
+
+    expect(placeholder.querySelector('svg')?.classList.contains('h-6')).toBe(true);
+    expect(placeholder.querySelector('span')?.classList.contains('sr-only')).toBe(true);
+    expect(placeholder.textContent?.trim()).toBe('No image available');
+  });
+
+  it('adds the version to the address so a replaced image is fetched again', () => {
+    const fixture = TestBed.createComponent(HotelImageView);
+    fixture.componentRef.setInput('hotelId', 'abc');
+    fixture.componentRef.setInput('hotelName', 'Aurea Test');
+    fixture.componentRef.setInput('hasImage', true);
+    fixture.componentRef.setInput('position', 1);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('img')?.getAttribute('src')).toBe('/api/public/hotels/abc/images/1');
+
+    root.querySelector('img')?.dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+    expect(root.querySelector('img')).toBeNull();
+
+    fixture.componentRef.setInput('version', 2);
+    fixture.detectChanges();
+
+    expect(root.querySelector('img')?.getAttribute('src')).toBe('/api/public/hotels/abc/images/1?v=2');
+  });
+
   it('falls back to the placeholder when the image fails to load', () => {
     const fixture = TestBed.createComponent(HotelImageView);
     fixture.componentRef.setInput('hotelId', 'abc');

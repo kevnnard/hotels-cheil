@@ -1,7 +1,7 @@
 import { CurrencyPipe } from '@angular/common';
 import { Component, computed, input, signal } from '@angular/core';
 import { sampleGuestOptions, sampleReservationPerks } from '../data/hotel-detail-content';
-import { priceDigits } from '../data/hotel-price';
+import { effectiveNightlyRate, priceDigits } from '../data/hotel-price';
 import { HotelPricing } from '../data/hotel.models';
 import { HotelPrice } from './hotel-price';
 
@@ -180,11 +180,7 @@ export class ReservationCard {
 
   protected readonly nightlyRate = computed(() => {
     const pricing = this.pricing();
-    if (!pricing) {
-      return null;
-    }
-    const { nightlyRate, discountPercent, discountedNightlyRate } = pricing;
-    return discountPercent !== null && discountedNightlyRate !== null ? discountedNightlyRate : nightlyRate;
+    return pricing ? effectiveNightlyRate(pricing) : null;
   });
 
   protected readonly total = computed(() => {

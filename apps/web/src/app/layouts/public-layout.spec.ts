@@ -1,7 +1,12 @@
-import { provideHttpClient } from '@angular/common/http';
+import { Component } from '@angular/core';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { AuthState } from '../core/auth/auth-state.service';
+import { Session } from '../core/auth/session';
+import { authInterceptor } from '../core/http/auth.interceptor';
 import { Hotel, HotelPage } from '../features/hotels/data/hotel.models';
 import { PublicLayout } from './public-layout';
 
@@ -252,5 +257,208 @@ describe('PublicLayout', () => {
     expect(element.querySelector('[data-testid="public-layout"] > div.flex-1')?.className).toContain(
       'pt-(--header-height)',
     );
+  });
+});
+
+@Component({ template: '<main><h1>Page</h1></main>' })
+class ChildPage {}
+
+const visitor: Session = {
+  accessToken: 'eyJ.header-token.value',
+  email: 'a.very.long.visitor.address@example.com',
+  roles: ['User'],
+  expiresAtUtc: '2999-01-01T00:00:00Z',
+};
+
+const administrator: Session = { ...visitor, email: 'admin@example.com', roles: ['Administrator'] };
+
+describe('PublicLayout account area', () => {
+  let harness: RouterTestingHarness;
+  let http: HttpTestingController;
+  let state: AuthState;
+  let router: Router;
+
+  beforeEach(async () => {
+    sessionStorage.clear();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
+        provideRouter([
+          {
+            path: '',
+            component: PublicLayout,
+            children: [
+              { path: 'hotels/:id', component: ChildPage },
+              { path: 'account/sign-in', component: ChildPage },
+              { path: '', component: ChildPage },
+            ],
+          },
+          { path: 'admin', component: ChildPage },
+        ]),
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    state = TestBed.inject(AuthState);
+    router = TestBed.inject(Router);
+    harness = await RouterTestingHarness.create();
+  });
+
+  afterEach(() => sessionStorage.clear());
+
+  async function open(url: string, session: Session | null = null): Promise<HTMLElement> {
+    if (session === null) {
+      state.settle();
+    } else {
+      state.signIn(session);
+    }
+    await harness.navigateByUrl(url);
+    harness.detectChanges();
+    for (const request of http.match((candidate) => candidate.url === '/api/public/hotels')) {
+      request.flush(pageOf([]));
+    }
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    return harness.fixture.nativeElement as HTMLElement;
+  }
+
+  const header = (root: HTMLElement) => root.querySelector('header') as HTMLElement;
+  const find = (root: HTMLElement, id: string) => root.querySelector<HTMLElement>(`header [data-testid="${id}"]`);
+
+  function openMenu(root: HTMLElement): HTMLButtonElement {
+    const button = find(root, 'account-menu-button') as HTMLButtonElement;
+    button.click();
+    harness.detectChanges();
+    return button;
+  }
+
+  it('offers an anonymous visitor a Sign in link without a return address on the home', async () => {
+    const root = await open('/');
+
+    const link = find(root, 'header-sign-in');
+    expect(link?.textContent?.trim()).toBe('Sign in');
+    expect(link?.getAttribute('href')).toBe('/account/sign-in');
+    expect(link?.className).toContain('min-h-11');
+    expect(find(root, 'account-menu-button')).toBeNull();
+  });
+
+  it('passes the current address as the return address of the Sign in link', async () => {
+    const root = await open('/hotels/abc?tab=2');
+
+    expect(find(root, 'header-sign-in')?.getAttribute('href')).toBe('/account/sign-in?returnUrl=%2Fhotels%2Fabc%3Ftab%3D2');
+  });
+
+  it('never makes the sign in page its own return address', async () => {
+    const root = await open('/account/sign-in?returnUrl=%2Fhotels%2Fabc');
+
+    expect(find(root, 'header-sign-in')?.getAttribute('href')).toBe('/account/sign-in');
+  });
+
+  it('shows the email of a signed in user truncated with its full value as title, and a closed menu', async () => {
+    const root = await open('/', visitor);
+
+    const button = find(root, 'account-menu-button') as HTMLButtonElement;
+    const email = find(root, 'account-email') as HTMLElement;
+    expect(find(root, 'header-sign-in')).toBeNull();
+    expect(email.textContent?.trim()).toBe(visitor.email);
+    expect(email.className).toContain('truncate');
+    expect(button.getAttribute('title')).toBe(visitor.email);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(button.getAttribute('aria-label')).toBe(`Account menu for ${visitor.email}`);
+    expect(find(root, 'account-menu')).toBeNull();
+  });
+
+  it('opens the menu with Sign out and no Administration link for a user', async () => {
+    const root = await open('/', visitor);
+
+    const button = openMenu(root);
+
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(button.getAttribute('aria-controls')).toBe('account-menu');
+    expect(find(root, 'account-menu')?.id).toBe('account-menu');
+    expect(find(root, 'header-sign-out')?.textContent?.trim()).toBe('Sign out');
+    expect(find(root, 'header-administration')).toBeNull();
+  });
+
+  it('adds the Administration link for an administrator', async () => {
+    const root = await open('/', administrator);
+
+    openMenu(root);
+
+    const link = find(root, 'header-administration');
+    expect(link?.textContent?.trim()).toBe('Administration');
+    expect(link?.getAttribute('href')).toBe('/admin');
+  });
+
+  it('signs out, clears the session and stays on the same page', async () => {
+    const root = await open('/hotels/abc', visitor);
+    openMenu(root);
+    const navigate = vi.spyOn(router, 'navigate');
+    const navigateByUrl = vi.spyOn(router, 'navigateByUrl');
+
+    (find(root, 'header-sign-out') as HTMLButtonElement).click();
+    harness.detectChanges();
+    const logout = http.expectOne('/api/auth/logout');
+    expect(logout.request.headers.get('Authorization')).toBe(`Bearer ${visitor.accessToken}`);
+    logout.flush(null, { status: 204, statusText: 'No Content' });
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    expect(state.isAuthenticated()).toBe(false);
+    expect(router.url).toBe('/hotels/abc');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(navigateByUrl).not.toHaveBeenCalled();
+    expect(find(root, 'header-sign-in')).not.toBeNull();
+    expect(find(root, 'account-menu-button')).toBeNull();
+  });
+
+  it('closes the menu with Escape and returns the focus to its button', async () => {
+    const root = await open('/', visitor);
+    const button = openMenu(root);
+    (find(root, 'header-sign-out') as HTMLButtonElement).focus();
+
+    find(root, 'account-menu')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    harness.detectChanges();
+
+    expect(find(root, 'account-menu')).toBeNull();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('closes the menu on a click outside it and on navigation', async () => {
+    const root = await open('/', administrator);
+    openMenu(root);
+
+    document.body.click();
+    harness.detectChanges();
+    expect(find(root, 'account-menu')).toBeNull();
+
+    openMenu(root);
+    (find(root, 'header-administration') as HTMLAnchorElement).click();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    expect(router.url).toBe('/admin');
+  });
+
+  it('keeps every header control at least 44 px tall in every state', async () => {
+    for (const session of [null, administrator]) {
+      const root = await open('/', session);
+      if (session !== null) {
+        openMenu(root);
+      }
+      for (const control of Array.from(header(root).querySelectorAll<HTMLElement>('a, button'))) {
+        expect(control.className, control.outerHTML).toMatch(/min-h-11|h-11/);
+      }
+    }
+  });
+
+  it('keeps the main navigation links unchanged in every state', async () => {
+    const root = await open('/', visitor);
+
+    const nav = header(root).querySelector('nav[aria-label="Main"]') as HTMLElement;
+    expect(Array.from(nav.querySelectorAll('a')).map((a) => a.textContent?.trim())).toEqual(['Home', 'Hotel Collection']);
+    expect(root.querySelectorAll('h1').length).toBe(1);
+    expect(root.innerHTML).not.toContain(visitor.accessToken);
   });
 });

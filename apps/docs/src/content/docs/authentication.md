@@ -57,3 +57,16 @@ An account without the role can still sign in, but every write returns `403`.
 | `hotels.delete` | Allowed | Forbidden |
 
 The anonymous public catalog is read-only and sits outside these policies. A request without a valid token to an administrative route returns `401`. A request with a valid token that lacks the policy returns `403`. Neither changes stored data.
+
+## Visitor accounts in the web app
+
+Status: Implemented in `apps/web`.
+
+| Page | Behavior |
+|---|---|
+| `/account/register` | Posts to `POST /api/auth/register`, mirroring the API rules: a valid email of at most 254 characters and a password of 8 to 128 characters with at least one letter and one digit, confirmed twice. A `409` shows that the email is already registered. After the `201` the page signs in with the same credentials. |
+| `/account/sign-in` | Posts to `POST /api/auth/login` and keeps the session of any role. Unlike `/admin/login`, it never revokes the session of an account without the `Administrator` role. |
+
+Both pages live in the public layout, are open only to visitors without a session and return to a validated `returnUrl` that must be an internal path, or to `/`. A signed-in visitor sees the email in the public header with a menu to sign out, and an administrator also sees a link to `/admin`.
+
+The API stays the authority: registration always grants the `User` role, and a `User` can rate hotels but every hotel write still answers `403`. In the web app a `401` inside `/admin` returns to the admin login, while a `401` anywhere else only clears the session and leaves the visitor on the page.
