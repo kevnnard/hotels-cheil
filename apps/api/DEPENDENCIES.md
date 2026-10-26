@@ -22,6 +22,14 @@ Used by `tests/HotelManagement.Domain.Tests`, `tests/HotelManagement.Application
 | `Microsoft.NET.Test.Sdk` | 18.11.0 | MIT | Test host required by `dotnet test`. |
 | `Microsoft.AspNetCore.Mvc.Testing` | 10.0.13 | MIT | Runs the API in process so the HTTP contract is tested against the real pipeline. |
 
+## Coverage dependencies
+
+Used only by `tests/HotelManagement.Domain.Tests` and `tests/HotelManagement.Application.Tests`. Version and license checked against the official NuGet flat container on 2026-10-26. The decision is in ADR-020.
+
+| Package | Version | License | Why |
+|---|---|---|---|
+| `coverlet.collector` | 10.1.0 | MIT | Data collector behind `dotnet test --collect:"XPlat Code Coverage"`, which writes a Cobertura report. Latest stable. A development dependency, so it never flows to the application assemblies. |
+
 ## Persistence dependencies
 
 Used only by `HotelManagement.Infrastructure`. Metadata and licenses come from the official NuGet flat container, fetched on 2026-10-23.
@@ -56,7 +64,7 @@ Used only by `HotelManagement.Infrastructure`. Metadata comes from the official 
 | Topic | Decision |
 |---|---|
 | xUnit v2 vs v3 | v2 (2.9.3). xunit.v3 4.0.2 is available but was not adopted; no requirement justifies the move. |
-| `coverlet.collector` | Not added. Coverage tooling is deferred until there is a reason to measure it. |
+| `coverlet.collector` | Added at 10.1.0 to the Domain and Application test projects to measure coverage (ADR-020). No threshold enforcement and no report generator are added. |
 | EF Core and provider | Latest stable major 10. The provider requires EF Core and Relational in `[10.0.4, 11.0.0)`; 10.0.13 satisfies it. |
 | Template versions | The bundled `dotnet new xunit` template pins older versions of the runner and test SDK; the newer stable versions above replace them. |
 | Image library | Magick.NET-Q16-AnyCPU 15.0.0 over ImageSharp 4.1.3 (conditional split license), Q8 builds (8-bit truncation) and hand-written codecs. See ADR-015. |
